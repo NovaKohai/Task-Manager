@@ -1,11 +1,12 @@
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, AlertTriangle, Calendar } from 'lucide-react'
+import { Plus, Search, AlertTriangle, Calendar, Trash2 } from 'lucide-react'
 import { useTaskStore } from '@/stores/taskStore'
 import { useUserStore } from '@/stores/userStore'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import { i18n } from '@/lib/i18n'
@@ -18,10 +19,12 @@ function formatDate(d: string | null): string {
 
 export default function TaskList() {
   const navigate = useNavigate()
-  const { tasks, filters, isLoading, setFilters, fetchTasks } = useTaskStore()
+  const { tasks, filters, isLoading, setFilters, fetchTasks, deleteTask } = useTaskStore()
   const { users, fetchUsers } = useUserStore()
 
   useEffect(() => { fetchTasks(); fetchUsers() }, [fetchTasks, fetchUsers])
+
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
   const getUserName = useCallback((id: string | null): string => {
     if (!id) return '—'
@@ -123,9 +126,14 @@ export default function TaskList() {
                       <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{formatDate(t.dueDate)}</span>
                     </TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="sm" className="h-7 text-xs rounded-full hover:bg-primary/10 hover:text-primary spring-transition" onClick={(e) => { e.stopPropagation(); navigate(`/tasks/${t.id}`) }}>
-                        View
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="sm" className="h-7 text-xs rounded-full hover:bg-primary/10 hover:text-primary spring-transition" onClick={(e) => { e.stopPropagation(); navigate(`/tasks/${t.id}`) }}>
+                          View
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-7 w-7 rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive spring-transition" onClick={(e) => { e.stopPropagation(); setDeleteConfirm(t.id) }}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -134,6 +142,19 @@ export default function TaskList() {
           )}
         </div>
       </div>
+
+      <Dialog open={deleteConfirm !== null} onOpenChange={(o) => { if (!o) setDeleteConfirm(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{i18n.t('task.delete_confirm')}</DialogTitle>
+            <DialogDescription>{i18n.t('task.delete_confirm_desc')}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2">
+            <Button variant="secondary" onClick={() => setDeleteConfirm(null)} className="h-9 rounded-full spring-transition">{i18n.t('cancel')}</Button>
+            <Button variant="danger" onClick={async () => { if (deleteConfirm) { await deleteTask(deleteConfirm); setDeleteConfirm(null) } }} className="h-9 rounded-full spring-transition">{i18n.t('delete')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

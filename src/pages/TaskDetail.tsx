@@ -26,7 +26,7 @@ function formatFull(d: string): string {
 export default function TaskDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { currentTask, isLoading: taskLoading, fetchTask, updateTask } = useTaskStore()
+  const { currentTask, isLoading: taskLoading, fetchTask, updateTask, deleteTask } = useTaskStore()
   const { comments, isLoading: commentLoading, fetchComments, addComment, editComment, deleteComment } = useCommentStore()
   const { user } = useAuthStore()
   const { users, fetchUsers } = useUserStore()
@@ -35,6 +35,7 @@ export default function TaskDetail() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editText, setEditText] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [taskDeleteConfirm, setTaskDeleteConfirm] = useState(false)
   const [qaSuccess, setQaSuccess] = useState(false)
 
   useEffect(() => { if (id) { fetchTask(id); fetchComments(id); fetchUsers() } }, [id, fetchTask, fetchComments, fetchUsers])
@@ -168,6 +169,10 @@ export default function TaskDetail() {
                 {i18n.t('notifications.qa_request')}
               </Button>
             )}
+            <Button variant="danger" size="sm" onClick={() => setTaskDeleteConfirm(true)} className="h-8 rounded-full text-xs font-bold spring-transition">
+              <Trash2 className="h-3.5 w-3.5" />
+              {i18n.t('delete')}
+            </Button>
           </div>
         </div>
       </div>
@@ -252,6 +257,19 @@ export default function TaskDetail() {
           <DialogFooter className="flex gap-2">
             <Button variant="secondary" onClick={() => setDeleteConfirm(null)} className="h-9 rounded-full spring-transition">Cancel</Button>
             <Button variant="danger" onClick={() => { if (deleteConfirm) handleDeleteComment(deleteConfirm) }} className="h-9 rounded-full spring-transition">Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={taskDeleteConfirm} onOpenChange={(o) => { if (!o) setTaskDeleteConfirm(false) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{i18n.t('task.delete_confirm')}</DialogTitle>
+            <DialogDescription>{i18n.t('task.delete_confirm_desc')}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2">
+            <Button variant="secondary" onClick={() => setTaskDeleteConfirm(false)} className="h-9 rounded-full spring-transition">{i18n.t('cancel')}</Button>
+            <Button variant="danger" onClick={async () => { if (id) { await deleteTask(id); navigate('/tasks') } }} className="h-9 rounded-full spring-transition">{i18n.t('delete')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
