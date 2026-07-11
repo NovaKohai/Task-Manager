@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { Task } from '@/lib/types'
 import { db } from '@/lib/db'
-import { track } from '@/lib/analytics'
+import { yieldToUI } from '@/lib/utils'
 
 interface TaskFilters {
   status?: string
@@ -31,50 +31,75 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 
   fetchTasks: async () => {
     set({ isLoading: true })
-    await new Promise(r => setTimeout(r, 0))
-    const tasks = db.getTasks(get().filters)
-    set({ tasks, isLoading: false })
+    try {
+      await yieldToUI()
+      set({ tasks: db.getTasks(get().filters) })
+    } catch (e) {
+      console.error('fetchTasks failed', e)
+    } finally {
+      set({ isLoading: false })
+    }
   },
 
   fetchTask: async (id: string) => {
     set({ isLoading: true })
-    await new Promise(r => setTimeout(r, 0))
-    const task = db.getTask(id)
-    set({ currentTask: task, isLoading: false })
+    try {
+      await yieldToUI()
+      set({ currentTask: db.getTask(id) })
+    } catch (e) {
+      console.error('fetchTask failed', e)
+    } finally {
+      set({ isLoading: false })
+    }
   },
 
   createTask: async (data) => {
     set({ isLoading: true })
-    await new Promise(r => setTimeout(r, 0))
-    const task = db.createTask(data)
-    set(state => ({ tasks: [task, ...state.tasks], isLoading: false }))
-    track('task_created', { priority: task.priority })
-    return task
+    try {
+      await yieldToUI()
+      const task = db.createTask(data)
+      set(state => ({ tasks: [task, ...state.tasks] }))
+      return task
+    } catch (e) {
+      console.error('createTask failed', e)
+      throw e
+    } finally {
+      set({ isLoading: false })
+    }
   },
 
   updateTask: async (id, data) => {
     set({ isLoading: true })
-    await new Promise(r => setTimeout(r, 0))
-    const updated = db.updateTask(id, data)
-    set(state => ({
-      tasks: state.tasks.map(t => t.id === id ? (updated ?? t) : t),
-      currentTask: state.currentTask?.id === id ? updated : state.currentTask,
-      isLoading: false,
-    }))
-    if (data.status === 'done') track('task_completed')
-    if (data.status) track('task_status_change', { status: data.status })
-    return updated
+    try {
+      await yieldToUI()
+      const updated = db.updateTask(id, data)
+      set(state => ({
+        tasks: state.tasks.map(t => t.id === id ? (updated ?? t) : t),
+        currentTask: state.currentTask?.id === id ? updated : state.currentTask,
+      }))
+      return updated
+    } catch (e) {
+      console.error('updateTask failed', e)
+      throw e
+    } finally {
+      set({ isLoading: false })
+    }
   },
 
   deleteTask: async (id) => {
     set({ isLoading: true })
-    await new Promise(r => setTimeout(r, 0))
-    db.deleteTask(id)
-    set(state => ({
-      tasks: state.tasks.filter(t => t.id !== id),
-      currentTask: state.currentTask?.id === id ? null : state.currentTask,
-      isLoading: false,
-    }))
+    try {
+      await yieldToUI()
+      db.deleteTask(id)
+      set(state => ({
+        tasks: state.tasks.filter(t => t.id !== id),
+        currentTask: state.currentTask?.id === id ? null : state.currentTask,
+      }))
+    } catch (e) {
+      console.error('deleteTask failed', e)
+    } finally {
+      set({ isLoading: false })
+    }
   },
 
   setFilters: (filters) => {

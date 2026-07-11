@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { User } from '@/lib/types'
 import { db } from '@/lib/db'
+import { yieldToUI } from '@/lib/utils'
 
 interface AuthState {
   user: User | null
@@ -14,11 +15,11 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   token: localStorage.getItem('ttm_token'),
-  isLoading: false,
+  isLoading: !!localStorage.getItem('ttm_token'),
 
   login: async (username: string, password: string) => {
     set({ isLoading: true })
-    await new Promise(r => setTimeout(r, 0))
+    await yieldToUI()
     try {
       const session = await db.authenticate(username, password)
       if (!session) {
@@ -28,7 +29,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       localStorage.setItem('ttm_token', session.token)
       set({ user: session.user, token: session.token, isLoading: false })
       return true
-    } catch (e: any) {
+    } catch (e) {
       set({ isLoading: false })
       throw e
     }
@@ -48,13 +49,21 @@ export const useAuthStore = create<AuthState>((set) => ({
       return
     }
     set({ isLoading: true })
-    await new Promise(r => setTimeout(r, 0))
-    const user = db.validateSession(token)
-    if (user) {
-      set({ user, token, isLoading: false })
-    } else {
+    try {
+      await yieldToUI()
+      const user = db.validateSession(token)
+      if (user) {
+        set({ user, token })
+      } else {
+        localStorage.removeItem('ttm_token')
+        set({ user: null, token: null })
+      }
+    } catch (e) {
+      console.error('checkSession failed', e)
       localStorage.removeItem('ttm_token')
-      set({ user: null, token: null, isLoading: false })
+      set({ user: null, token: null })
+    } finally {
+      set({ isLoading: false })
     }
   },
 }))

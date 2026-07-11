@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Camera, User, Mail, Shield, Check, AlertTriangle, ArrowLeft } from 'lucide-react'
+import { Camera, User, Mail, Lock, Check, AlertTriangle, ArrowLeft } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,15 +8,23 @@ import { Label } from '@/components/ui/label'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { i18n } from '@/lib/i18n'
 import { db } from '@/lib/db'
-import { getInitials } from '@/lib/constants'
+import { getInitials, roleBadge, getDepartmentConfig } from '@/lib/constants'
+import { Badge } from '@/components/ui/badge'
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
+import type { Department } from '@/lib/types'
 
 export default function Profile() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [name, setName] = useState(user?.name ?? '')
+  const [username, setUsername] = useState(user?.username ?? '')
   const [email, setEmail] = useState(user?.email ?? '')
+  const [password, setPassword] = useState('')
+  const [title, setTitle] = useState(user?.title ?? '')
+  const [department, setDepartment] = useState(user?.department ?? '' as Department | '')
   const [avatar, setAvatar] = useState(user?.avatar || '')
+  const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
 
@@ -39,8 +47,9 @@ export default function Profile() {
       }
       const reader = new FileReader()
       reader.onloadend = () => {
-        setAvatar(reader.result as string)
+        if (typeof reader.result === 'string') setAvatar(reader.result)
       }
+      reader.onerror = () => setError(i18n.t('profile.avatar_error'))
       reader.readAsDataURL(file)
     }
   }
@@ -50,31 +59,44 @@ export default function Profile() {
   }
 
   const handleSave = async () => {
+    if (saving) return
     setError('')
     setSaved(false)
     if (!name.trim()) {
       setError(i18n.t('profile.name_required'))
       return
     }
+    if (!username.trim()) {
+      setError(i18n.t('register.all_fields_required'))
+      return
+    }
 
+    setSaving(true)
     try {
-      // Save changes to database
       const updated = db.updateUser(user.id, {
         name: name.trim(),
+        username: username.trim(),
         email: email.trim(),
+        title: title.trim() || undefined,
+        department: department || undefined,
         avatar: avatar || undefined
       })
 
       if (updated) {
-        // Sync with React Authentication state
+        if (password.trim()) {
+          await db.updatePassword(username.trim(), password.trim())
+          setPassword('')
+        }
         useAuthStore.setState({ user: updated })
         setSaved(true)
         setTimeout(() => setSaved(false), 3000)
       } else {
         setError(i18n.t('profile.update_failed'))
       }
-    } catch (e: any) {
-      setError(e.message || i18n.t('profile.update_failed'))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : i18n.t('profile.update_failed'))
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -125,7 +147,13 @@ export default function Profile() {
             </button>
 
             <h2 className="text-sm font-bold text-foreground text-center">{name}</h2>
-            <p className="text-caption text-muted-foreground text-center mt-1 uppercase tracking-wider font-semibold">{i18n.t(`user.${user.role}`)}</p>
+            <div className="flex flex-wrap items-center justify-center gap-1 mt-2">
+              <Badge variant={roleBadge[user.role]} className="rounded-full text-micro px-2 py-0">{i18n.t(`user.${user.role}`)}</Badge>
+              {department && (
+                <Badge variant={getDepartmentConfig(department).variant} className="rounded-full text-micro px-2 py-0">{i18n.t(getDepartmentConfig(department).label)}</Badge>
+              )}
+            </div>
+            {title && <p className="text-caption text-muted-foreground text-center mt-2">{title}</p>}
 
             <div className="flex gap-2 mt-6">
                 <Button variant="ghost" size="sm" onClick={handleAvatarClick} className="h-7 text-caption font-semibold rounded-full px-3.5 hover:bg-muted/40 spring-transition">
@@ -165,21 +193,54 @@ export default function Profile() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
               <div className="space-y-2">
                 <Label htmlFor="profUsername" className="text-xs font-semibold text-muted-foreground">{i18n.t('profile.username')}</Label>
-                <Input id="profUsername" value={user.username} disabled className="h-10 rounded-xl bg-muted/10 border-muted/20 text-muted-foreground opacity-60 font-semibold cursor-not-allowed" />
+                <div className="relative">
+                  <User className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
+                  <Input id="profUsername" value={username} onChange={(e) => setUsername(e.target.value)} className="pr-9 h-10 rounded-xl bg-background/50 border-muted/40 font-semibold spring-transition" maxLength={50} />
+                </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="profRole" className="text-xs font-semibold text-muted-foreground">{i18n.t('profile.role')}</Label>
+                <Label htmlFor="profPassword" className="text-xs font-semibold text-muted-foreground">{i18n.t('profile.password')}</Label>
                 <div className="relative">
-                  <Shield className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
-                  <Input id="profRole" value={i18n.t(`user.${user.role}`)} disabled className="pr-9 h-10 rounded-xl bg-muted/10 border-muted/20 text-muted-foreground opacity-60 font-semibold cursor-not-allowed" />
+                  <Lock className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
+                  <Input id="profPassword" type="password" placeholder={i18n.t('profile.password_placeholder')} value={password} onChange={(e) => setPassword(e.target.value)} className="pr-9 h-10 rounded-xl bg-background/50 border-muted/40 font-semibold spring-transition" autoComplete="new-password" />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="profTitle" className="text-xs font-semibold text-muted-foreground">{i18n.t('profile.title_field')}</Label>
+                <Input id="profTitle" value={title} onChange={(e) => setTitle(e.target.value)} className="h-10 rounded-xl bg-background/50 border-muted/40 font-semibold spring-transition" maxLength={100} placeholder={i18n.t('profile.title_placeholder')} />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="profDepartment" className="text-xs font-semibold text-muted-foreground">{i18n.t('profile.department')}</Label>
+                <Select aria-label={i18n.t('profile.department')} value={department} onValueChange={(v) => setDepartment(v as Department | '')}>
+                  <SelectTrigger id="profDepartment" className="h-10 rounded-xl bg-background/50 border-muted/40 spring-transition"><SelectValue placeholder={i18n.t('profile.department_placeholder')} /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">—</SelectItem>
+                    <SelectItem value="engineering">{i18n.t('department.engineering')}</SelectItem>
+                    <SelectItem value="qa">{i18n.t('department.qa')}</SelectItem>
+                    <SelectItem value="it">{i18n.t('department.it')}</SelectItem>
+                    <SelectItem value="hr">{i18n.t('department.hr')}</SelectItem>
+                    <SelectItem value="finance">{i18n.t('department.finance')}</SelectItem>
+                    <SelectItem value="accounting">{i18n.t('department.accounting')}</SelectItem>
+                    <SelectItem value="marketing">{i18n.t('department.marketing')}</SelectItem>
+                    <SelectItem value="sales">{i18n.t('department.sales')}</SelectItem>
+                    <SelectItem value="operations">{i18n.t('department.operations')}</SelectItem>
+                    <SelectItem value="design">{i18n.t('department.design')}</SelectItem>
+                    <SelectItem value="legal">{i18n.t('department.legal')}</SelectItem>
+                    <SelectItem value="customer_support">{i18n.t('department.customer_support')}</SelectItem>
+                    <SelectItem value="product">{i18n.t('department.product')}</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
             <div className="flex justify-end pt-4 border-t border-border/10">
-              <Button onClick={handleSave} className="h-10 rounded-full bg-gradient-to-r from-primary to-primary/80 hover:opacity-95 text-primary-foreground font-bold spring-transition active:scale-[0.98] shadow-lg shadow-primary/20 flex items-center justify-center px-6">
-                {i18n.t('profile.save')}
+              <Button onClick={handleSave} disabled={saving} className="h-10 rounded-full bg-gradient-to-r from-primary to-primary/80 hover:opacity-95 text-primary-foreground font-bold spring-transition active:scale-[0.98] shadow-lg shadow-primary/20 flex items-center justify-center px-6">
+                {saving ? (
+                  <span className="flex items-center gap-2"><span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />{i18n.t('saving')}</span>
+                ) : i18n.t('profile.save')}
               </Button>
             </div>
           </div>

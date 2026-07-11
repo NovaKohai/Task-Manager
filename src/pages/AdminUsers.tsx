@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
-import { Plus, Pencil, X, AlertTriangle, Check, Trash2, Send, Bell, User as UserIcon } from 'lucide-react'
+import { Plus, Pencil, X, AlertTriangle, Check, Trash2, Send, Bell, User as UserIcon, Lock, Shield } from 'lucide-react'
 import { useUserStore } from '@/stores/userStore'
+import { useAuthStore } from '@/stores/authStore'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -10,18 +11,13 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import { i18n } from '@/lib/i18n'
-import { db } from '@/lib/db'
-import type { Role, User } from '@/lib/types'
-
-const roleBadge: Record<Role, 'default' | 'primary' | 'success' | 'outline'> = {
-  admin: 'default',
-  manager: 'primary',
-  developer: 'success',
-  viewer: 'outline',
-}
+import { db, ALL_PERMISSIONS, ROLE_PERMISSIONS } from '@/lib/db'
+import type { Permission, Role, Department, User } from '@/lib/types'
+import { roleBadge, getDepartmentConfig } from '@/lib/constants'
 
 export default function AdminUsers() {
-  const { users, isLoading, fetchUsers, createUser, updateUser, deleteUser } = useUserStore()
+  const { users, isLoading, fetchUsers, createUser, updateUser, updateUserPassword, deleteUser } = useUserStore()
+  const currentUser = useAuthStore(s => s.user)
   
   const [activeTab, setActiveTab] = useState<'active' | 'pending'>('active')
   const [modalOpen, setModalOpen] = useState(false)
@@ -31,7 +27,11 @@ export default function AdminUsers() {
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<Role>('developer')
+  const [title, setTitle] = useState('')
+  const [department, setDepartment] = useState<Department | ''>('')
   const [active, setActive] = useState(true)
+  const [password, setPassword] = useState('')
+  const [permissions, setPermissions] = useState<Permission[]>([])
   const [error, setError] = useState('')
 
   const [broadcastOpen, setBroadcastOpen] = useState(false)
@@ -48,7 +48,11 @@ export default function AdminUsers() {
     setUsername('')
     setEmail('')
     setRole('developer')
+    setTitle('')
+    setDepartment('')
     setActive(true)
+    setPassword('')
+    setPermissions([])
     setEditUser(null)
     setError('')
   }
@@ -59,13 +63,31 @@ export default function AdminUsers() {
     setUsername(u.username)
     setEmail(u.email)
     setRole(u.role)
+    setTitle(u.title || '')
+    setDepartment(u.department || '')
     setActive(u.active)
+    setPassword('')
+    setPermissions([...u.permissions])
     setModalOpen(true)
   }
 
   function openCreate() {
     resetForm()
+    setPermissions([...ROLE_PERMISSIONS.developer])
     setModalOpen(true)
+  }
+
+  function handleRoleChange(newRole: Role) {
+    setRole(newRole)
+    if (!editUser) {
+      setPermissions([...ROLE_PERMISSIONS[newRole]])
+    }
+  }
+
+  function togglePermission(perm: Permission) {
+    setPermissions(prev =>
+      prev.includes(perm) ? prev.filter(p => p !== perm) : [...prev, perm]
+    )
   }
 
   async function handleSave() {
@@ -81,36 +103,71 @@ export default function AdminUsers() {
           username: username.trim(),
           email: email.trim(),
           role,
+          title: title.trim() || undefined,
+          department: department || undefined,
           active,
+          permissions,
         })
+        if (password.trim()) {
+          await updateUserPassword(editUser.username, password.trim())
+        }
       } else {
         await createUser({
           name: name.trim(),
           username: username.trim(),
           email: email.trim(),
           role,
+          title: title.trim() || undefined,
+          department: department || undefined,
           active,
-          approved: true, // admin created users are auto-approved
-        })
+          permissions,
+          approved: true,
+        }, password.trim() || undefined)
       }
       setModalOpen(false)
       resetForm()
-    } catch (e: any) {
-      setError(e.message || i18n.t('admin_users.error_save'))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : i18n.t('admin_users.error_save'))
     }
   }
 
   async function handleToggleActive(u: User) {
-    await updateUser(u.id, { active: !u.active })
+    try {
+      await updateUser(u.id, { active: !u.active })
+    } catch (e) {
+      console.error('handleToggleActive failed', e)
+    }
+  }
+
+  async function handleDelete(u: User) {
+    if (u.id === currentUser?.id) {
+      alert(i18n.lang === 'ar' ? 'لا يمكنك حذف حسابك الخاص!' : 'You cannot delete your own account!')
+      return
+    }
+    if (window.confirm(i18n.t('admin_users.confirm_delete').replace('{name}', u.name))) {
+      try {
+        await deleteUser(u.id)
+      } catch (e) {
+        console.error('handleDelete failed', e)
+      }
+    }
   }
 
   async function handleApprove(u: User) {
-    await updateUser(u.id, { approved: true, active: true })
+    try {
+      await updateUser(u.id, { approved: true, active: true })
+    } catch (e) {
+      console.error('handleApprove failed', e)
+    }
   }
 
   async function handleReject(u: User) {
     if (window.confirm(i18n.t('admin_users.confirm_reject').replace('{name}', u.name))) {
-      await deleteUser(u.id)
+      try {
+        await deleteUser(u.id)
+      } catch (e) {
+        console.error('handleReject failed', e)
+      }
     }
   }
 
@@ -138,8 +195,8 @@ export default function AdminUsers() {
         setBroadcastOpen(false)
         setBroadcastSuccess('')
       }, 1500)
-    } catch (e: any) {
-      setBroadcastError(e.message || i18n.t('admin_users.error_broadcast_send'))
+    } catch (e) {
+      setBroadcastError(e instanceof Error ? e.message : i18n.t('admin_users.error_broadcast_send'))
     }
   }
 
@@ -186,8 +243,34 @@ export default function AdminUsers() {
                 <Input id="dialogEmail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" maxLength={200} />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="dialogTitle">{i18n.t('users.title_field')}</Label>
+                <Input id="dialogTitle" value={title} onChange={(e) => setTitle(e.target.value)} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" maxLength={100} placeholder={i18n.t('profile.title_placeholder')} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dialogDepartment">{i18n.t('users.department')}</Label>
+                <Select aria-label={i18n.t('users.department')} value={department} onValueChange={(v) => setDepartment(v as Department | '')}>
+                  <SelectTrigger id="dialogDepartment" className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition"><SelectValue placeholder={i18n.t('profile.department_placeholder')} /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">—</SelectItem>
+                    <SelectItem value="engineering">{i18n.t('department.engineering')}</SelectItem>
+                    <SelectItem value="qa">{i18n.t('department.qa')}</SelectItem>
+                    <SelectItem value="it">{i18n.t('department.it')}</SelectItem>
+                    <SelectItem value="hr">{i18n.t('department.hr')}</SelectItem>
+                    <SelectItem value="finance">{i18n.t('department.finance')}</SelectItem>
+                    <SelectItem value="accounting">{i18n.t('department.accounting')}</SelectItem>
+                    <SelectItem value="marketing">{i18n.t('department.marketing')}</SelectItem>
+                    <SelectItem value="sales">{i18n.t('department.sales')}</SelectItem>
+                    <SelectItem value="operations">{i18n.t('department.operations')}</SelectItem>
+                    <SelectItem value="design">{i18n.t('department.design')}</SelectItem>
+                    <SelectItem value="legal">{i18n.t('department.legal')}</SelectItem>
+                    <SelectItem value="customer_support">{i18n.t('department.customer_support')}</SelectItem>
+                    <SelectItem value="product">{i18n.t('department.product')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="dialogRole">{i18n.t('users.role')}</Label>
-                <Select aria-label={i18n.t('users.role')} value={role} onValueChange={(v) => setRole(v as Role)}>
+                <Select aria-label={i18n.t('users.role')} value={role} onValueChange={(v) => handleRoleChange(v as Role)}>
                   <SelectTrigger id="dialogRole" className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="admin">{i18n.t('user.admin')}</SelectItem>
@@ -202,6 +285,36 @@ export default function AdminUsers() {
                 <input type="checkbox" id="userActive" checked={active} onChange={(e) => setActive(e.target.checked)} className="h-4 w-4 rounded border-muted" />
                 <Label htmlFor="userActive">{i18n.t('users.active')}</Label>
               </fieldset>
+              {editUser && (
+                <div className="space-y-2">
+                  <Label htmlFor="dialogPassword" className="flex items-center gap-1.5">
+                    <Lock className="h-3.5 w-3.5" />
+                    {i18n.t('users.password')}
+                  </Label>
+                  <Input id="dialogPassword" type="password" placeholder={i18n.t('users.password_placeholder')} value={password} onChange={(e) => setPassword(e.target.value)} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" autoComplete="new-password" />
+                </div>
+              )}
+              <div className="space-y-3 border-t border-border/10 pt-4">
+                <Label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                  <Shield className="h-3.5 w-3.5" />
+                  {i18n.t('users.permissions_section')}
+                </Label>
+                <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                  {ALL_PERMISSIONS.map(perm => (
+                    <label key={perm} className="flex items-start gap-2 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={permissions.includes(perm)}
+                        onChange={() => togglePermission(perm)}
+                        className="mt-0.5 h-4 w-4 rounded border-muted"
+                      />
+                      <span className="text-xs text-foreground/80 group-hover:text-foreground spring-transition leading-tight">
+                        {i18n.t(`perm.${perm}`)}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
               {error && (
                 <div className="flex items-center gap-2 rounded-xl bg-destructive/10 border border-destructive/20 p-3 text-xs text-destructive font-bold">
                   <AlertTriangle className="h-4 w-4" />
@@ -268,6 +381,8 @@ export default function AdminUsers() {
                   <TableHead className="text-xs font-medium">{i18n.t('users.name')}</TableHead>
                   <TableHead className="text-xs font-medium">{i18n.t('users.username')}</TableHead>
                   <TableHead className="text-xs font-medium">{i18n.t('users.email')}</TableHead>
+                  <TableHead className="text-xs font-medium">{i18n.t('users.department')}</TableHead>
+                  <TableHead className="text-xs font-medium">{i18n.t('users.title_field')}</TableHead>
                   <TableHead className="text-xs font-medium">{i18n.t('users.role')}</TableHead>
                   {activeTab === 'active' && <TableHead className="text-xs font-medium">{i18n.t('users.status')}</TableHead>}
                   <TableHead></TableHead>
@@ -279,6 +394,14 @@ export default function AdminUsers() {
                     <TableCell className="text-sm font-medium">{u.name}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{u.username}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{u.email}</TableCell>
+                    <TableCell>
+                      {u.department ? (
+                        <Badge variant={getDepartmentConfig(u.department).variant} className="rounded-full text-caption px-2 py-0">{i18n.t(getDepartmentConfig(u.department).label)}</Badge>
+                      ) : (
+                        <span className="text-caption text-muted-foreground/40">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{u.title || <span className="text-caption text-muted-foreground/40">—</span>}</TableCell>
                     <TableCell>
                       <Badge variant={roleBadge[u.role]} className="rounded-full text-caption px-2.5 py-0">
                         {i18n.t(`user.${u.role}`)}
@@ -295,8 +418,9 @@ export default function AdminUsers() {
                     <TableCell>
                       {activeTab === 'active' ? (
                         <div className="flex gap-1 justify-end">
-                          <Button variant="ghost" size="icon" onClick={() => openEdit(u)} className="h-7 w-7 rounded-full hover:bg-primary/10 hover:text-primary spring-transition"><Pencil className="h-3.5 w-3.5" /></Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleToggleActive(u)} className="h-7 w-7 rounded-full hover:bg-destructive/10 hover:text-destructive spring-transition">{u.active ? <X className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}</Button>
+                          <Button variant="ghost" size="icon" onClick={() => openEdit(u)} className="h-7 w-7 rounded-full hover:bg-primary/10 hover:text-primary spring-transition" title={i18n.t('edit')}><Pencil className="h-3.5 w-3.5" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleToggleActive(u)} className="h-7 w-7 rounded-full hover:bg-amber-500/10 hover:text-amber-500 spring-transition" title={u.active ? (i18n.lang === 'ar' ? 'تعطيل الحساب' : 'Deactivate') : (i18n.lang === 'ar' ? 'تفعيل الحساب' : 'Activate')}>{u.active ? <X className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}</Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleDelete(u)} className="h-7 w-7 rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive spring-transition" title={i18n.t('delete')}><Trash2 className="h-3.5 w-3.5" /></Button>
                         </div>
                       ) : (
                         <div className="flex gap-1 justify-end">

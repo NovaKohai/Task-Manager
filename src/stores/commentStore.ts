@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { Comment } from '@/lib/types'
 import { db } from '@/lib/db'
+import { yieldToUI } from '@/lib/utils'
 
 interface CommentState {
   comments: Comment[]
@@ -17,14 +18,14 @@ export const useCommentStore = create<CommentState>((set) => ({
 
   fetchComments: async (taskId: string) => {
     set({ isLoading: true })
-    await new Promise(r => setTimeout(r, 0))
+    await yieldToUI()
     const comments = db.getComments(taskId)
     set({ comments, isLoading: false })
   },
 
   addComment: async (taskId, authorId, content) => {
     set({ isLoading: true })
-    await new Promise(r => setTimeout(r, 0))
+    await yieldToUI()
     const comment = db.addComment({ taskId, authorId, content, editedAt: null, deleted: false })
     set(state => ({ comments: [...state.comments, comment], isLoading: false }))
     return comment
@@ -32,7 +33,7 @@ export const useCommentStore = create<CommentState>((set) => ({
 
   editComment: async (id, content) => {
     set({ isLoading: true })
-    await new Promise(r => setTimeout(r, 0))
+    await yieldToUI()
     const updated = db.updateComment(id, content)
     set(state => ({
       comments: state.comments.map(c => c.id === id ? (updated ?? c) : c),
@@ -43,7 +44,7 @@ export const useCommentStore = create<CommentState>((set) => ({
 
   deleteComment: async (id) => {
     set({ isLoading: true })
-    await new Promise(r => setTimeout(r, 0))
+    await yieldToUI()
     db.softDeleteComment(id)
     set(state => ({
       comments: state.comments.filter(c => c.id !== id),

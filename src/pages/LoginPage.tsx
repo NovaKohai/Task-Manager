@@ -35,8 +35,8 @@ export default function LoginPage() {
       const ok = await login(username.trim(), password)
       if (ok) navigate('/dashboard')
       else setError(i18n.t('login.error'))
-    } catch (e: any) {
-      setError(e.message || i18n.t('login.error'))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : i18n.t('login.error'))
     }
   }
 
@@ -75,13 +75,17 @@ export default function LoginPage() {
       setRegEmail('')
       setRegUsername('')
       setRegPassword('')
-    } catch (e: any) {
-      setError(e.message || i18n.t('register.registration_failed'))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : i18n.t('register.registration_failed'))
     }
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-background p-4 overflow-hidden">
+    <>
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-xl focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-primary-foreground">
+        {i18n.t('skip_to_content')}
+      </a>
+      <main id="main" role="main" className="relative flex min-h-screen items-center justify-center bg-background p-4 overflow-hidden">
       {/* Background glow orb */}
       <div className="mesh-glow -top-20 -left-20"></div>
       
@@ -99,8 +103,10 @@ export default function LoginPage() {
         </div>
 
         {/* Tab switch container */}
-        <div className="flex gap-1 bg-muted/40 p-1 rounded-2xl border border-border/10">
+        <div className="flex gap-1 bg-muted/40 p-1 rounded-2xl border border-border/10" role="tablist">
           <button
+            role="tab"
+            aria-selected={activeTab === 'signin'}
             onClick={() => { setActiveTab('signin'); setError(''); }}
             className={cn(
               "flex-1 py-1.5 text-center rounded-xl text-xs font-bold transition-[background,color,box-shadow] duration-200",
@@ -110,6 +116,8 @@ export default function LoginPage() {
             {i18n.t('tab.signin')}
           </button>
           <button
+            role="tab"
+            aria-selected={activeTab === 'register'}
             onClick={() => { setActiveTab('register'); setError(''); }}
             className={cn(
               "flex-1 py-1.5 text-center rounded-xl text-xs font-bold transition-[background,color,box-shadow] duration-200",
@@ -198,8 +206,10 @@ export default function LoginPage() {
                     {error}
                   </div>
                 )}
-                <Button type="submit" className="w-full h-10 rounded-full bg-gradient-to-r from-primary to-primary/80 hover:opacity-95 text-primary-foreground font-bold transition-[opacity] duration-200 active:scale-[0.98] shadow-md shadow-primary/10 flex items-center justify-between px-5 py-2.5 mt-2 group">
-                  <span>{i18n.t('register.btn')}</span>
+                <Button type="submit" disabled={isLoading} className="w-full h-10 rounded-full bg-gradient-to-r from-primary to-primary/80 hover:opacity-95 text-primary-foreground font-bold transition-[opacity] duration-200 active:scale-[0.98] shadow-md shadow-primary/10 flex items-center justify-between px-5 py-2.5 mt-2 group">
+                  {isLoading ? (
+                    <span className="flex items-center gap-2"><span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />{i18n.t('register.btn')}</span>
+                  ) : <span>{i18n.t('register.btn')}</span>}
                   <div className="w-6 h-6 rounded-full bg-white/10 dark:bg-black/10 flex items-center justify-center group-hover:translate-x-0.5 spring-transition">
                     <UserPlus className="h-3.5 w-3.5" />
                   </div>
@@ -211,7 +221,8 @@ export default function LoginPage() {
             )}
           </div>
         </div>
-      </div>
-    </div>
+        </div>
+      </main>
+    </>
   )
 }

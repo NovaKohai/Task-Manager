@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { Save, AlertTriangle, RotateCcw, RefreshCw, ArrowUpCircle, CheckCircle2, XCircle, Download } from 'lucide-react'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { useUpdateStore } from '@/stores/updateStore'
 import { useAuthStore } from '@/stores/authStore'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,7 +10,7 @@ import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 import { db } from '@/lib/db'
 import { i18n } from '@/lib/i18n'
-import { isAnalyticsOptedIn, setAnalyticsOptIn, getAnalyticsEvents, clearAnalyticsEvents, track } from '@/lib/analytics'
+
 import type { AppSettings } from '@/lib/types'
 
 type Section = 'general' | 'security' | 'sessions' | 'notifications' | 'data' | 'ratelimit' | 'updates'
@@ -30,13 +31,14 @@ export default function Settings() {
   const [form, setForm] = useState<Partial<AppSettings>>({})
   const [toasts, setToasts] = useState<{ id: number; message: string }[]>([])
   const toastId = useRef(0)
-  const [updateState, setUpdateState] = useState<{
-    status: 'idle' | 'checking' | 'available' | 'uptodate' | 'error' | 'downloading' | 'downloaded' | 'done'
-    info: UpdateInfo | null
-    version: string
-    error?: string
-    progress?: UpdateProgress
-  }>({ status: 'idle', info: null, version: '' })
+  const updateStatus = useUpdateStore(s => s.status)
+  const updateInfo = useUpdateStore(s => s.info)
+  const updateVersion = useUpdateStore(s => s.version)
+  const updateProgress = useUpdateStore(s => s.progress)
+  const updateError = useUpdateStore(s => s.error)
+  const checkUpdates = useUpdateStore(s => s.check)
+  const downloadUpdate = useUpdateStore(s => s.download)
+  const installUpdate = useUpdateStore(s => s.install)
 
   useEffect(() => { fetchSettings() }, [fetchSettings])
   useEffect(() => { if (settings) setForm({ ...settings }) }, [settings])
@@ -48,49 +50,9 @@ export default function Settings() {
 
   async function handleSave() { await updateSettings(form) }
 
-  useEffect(() => {
-    if (!window.electronAPI) return
-    const cleanup = window.electronAPI.onUpdateStatus((status) => {
-      if (status.type === 'progress') {
-        setUpdateState(s => ({ ...s, status: 'downloading', progress: status }))
-      } else if (status.type === 'downloaded') {
-        setUpdateState(s => ({ ...s, status: 'downloaded' }))
-      } else if (status.type === 'error') {
-        setUpdateState(s => ({ ...s, status: 'error', error: status.message }))
-      }
-    })
-    return cleanup
-  }, [])
-
-  async function handleCheckUpdates() {
-    if (!window.electronAPI) return
-    setUpdateState(s => ({ ...s, status: 'checking' }))
-    try {
-      const version = await window.electronAPI.getAppVersion()
-      const result = await window.electronAPI.checkForUpdates()
-      if (result.available) {
-        setUpdateState({ status: 'available', info: result, version })
-      } else {
-        setUpdateState({ status: 'uptodate', info: null, version })
-      }
-    } catch (err: any) {
-      setUpdateState(s => ({ ...s, status: 'error', error: err.message }))
-    }
-  }
-
-  async function handleDownloadUpdate() {
-    if (!window.electronAPI) return
-    setUpdateState(s => ({ ...s, status: 'downloading' }))
-    try {
-      await window.electronAPI.downloadUpdate()
-    } catch (err: any) {
-      setUpdateState(s => ({ ...s, status: 'error', error: err.message }))
-    }
-  }
-
-  function handleInstallUpdate() {
-    window.electronAPI?.installUpdate()
-  }
+  async function handleCheckUpdates() { await checkUpdates() }
+  async function handleDownloadUpdate() { await downloadUpdate() }
+  function handleInstallUpdate() { installUpdate() }
 
   const user = useAuthStore((s) => s.user)
 
@@ -335,22 +297,6 @@ export default function Settings() {
                 </div>
                 <Button onClick={handleSave} className="h-10 rounded-full spring-transition font-semibold px-5"><Save className="h-4 w-4" />{i18n.t('settings.save')}</Button>
 
-                <hr className="border-border/10" />
-
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 pt-2">{i18n.t('settings.usage_analytics')}</h2>
-                <p className="text-sm text-muted-foreground/90 leading-relaxed">{i18n.t('settings.analytics_desc')}</p>
-                <div className="flex items-center gap-3">
-                  <Switch id="srvAnalytics" checked={isAnalyticsOptedIn()} onCheckedChange={(v) => { setAnalyticsOptIn(v); if (v) track('analytics_optin') }} />
-                  <Label htmlFor="srvAnalytics" className="text-sm font-bold">{i18n.t('settings.share_analytics')}</Label>
-                </div>
-                {isAnalyticsOptedIn() && (
-                  <div className="space-y-2">
-                    <p className="text-caption text-muted-foreground/80">{i18n.t('settings.events_collected').replace('{count}', String(getAnalyticsEvents().length))}</p>
-                    <Button variant="secondary" size="sm" onClick={() => { clearAnalyticsEvents(); showToast(i18n.t('settings.events_cleared')) }} className="h-8 rounded-full text-xs spring-transition">
-                      {i18n.t('settings.clear_events')}
-                    </Button>
-                  </div>
-                )}
               </div>
             </div>
           )}
@@ -389,42 +335,42 @@ export default function Settings() {
                   </div>
                 )}
 
-                {updateState.status === 'idle' && window.electronAPI && (
+                {updateStatus === 'idle' && window.electronAPI && (
                   <Button onClick={handleCheckUpdates} className="h-10 rounded-full spring-transition font-semibold px-5">
                     <RefreshCw className="h-4 w-4" />{i18n.t('settings.check_updates')}
                   </Button>
                 )}
 
-                {updateState.status === 'checking' && (
+                {updateStatus === 'checking' && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <RefreshCw className="h-4 w-4 animate-spin" />
                     {i18n.t('loading')}
                   </div>
                 )}
 
-                {updateState.status === 'uptodate' && (
+                {updateStatus === 'uptodate' && (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 p-3 text-xs text-emerald-500">
                       <CheckCircle2 className="h-4 w-4 shrink-0" />
                       {i18n.t('settings.up_to_date')}
                     </div>
-                    <p className="text-xs text-muted-foreground/60">{i18n.t('settings.current_version')}: {updateState.version}</p>
+                    <p className="text-xs text-muted-foreground/60">{i18n.t('settings.current_version')}: {updateVersion}</p>
                     <Button onClick={handleCheckUpdates} variant="secondary" className="h-9 rounded-full spring-transition text-xs font-semibold px-4">
                       <RefreshCw className="h-3.5 w-3.5" />{i18n.t('settings.check_updates')}
                     </Button>
                   </div>
                 )}
 
-                {updateState.status === 'available' && updateState.info && (
+                {updateStatus === 'available' && updateInfo && (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 rounded-xl bg-blue-500/10 p-3 text-xs text-blue-500">
                       <ArrowUpCircle className="h-4 w-4 shrink-0" />
-                      {i18n.t('settings.updates_available')} v{updateState.info.version}
+                      {i18n.t('settings.updates_available')} v{updateInfo.version}
                     </div>
-                    <p className="text-xs text-muted-foreground/60">{i18n.t('settings.current_version')}: v{updateState.version}</p>
-                    {updateState.info.releaseNotes && (
+                    <p className="text-xs text-muted-foreground/60">{i18n.t('settings.current_version')}: v{updateVersion}</p>
+                    {updateInfo.releaseNotes && (
                       <div className="max-h-40 overflow-y-auto rounded-xl bg-background/50 p-3">
-                        <pre className="text-xs text-muted-foreground/80 whitespace-pre-wrap font-sans leading-relaxed">{updateState.info.releaseNotes}</pre>
+                        <pre className="text-xs text-muted-foreground/80 whitespace-pre-wrap font-sans leading-relaxed">{updateInfo.releaseNotes}</pre>
                       </div>
                     )}
                     <Button onClick={handleDownloadUpdate} className="h-10 rounded-full spring-transition font-semibold px-5">
@@ -433,24 +379,24 @@ export default function Settings() {
                   </div>
                 )}
 
-                {updateState.status === 'downloading' && (
+                {updateStatus === 'downloading' && (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <RefreshCw className="h-4 w-4 animate-spin" />
                       {i18n.t('settings.downloading')}
                     </div>
-                    {updateState.progress && (
+                    {updateProgress > 0 && (
                       <div className="w-full space-y-1">
                         <div className="h-2 w-full overflow-hidden rounded-full bg-background/50">
-                          <div className="h-full rounded-full bg-blue-500 spring-transition" style={{ width: `${updateState.progress.percent}%` }} />
+                          <div className="h-full rounded-full bg-blue-500 spring-transition" style={{ width: `${updateProgress}%` }} />
                         </div>
-                        <p className="text-xs text-muted-foreground/60">{Math.round(updateState.progress.percent)}%</p>
+                        <p className="text-xs text-muted-foreground/60">{Math.round(updateProgress)}%</p>
                       </div>
                     )}
                   </div>
                 )}
 
-                {updateState.status === 'downloaded' && (
+                {updateStatus === 'downloaded' && (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 p-3 text-xs text-emerald-500">
                       <CheckCircle2 className="h-4 w-4 shrink-0" />
@@ -462,7 +408,7 @@ export default function Settings() {
                   </div>
                 )}
 
-                {updateState.status === 'done' && (
+                {updateStatus === 'done' && (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 p-3 text-xs text-emerald-500">
                       <CheckCircle2 className="h-4 w-4 shrink-0" />
@@ -475,12 +421,12 @@ export default function Settings() {
                   </div>
                 )}
 
-                {updateState.status === 'error' && (
+                {updateStatus === 'error' && (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 rounded-xl bg-red-500/10 p-3 text-xs text-red-500">
                       <XCircle className="h-4 w-4 shrink-0" />
                       {i18n.t('settings.update_error')}
-                      {updateState.error && <span className="text-red-300">: {updateState.error}</span>}
+                      {updateError && <span className="text-red-300">: {updateError}</span>}
                     </div>
                     <Button onClick={handleCheckUpdates} variant="secondary" className="h-9 rounded-full spring-transition text-xs font-semibold px-4">
                       <RefreshCw className="h-3.5 w-3.5" />{i18n.t('retry')}

@@ -49,7 +49,7 @@ export default function AuditLog() {
     setEntries(results)
   }, [actionFilter, search, page])
 
-  const totalCount = useMemo(() => db.auditEntries.length, [entries])
+  const totalCount = useMemo(() => db.auditEntries.length, [])
 
   function formatDate(iso: string) {
     const d = new Date(iso)

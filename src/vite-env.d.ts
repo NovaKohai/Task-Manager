@@ -5,6 +5,7 @@ interface UpdateInfo {
   version?: string
   releaseNotes?: string
   releaseDate?: string
+  error?: string
 }
 
 interface UpdateProgress {

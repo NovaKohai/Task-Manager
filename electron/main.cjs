@@ -1,7 +1,6 @@
-const { app, BrowserWindow, Menu, ipcMain } = require('electron')
+const { app, BrowserWindow, Menu, ipcMain, shell } = require('electron')
 const path = require('path')
 const fs = require('fs')
-const { autoUpdater } = require('electron-updater')
 
 const isDev = process.argv.includes('--dev')
 let latestReleaseInfo = null
@@ -47,11 +46,16 @@ ipcMain.handle('get-app-version', () => app.getVersion())
 
 ipcMain.handle('check-for-updates', async () => {
   try {
-    const res = await fetch('https://api.github.com/repos/NovaKohai/Task-Manager/releases/latest')
-    if (!res.ok) {
-      sendToRenderer('update-status', { type: 'error', message: `GitHub API: ${res.status} ${res.statusText}` })
-      return { available: false }
+    const res = await fetch('https://api.github.com/repos/NovaKohai/Task-Manager/releases/latest', {
+      headers: { 'Accept': 'application/vnd.github+json' }
+    })
+    if (res.status === 403) {
+      const retryAfter = res.headers.get('X-RateLimit-Reset')
+      const resetTime = retryAfter ? new Date(parseInt(retryAfter) * 1000).toLocaleTimeString() : 'later'
+      return { available: false, error: `Rate limited by GitHub. Try again after ${resetTime}` }
     }
+    if (res.status === 404) return { available: false, error: 'Release not found' }
+    if (!res.ok) return { available: false, error: `GitHub API error: ${res.status} ${res.statusText}` }
     const release = await res.json()
     latestReleaseInfo = release
     const latest = release.tag_name.replace(/^v/, '')
@@ -67,30 +71,20 @@ ipcMain.handle('check-for-updates', async () => {
       releaseDate: release.published_at,
     }
   } catch (e) {
-    sendToRenderer('update-status', { type: 'error', message: e?.message ?? String(e) })
-    return { available: false }
+    return { available: false, error: e?.message ?? String(e) }
   }
 })
 
 ipcMain.handle('download-update', async () => {
-  if (!latestReleaseInfo) {
-    sendToRenderer('update-status', { type: 'error', message: 'No update info. Check for updates first.' })
-    return { started: false }
-  }
+  if (!latestReleaseInfo) return { started: false, error: 'No update info. Check for updates first.' }
   const asset = latestReleaseInfo.assets?.find(a => a.name.endsWith('.exe') && !a.name.includes('__uninstaller'))
-  if (!asset) {
-    sendToRenderer('update-status', { type: 'error', message: 'No installer asset found in release' })
-    return { started: false }
-  }
+  if (!asset) return { started: false, error: 'No installer asset found in release' }
   const ext = path.extname(asset.name)
   const base = path.basename(asset.name, ext)
   const dest = path.join(app.getPath('temp'), `${base}.${Date.now()}${ext}`)
   try {
     const response = await fetch(asset.browser_download_url)
-    if (!response.ok) {
-      sendToRenderer('update-status', { type: 'error', message: `Download failed: HTTP ${response.status}` })
-      return { started: false }
-    }
+    if (!response.ok) return { started: false, error: `Download failed: HTTP ${response.status}` }
     const total = parseInt(response.headers.get('content-length') || '0', 10)
     const reader = response.body.getReader()
     const writer = fs.createWriteStream(dest)
@@ -109,30 +103,33 @@ ipcMain.handle('download-update', async () => {
     sendToRenderer('update-status', { type: 'downloaded' })
     return { started: true }
   } catch (e) {
-    sendToRenderer('update-status', { type: 'error', message: e?.message ?? String(e) })
-    return { started: false }
+    return { started: false, error: e?.message ?? String(e) }
   }
 })
 
-ipcMain.handle('install-update', () => {
-  if (downloadedInstallerPath) {
-    try {
-      const stat = fs.statSync(downloadedInstallerPath)
-      if (stat.size < 1000000) {
-        sendToRenderer('update-status', { type: 'error', message: `Corrupted download: only ${Math.round(stat.size / 1024)} KB` })
-        return
-      }
-    } catch (e) {
-      sendToRenderer('update-status', { type: 'error', message: e?.message ?? String(e) })
+ipcMain.handle('install-update', async () => {
+  if (!downloadedInstallerPath) return
+  try {
+    const stat = fs.statSync(downloadedInstallerPath)
+    if (stat.size < 1000000) {
+      sendToRenderer('update-status', { type: 'error', message: `Corrupted download: only ${Math.round(stat.size / 1024)} KB` })
       return
     }
-    const { spawn } = require('child_process')
-    spawn(downloadedInstallerPath, [], { detached: true, stdio: 'ignore' }).on('error', (e) => {
-      sendToRenderer('update-status', { type: 'error', message: e?.message ?? String(e) })
-    })
-    app.quit()
-  } else {
-    setImmediate(() => autoUpdater.quitAndInstall())
+  } catch (e) {
+    sendToRenderer('update-status', { type: 'error', message: e?.message ?? String(e) })
+    return
+  }
+  try {
+    const err = await shell.openPath(downloadedInstallerPath)
+    if (err) {
+      sendToRenderer('update-status', { type: 'error', message: err })
+      return
+    }
+    setTimeout(() => {
+      app.quit()
+    }, 1000)
+  } catch (e) {
+    sendToRenderer('update-status', { type: 'error', message: e?.message ?? String(e) })
   }
 })
 

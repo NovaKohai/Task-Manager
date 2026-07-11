@@ -2,14 +2,15 @@ import { memo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, CheckSquare, Users, BarChart3,
-  Settings, ScrollText, Bell, LogOut,
+  Settings, ScrollText, Bell, LogOut, LifeBuoy,
 } from 'lucide-react'
 import { i18n } from '@/lib/i18n'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { User } from '@/lib/types'
-import { getInitials } from '@/lib/constants'
+import { getInitials, roleBadge, getDepartmentConfig } from '@/lib/constants'
+import { Badge } from '@/components/ui/badge'
 
 interface SidebarProps { user: User; onLogout: () => void }
 
@@ -18,6 +19,7 @@ const adminLinks = [
   { to: '/tasks', label: 'nav.tasks', icon: CheckSquare },
   { to: '/admin/users', label: 'nav.users', icon: Users },
   { to: '/reports', label: 'nav.reports', icon: BarChart3 },
+  { to: '/support', label: 'nav.support', icon: LifeBuoy },
   { to: '/settings', label: 'nav.settings', icon: Settings },
   { to: '/admin/audit-log', label: 'nav.audit_log', icon: ScrollText },
 ]
@@ -26,6 +28,7 @@ const userLinks = [
   { to: '/my-dashboard', label: 'nav.my_dashboard', icon: LayoutDashboard },
   { to: '/tasks', label: 'nav.my_tasks', icon: CheckSquare },
   { to: '/notifications', label: 'nav.notifications', icon: Bell },
+  { to: '/support', label: 'nav.support', icon: LifeBuoy },
 ]
 
 export default memo(function Sidebar({ user, onLogout }: SidebarProps) {
@@ -47,7 +50,7 @@ export default memo(function Sidebar({ user, onLogout }: SidebarProps) {
         <span className="font-outfit text-base font-black tracking-tight text-foreground">{i18n.t('app.name')}</span>
       </div>
 
-      <nav className="flex-1 space-y-0.5 overflow-y-auto px-2.5 py-3">
+      <nav aria-label={i18n.t('nav.main')} className="flex-1 space-y-0.5 overflow-y-auto px-2.5 py-3">
         {isAdmin && (
           <p className="px-3 pb-1 pt-3 text-caption font-semibold uppercase tracking-widest text-muted-foreground/40">
             {i18n.t('nav.admin')}
@@ -85,7 +88,12 @@ export default memo(function Sidebar({ user, onLogout }: SidebarProps) {
             </Avatar>
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-semibold leading-tight group-hover/user:text-primary spring-transition">{user.name}</p>
-              <p className="truncate text-caption text-muted-foreground">{i18n.t(`user.${user.role}`)}</p>
+              <div className="mt-1 flex flex-wrap items-center gap-1">
+                <Badge variant={roleBadge[user.role]} className="rounded-full text-micro px-1.5 py-0 leading-none">{i18n.t(`user.${user.role}`)}</Badge>
+                {user.department && (
+                  <Badge variant={getDepartmentConfig(user.department).variant} className="rounded-full text-micro px-1.5 py-0 leading-none">{i18n.t(getDepartmentConfig(user.department).label)}</Badge>
+                )}
+              </div>
             </div>
           </button>
           <Button variant="ghost" size="icon" onClick={onLogout} title={i18n.t('logout')} className="h-7 w-7 shrink-0 text-muted-foreground/60 hover:text-foreground hover:bg-accent/40 rounded-full spring-transition">

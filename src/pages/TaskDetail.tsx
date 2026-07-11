@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft, Calendar, Clock, User, CheckCircle2, XCircle, Edit3, Trash2, Send, Download,
+  ArrowLeft, Calendar, Clock, User, CheckCircle2, XCircle, Edit3, Trash2, Send, Download, MessageSquare,
 } from 'lucide-react'
 import { useTaskStore } from '@/stores/taskStore'
 import { useCommentStore } from '@/stores/commentStore'
@@ -16,7 +16,8 @@ import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { i18n } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
-import { priorityBadge, getInitials } from '@/lib/constants'
+import { priorityBadge, getInitials, roleBadge, getDepartmentConfig } from '@/lib/constants'
+import { Badge } from '@/components/ui/badge'
 import type { TaskStatus } from '@/lib/types'
 
 function formatFull(d: string): string {
@@ -77,9 +78,13 @@ export default function TaskDetail() {
     setTimeout(() => setQaSuccess(false), 3000)
   }
 
-  const getUserName = useCallback((userId: string): string => {
-    return users.find(u => u.id === userId)?.name || 'Unknown'
+  const getUser = useCallback((userId: string) => {
+    return users.find(u => u.id === userId) || null
   }, [users])
+
+  const getUserName = useCallback((userId: string): string => {
+    return getUser(userId)?.name || 'Unknown'
+  }, [getUser])
 
   const statusTransitions = useMemo(() => [
     { from: ['todo'] as TaskStatus[], to: 'in_progress' as TaskStatus, label: i18n.t('task_detail.start'), variant: 'primary' as const },
@@ -131,7 +136,7 @@ export default function TaskDetail() {
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 pt-2">
             <div className="bg-muted/20 rounded-xl p-3 border border-border/10">
               <Label className="text-caption font-semibold uppercase tracking-wider text-muted-foreground/60">{i18n.t('task.assignee')}</Label>
-              <p className="mt-1 flex items-center gap-1 text-sm font-semibold"><User className="h-3 w-3 shrink-0 text-primary" />{t.assigneeId ? getUserName(t.assigneeId) : i18n.t('task_detail.unassigned')}</p>
+              <p className="mt-1 flex items-center gap-1 text-sm font-semibold"><User className="h-3 w-3 shrink-0 text-primary" />{t.assigneeId ? (() => { const asUser = getUser(t.assigneeId!); return asUser ? <span className="inline-flex items-center gap-1.5 flex-wrap"><span>{asUser.name}</span><Badge variant={roleBadge[asUser.role]} className="rounded-full text-micro px-1.5 py-0">{i18n.t(`user.${asUser.role}`)}</Badge>{asUser.department ? <Badge variant={getDepartmentConfig(asUser.department).variant} className="rounded-full text-micro px-1.5 py-0">{i18n.t(getDepartmentConfig(asUser.department).label)}</Badge> : null}</span> : 'Unknown' })() : i18n.t('task_detail.unassigned')}</p>
             </div>
             <div className="bg-muted/20 rounded-xl p-3 border border-border/10">
               <Label className="text-caption font-semibold uppercase tracking-wider text-muted-foreground/60">{i18n.t('task.due_date')}</Label>
@@ -207,7 +212,12 @@ export default function TaskDetail() {
               <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             </div>
           ) : comments.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">{i18n.t('comment.no_comments')}</p>
+            <div className="empty-state py-8">
+              <div className="empty-state-icon">
+                <MessageSquare className="h-5 w-5" />
+              </div>
+              <p className="empty-state-desc">{i18n.t('comment.no_comments')}</p>
+            </div>
           ) : (
             <div className="space-y-3">
               {comments.map((c) => {
@@ -218,8 +228,9 @@ export default function TaskDetail() {
                       <AvatarFallback className="text-[11px] font-bold bg-primary text-primary-foreground">{getInitials(getUserName(c.authorId))}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0 space-y-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-bold text-foreground">{getUserName(c.authorId)}</span>
+                        {(() => { const commentAuthor = getUser(c.authorId); return commentAuthor ? <Badge variant={roleBadge[commentAuthor.role]} className="rounded-full text-micro px-1.5 py-0">{i18n.t(`user.${commentAuthor.role}`)}</Badge> : null })()}
                         <span className="text-caption text-muted-foreground font-mono">{formatFull(c.createdAt)}</span>
                         {c.editedAt && <span className="text-caption text-muted-foreground/60">{i18n.t('task_detail.edited')}</span>}
                       </div>

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { ReportMetrics } from '@/lib/types'
 import { db } from '@/lib/db'
+import { yieldToUI } from '@/lib/utils'
 
 interface ReportState {
   metrics: ReportMetrics | null
@@ -14,7 +15,7 @@ export const useReportStore = create<ReportState>((set) => ({
 
   fetchMetrics: async (period?: string) => {
     set({ isLoading: true })
-    await new Promise(r => setTimeout(r, 0))
+    await yieldToUI()
     const metrics = db.getReportMetrics(period)
     set({ metrics, isLoading: false })
   },

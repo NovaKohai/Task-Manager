@@ -1,13 +1,15 @@
 import { create } from 'zustand'
-import type { User } from '@/lib/types'
+import type { Permission, User } from '@/lib/types'
 import { db } from '@/lib/db'
+import { yieldToUI } from '@/lib/utils'
 
 interface UserState {
   users: User[]
   isLoading: boolean
   fetchUsers: () => Promise<void>
-  createUser: (data: Omit<User, 'id' | 'createdAt' | 'approved'> & { approved?: boolean }) => Promise<User>
+  createUser: (data: Omit<User, 'id' | 'createdAt' | 'approved' | 'permissions'> & { approved?: boolean; permissions?: Permission[] }, password?: string) => Promise<User>
   updateUser: (id: string, data: Partial<User>) => Promise<User | null>
+  updateUserPassword: (username: string, newPassword: string) => Promise<void>
   deleteUser: (id: string) => Promise<void>
 }
 
@@ -17,37 +19,67 @@ export const useUserStore = create<UserState>((set) => ({
 
   fetchUsers: async () => {
     set({ isLoading: true })
-    await new Promise(r => setTimeout(r, 0))
-    const users = db.getUsers()
-    set({ users, isLoading: false })
+    try {
+      await yieldToUI()
+      set({ users: db.getUsers() })
+    } catch (e) {
+      console.error('fetchUsers failed', e)
+    } finally {
+      set({ isLoading: false })
+    }
   },
 
-  createUser: async (data) => {
+  createUser: async (data, password) => {
     set({ isLoading: true })
-    await new Promise(r => setTimeout(r, 0))
-    const user = await db.createUser(data)
-    set(state => ({ users: [...state.users, user], isLoading: false }))
-    return user
+    try {
+      await yieldToUI()
+      const user = await db.createUser(data, password)
+      set(state => ({ users: [...state.users, user] }))
+      return user
+    } catch (e) {
+      console.error('createUser failed', e)
+      throw e
+    } finally {
+      set({ isLoading: false })
+    }
   },
 
   updateUser: async (id, data) => {
     set({ isLoading: true })
-    await new Promise(r => setTimeout(r, 0))
-    const updated = db.updateUser(id, data)
-    set(state => ({
-      users: state.users.map(u => u.id === id ? (updated ?? u) : u),
-      isLoading: false,
-    }))
-    return updated
+    try {
+      await yieldToUI()
+      const updated = db.updateUser(id, data)
+      set(state => ({
+        users: state.users.map(u => u.id === id ? (updated ?? u) : u),
+      }))
+      return updated
+    } catch (e) {
+      console.error('updateUser failed', e)
+      throw e
+    } finally {
+      set({ isLoading: false })
+    }
+  },
+
+  updateUserPassword: async (username: string, newPassword: string) => {
+    try {
+      await db.updatePassword(username, newPassword)
+    } catch (e) {
+      console.error('updateUserPassword failed', e)
+      throw e
+    }
   },
 
   deleteUser: async (id) => {
     set({ isLoading: true })
-    await new Promise(r => setTimeout(r, 0))
-    db.deleteUser(id)
-    set(state => ({
-      users: state.users.filter(u => u.id !== id),
-      isLoading: false,
-    }))
+    try {
+      await yieldToUI()
+      db.deleteUser(id)
+      set(state => ({ users: state.users.filter(u => u.id !== id) }))
+    } catch (e) {
+      console.error('deleteUser failed', e)
+    } finally {
+      set({ isLoading: false })
+    }
   },
 }))

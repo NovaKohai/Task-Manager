@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { AppSettings } from '@/lib/types'
 import { db } from '@/lib/db'
 import { useAuthStore } from './authStore'
+import { yieldToUI } from '@/lib/utils'
 
 interface SettingsState {
   settings: AppSettings | null
@@ -19,14 +20,14 @@ export const useSettingsStore = create<SettingsState>((set) => ({
 
   fetchSettings: async () => {
     set({ isLoading: true })
-    await new Promise(r => setTimeout(r, 0))
+    await yieldToUI()
     const settings = db.getSettings()
     set({ settings, isLoading: false })
   },
 
   updateSettings: async (data) => {
     set({ isLoading: true, saved: false })
-    await new Promise(r => setTimeout(r, 0))
+    await yieldToUI()
     const user = useAuthStore.getState().user
     db.updateSettings(data, user?.id, user?.username)
     const settings = db.getSettings()
@@ -35,7 +36,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
 
   resetSettings: async () => {
     set({ isLoading: true, saved: false })
-    await new Promise(r => setTimeout(r, 0))
+    await yieldToUI()
     const user = useAuthStore.getState().user
     db.resetSettings(user?.id, user?.username)
     const settings = db.getSettings()

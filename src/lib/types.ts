@@ -1,6 +1,25 @@
 export type Role = 'admin' | 'manager' | 'developer' | 'viewer'
+export type Department = 'engineering' | 'qa' | 'it' | 'hr' | 'finance' | 'accounting' | 'marketing' | 'sales' | 'operations' | 'design' | 'legal' | 'customer_support' | 'product'
 export type TaskStatus = 'todo' | 'in_progress' | 'done' | 'cancelled'
 export type Priority = 'low' | 'medium' | 'high' | 'critical'
+
+export type Permission =
+  | 'task.create'
+  | 'task.edit'
+  | 'task.edit.own'
+  | 'task.delete'
+  | 'task.assign'
+  | 'task.view_all'
+  | 'user.view'
+  | 'user.create'
+  | 'user.edit'
+  | 'user.delete'
+  | 'user.approve'
+  | 'settings.view'
+  | 'settings.edit'
+  | 'reports.view'
+  | 'audit.view'
+  | 'announcement.send'
 
 export type User = {
   id: string
@@ -8,10 +27,13 @@ export type User = {
   name: string
   email: string
   role: Role
+  permissions: Permission[]
   avatar?: string
   active: boolean
   approved: boolean
   createdAt: string
+  title?: string
+  department?: Department
 }
 
 export type Task = {
@@ -48,6 +70,7 @@ export type Notification = {
   message: string
   read: boolean
   taskId?: string
+  dedupKey?: string
   createdAt: string
 }
 
@@ -116,4 +139,26 @@ export type AuditEntry = {
   username: string
   details: string
   timestamp: string
+}
+
+export type SupportTicketStatus = 'pending' | 'in_progress' | 'completed'
+
+export type SupportTicketCategory =
+  | 'network'
+  | 'software'
+  | 'hardware'
+  | 'email_account'
+  | 'other'
+
+export type SupportTicket = {
+  id: string
+  creatorId: string
+  category: SupportTicketCategory
+  description: string
+  image?: string
+  reminderDate?: string
+  status: SupportTicketStatus
+  assigneeId: string | null
+  createdAt: string
+  updatedAt: string
 }

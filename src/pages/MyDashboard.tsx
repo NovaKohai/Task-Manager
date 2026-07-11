@@ -9,7 +9,8 @@ import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 import { i18n } from '@/lib/i18n'
-import { priorityBadge, getInitials } from '@/lib/constants'
+import { priorityBadge, getInitials, roleBadge, getDepartmentConfig } from '@/lib/constants'
+import { Badge } from '@/components/ui/badge'
 
 function formatDate(d: string | null): string {
   if (!d) return '\u2014'
@@ -52,8 +53,10 @@ export default function MyDashboard() {
               </AvatarFallback>
             </Avatar>
             <div>
-              <h1 className="text-lg font-semibold tracking-tight text-foreground">
+              <h1 className="text-lg font-semibold tracking-tight text-foreground flex items-center gap-2 flex-wrap">
                 {i18n.t('dashboard.welcome_back').replace('{name}', user?.name?.split(' ')[0] || 'User')}
+                {user && <Badge variant={roleBadge[user.role]} className="rounded-full text-micro px-2 py-0">{i18n.t(`user.${user.role}`)}</Badge>}
+                {user?.department && <Badge variant={getDepartmentConfig(user.department).variant} className="rounded-full text-micro px-2 py-0">{i18n.t(getDepartmentConfig(user.department).label)}</Badge>}
               </h1>
               <p className="text-xs text-muted-foreground">
                 {i18n.t('dashboard.task_summary').replace('{open}', String(openTasks.length)).replace('{completed}', String(completedCount))}

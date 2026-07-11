@@ -6,25 +6,19 @@ import Sidebar from '@/components/layout/Sidebar'
 import Header from '@/components/layout/Header'
 import { ErrorBoundary } from '@/components/ui/error-boundary'
 import { i18n } from '@/lib/i18n'
-import { db } from '@/lib/db'
-import { track } from '@/lib/analytics'
+import { useOsNotifications } from '@/hooks/useOsNotifications'
 
 export default function AppShell() {
   const user = useAuthStore(s => s.user)
   const isLoading = useAuthStore(s => s.isLoading)
-  const checkSession = useAuthStore(s => s.checkSession)
   const logout = useAuthStore(s => s.logout)
   const notifications = useNotificationStore(s => s.notifications)
   const unreadCount = useNotificationStore(s => s.unreadCount)
-  const fetchNotifications = useNotificationStore(s => s.fetchNotifications)
+  const refreshNotifications = useNotificationStore(s => s.refreshNotifications)
   const navigate = useNavigate()
   const location = useLocation()
 
-  useEffect(() => { checkSession() }, [checkSession])
-
-  useEffect(() => {
-    if (user) track('page_view', { path: location.pathname })
-  }, [location.pathname, user])
+  useOsNotifications(notifications)
 
   useEffect(() => {
     if (!isLoading && !user) navigate('/login', { replace: true })
@@ -37,33 +31,8 @@ export default function AppShell() {
   }, [user, location.pathname, navigate])
 
   useEffect(() => {
-    if (user) {
-      db.checkDeadlinesAndOverdue(user.id)
-      db.checkWeeklyDigests(user.id)
-      fetchNotifications(user.id)
-    }
-  }, [user, fetchNotifications])
-
-  useEffect(() => {
-    if (notifications.length > 0) {
-      const nowTime = Date.now()
-      const newNotifs = notifications.filter(n => !n.read && (nowTime - new Date(n.createdAt).getTime()) < 10000)
-      
-      newNotifs.forEach(n => {
-        const notifiedKey = `os_notified_${n.id}`
-        if (!sessionStorage.getItem(notifiedKey)) {
-          sessionStorage.setItem(notifiedKey, '1')
-          if (window.Notification && Notification.permission !== 'denied') {
-            Notification.requestPermission().then(permission => {
-              if (permission === 'granted') {
-                new Notification(n.title, { body: n.message })
-              }
-            })
-          }
-        }
-      })
-    }
-  }, [notifications])
+    if (user) refreshNotifications(user.id)
+  }, [user, refreshNotifications])
 
   if (isLoading || !user) {
     return (

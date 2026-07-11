@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useThemeStore } from '@/stores/themeStore'
 import type { User } from '@/lib/types'
+import { roleBadge } from '@/lib/constants'
 
 interface HeaderProps { user: User; unreadCount: number }
 
@@ -21,9 +22,9 @@ export default function Header({ user, unreadCount }: HeaderProps) {
   return (
     <header className="sticky top-0 z-20 flex h-14 items-center gap-4 border-b border-border/10 bg-background/50 backdrop-blur-md px-4 md:px-6 lg:px-8 spring-transition">
       <div className="flex-1">
-        <h1 className="text-xs font-semibold">
-          {i18n.t(greetingKey)},{' '}
-          <span className="text-primary font-bold">{user.name.split(' ')[0]}</span>
+        <h1 className="text-xs font-semibold flex items-center gap-2">
+          <span>{i18n.t(greetingKey)},{' '}<span className="text-primary font-bold">{user.name.split(' ')[0]}</span></span>
+          <Badge variant={roleBadge[user.role]} className="rounded-full text-micro px-1.5 py-0 leading-none shrink-0">{i18n.t(`user.${user.role}`)}</Badge>
         </h1>
       </div>
 
@@ -32,6 +33,7 @@ export default function Header({ user, unreadCount }: HeaderProps) {
         <input
           type="text"
           placeholder={i18n.t('search')}
+          aria-label={i18n.t('search')}
           className="h-8 w-full rounded-full border border-input/40 bg-muted/30 pl-9 pr-4 text-xs outline-none transition-[border-color,background] duration-150 ease-out placeholder:text-muted-foreground/40 focus:border-primary/30 focus:bg-background/80"
         />
       </div>
@@ -52,10 +54,8 @@ export default function Header({ user, unreadCount }: HeaderProps) {
       </Button>
 
       <button
-        onClick={() => {
-          i18n.toggle()
-          window.location.reload()
-        }}
+        onClick={() => i18n.toggle()}
+        aria-label={i18n.t('lang.toggle')}
         className="flex h-8 items-center rounded-full border border-input/50 px-3 text-caption font-semibold text-muted-foreground/80 hover:text-foreground hover:border-primary transition-[color,border-color] duration-200 pressable"
       >
         {i18n.t(`lang.${i18n.lang}`)}

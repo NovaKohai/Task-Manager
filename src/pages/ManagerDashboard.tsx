@@ -8,10 +8,16 @@ import { useUserStore } from '@/stores/userStore'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { i18n } from '@/lib/i18n'
+import { Badge } from '@/components/ui/badge'
+import { roleBadge, getDepartmentConfig } from '@/lib/constants'
 
 function getUserName(users: { id: string; name: string }[], id: string | null): string {
   if (!id) return '—'
   return users.find(u => u.id === id)?.name || '—'
+}
+function getUser(users: any[], id: string | null) {
+  if (!id) return null
+  return users.find(u => u.id === id) || null
 }
 
 function formatDate(d: string | null): string {
@@ -153,7 +159,7 @@ function renderRecentTasks(
                       )}>
                         {i18n.t(`priority.${t.priority}`)}
                       </span>
-                      <span className="text-caption text-muted-foreground">{getUserName(users, t.assigneeId)}</span>
+                      {(() => { const assigneeUser = getUser(users, t.assigneeId) as (import('@/lib/types').User) | null; return assigneeUser ? <span className="inline-flex items-center gap-1"><span className="text-caption text-muted-foreground">{assigneeUser.name}</span><Badge variant={roleBadge[assigneeUser.role]} className="rounded-full text-micro px-1.5 py-0">{i18n.t(`user.${assigneeUser.role}`)}</Badge>{assigneeUser.department ? <Badge variant={getDepartmentConfig(assigneeUser.department).variant} className="rounded-full text-micro px-1.5 py-0">{i18n.t(getDepartmentConfig(assigneeUser.department).label)}</Badge> : null}</span> : <span className="text-caption text-muted-foreground">—</span> })()}
                     </div>
                   </div>
                 </div>
@@ -185,7 +191,7 @@ function renderTeamPerformance(users: any[]) {
                   {member.name.charAt(0)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h4 className="text-xs font-semibold text-foreground truncate">{member.name}</h4>
+                  <h4 className="text-xs font-semibold text-foreground truncate flex items-center gap-1.5 flex-wrap">{member.name}{member.department ? <Badge variant={getDepartmentConfig(member.department).variant} className="rounded-full text-micro px-1.5 py-0">{i18n.t(getDepartmentConfig(member.department).label)}</Badge> : null}</h4>
                   <p className="text-caption text-muted-foreground truncate">{i18n.t(`user.${member.role}`)}</p>
                 </div>
                 <span className={cn(

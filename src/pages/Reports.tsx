@@ -15,11 +15,18 @@ const statusColors: Record<TaskStatus, string> = {
 }
 
 export default function Reports() {
-  const [period, setPeriod] = useState('30 Days')
+  const [periodIdx, setPeriodIdx] = useState(1)
   const { metrics, isLoading, fetchMetrics } = useReportStore()
   const { fetchUsers } = useUserStore()
 
-  useEffect(() => { fetchMetrics(period); fetchUsers() }, [period, fetchMetrics, fetchUsers])
+  useEffect(() => {
+    try {
+      fetchMetrics(i18n.t(periodKeys[periodIdx]))
+    } catch (e) {
+      console.error('fetchMetrics failed', e)
+    }
+    fetchUsers()
+  }, [periodIdx, fetchMetrics, fetchUsers])
 
   const m = metrics || {
     totalTasks: 0, completedTasks: 0, completionRate: 0, avgResolutionDays: 0, overdueTasks: 0,
@@ -36,21 +43,21 @@ export default function Reports() {
           <p className="text-xs text-muted-foreground/80 mt-1">{i18n.t('reports.subtitle')}</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary" size="sm" onClick={async () => { const { exportReportXLSX } = await import('@/lib/export'); exportReportXLSX(m, period) }} className="h-8 rounded-full spring-transition text-xs font-semibold px-4">
+          <Button variant="secondary" size="sm" onClick={async () => { const period = i18n.t(periodKeys[periodIdx]); const { exportReportXLSX } = await import('@/lib/export'); exportReportXLSX(m, period) }} className="h-8 rounded-full spring-transition text-xs font-semibold px-4">
             <Download className="h-3.5 w-3.5" />XLSX
           </Button>
-          <Button variant="secondary" size="sm" onClick={async () => { const { exportReportPDF } = await import('@/lib/export'); exportReportPDF(m, period) }} className="h-8 rounded-full spring-transition text-xs font-semibold px-4">
+          <Button variant="secondary" size="sm" onClick={async () => { const period = i18n.t(periodKeys[periodIdx]); const { exportReportPDF } = await import('@/lib/export'); exportReportPDF(m, period) }} className="h-8 rounded-full spring-transition text-xs font-semibold px-4">
             <Download className="h-3.5 w-3.5" />PDF
           </Button>
         </div>
       </div>
 
       <div className="flex gap-1.5 bg-muted/40 p-1.5 rounded-2xl border border-border/10 w-fit animate-rise stagger-2">
-        {periodKeys.map((k) => {
+        {periodKeys.map((k, i) => {
           const label = i18n.t(k)
           return (
-          <button key={k} onClick={() => setPeriod(label)}
-            className={cn('pill-tab spring-fast', period === label ? 'pill-tab-active' : 'pill-tab-inactive')}>
+          <button key={k} onClick={() => setPeriodIdx(i)}
+            className={cn('pill-tab spring-fast', periodIdx === i ? 'pill-tab-active' : 'pill-tab-inactive')}>
             {label}
           </button>
           )

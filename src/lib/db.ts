@@ -1,4 +1,5 @@
-import type { User, Task, Comment, Notification, ReportMetrics, AppSettings, AuditEntry, AuditAction } from './types'
+import type { User, Task, Comment, Notification, ReportMetrics, AppSettings, AuditEntry, AuditAction, Permission, Role, SupportTicket } from './types'
+import { i18n } from './i18n'
 
 const STORE_KEY = 'ttm_data'
 
@@ -11,6 +12,7 @@ interface StoreSchema {
   sessions: { userId: string; token: string }[]
   passwords: Record<string, string>
   auditEntries: AuditEntry[]
+  supportTickets: SupportTicket[]
 }
 
 function generateId(): string {
@@ -23,9 +25,38 @@ function generateTaskCode(index: number): string {
 
 async function hashPassword(password: string): Promise<string> {
   const encoder = new TextEncoder()
-  const data = encoder.encode(password)
-  const hash = await crypto.subtle.digest('SHA-256', data)
-  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase()
+  const salt = crypto.getRandomValues(new Uint8Array(16))
+  const keyMaterial = await crypto.subtle.importKey('raw', encoder.encode(password), 'PBKDF2', false, ['deriveBits'])
+  const hash = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations: 600000, hash: 'SHA-256' },
+    keyMaterial,
+    256
+  )
+  const saltHex = Array.from(salt).map(b => b.toString(16).padStart(2, '0')).join('')
+  const hashHex = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('')
+  return saltHex + ':' + hashHex
+}
+
+async function verifyPassword(password: string, stored: string): Promise<boolean> {
+  const colon = stored.indexOf(':')
+  if (colon === -1) {
+    const encoder = new TextEncoder()
+    const hash = await crypto.subtle.digest('SHA-256', encoder.encode(password))
+    const hex = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase()
+    return hex === stored
+  }
+  const saltHex = stored.slice(0, colon)
+  const expectedHash = stored.slice(colon + 1)
+  const salt = new Uint8Array(saltHex.match(/.{2}/g)!.map(b => parseInt(b, 16)))
+  const encoder = new TextEncoder()
+  const keyMaterial = await crypto.subtle.importKey('raw', encoder.encode(password), 'PBKDF2', false, ['deriveBits'])
+  const hash = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations: 600000, hash: 'SHA-256' },
+    keyMaterial,
+    256
+  )
+  const hashHex = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('')
+  return hashHex === expectedHash
 }
 
 function getDefaultSettings(): AppSettings {
@@ -47,6 +78,21 @@ function getDefaultSettings(): AppSettings {
   }
 }
 
+export const ALL_PERMISSIONS: Permission[] = [
+  'task.create', 'task.edit', 'task.edit.own', 'task.delete', 'task.assign', 'task.view_all',
+  'user.view', 'user.create', 'user.edit', 'user.delete', 'user.approve',
+  'settings.view', 'settings.edit',
+  'reports.view', 'audit.view',
+  'announcement.send',
+]
+
+export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
+  admin: [...ALL_PERMISSIONS],
+  manager: ['task.create', 'task.edit', 'task.delete', 'task.assign', 'task.view_all', 'user.view', 'reports.view'],
+  developer: ['task.create', 'task.edit.own', 'task.view_all'],
+  viewer: ['task.view_all'],
+}
+
 const DEFAULT_HASHES: Record<string, string> = {
   admin: '240BE518FABD2724DDB6F04EEB1DA5967448D7E831C08C8FA822809F74C720A9',
   jane: '27545B395A8E5915B48557D0E26EF3E05E368D0F65AE786A806DF38F9F4E3BC5',
@@ -57,26 +103,22 @@ const DEFAULT_HASHES: Record<string, string> = {
 
 function getDefaultStore(): StoreSchema {
   const now = new Date().toISOString()
-  const admin: User = {
-    id: 'user_1', username: 'admin', name: 'Admin User', email: 'admin@teamtask.local',
-    role: 'admin', active: true, approved: true, createdAt: now,
+  function makeUser(overrides: Partial<User> & { username: string; name: string; email: string; role: Role }): User {
+    return {
+      id: overrides.id || generateId(),
+      permissions: [...ROLE_PERMISSIONS[overrides.role]],
+      active: true,
+      approved: true,
+      createdAt: now,
+      ...overrides,
+    } as User
   }
-  const jane: User = {
-    id: 'user_2', username: 'jane', name: 'Jane Doe', email: 'jane@teamtask.local',
-    role: 'manager', active: true, approved: true, createdAt: now,
-  }
-  const alex: User = {
-    id: 'user_3', username: 'alex', name: 'Alex Liu', email: 'alex@teamtask.local',
-    role: 'developer', active: true, approved: true, createdAt: now,
-  }
-  const raj: User = {
-    id: 'user_4', username: 'raj', name: 'Raj Johnson', email: 'raj@teamtask.local',
-    role: 'developer', active: true, approved: true, createdAt: now,
-  }
-  const maya: User = {
-    id: 'user_5', username: 'maya', name: 'Maya Kapoor', email: 'maya@teamtask.local',
-    role: 'developer', active: true, approved: true, createdAt: now,
-  }
+
+  const admin = makeUser({ id: 'user_1', username: 'admin', name: 'Admin User', email: 'admin@teamtask.local', role: 'admin', title: 'System Administrator', department: 'it' })
+  const jane = makeUser({ id: 'user_2', username: 'jane', name: 'Jane Doe', email: 'jane@teamtask.local', role: 'manager', title: 'Engineering Manager', department: 'engineering' })
+  const alex = makeUser({ id: 'user_3', username: 'alex', name: 'Alex Liu', email: 'alex@teamtask.local', role: 'developer', title: 'Full-Stack Developer', department: 'engineering' })
+  const raj = makeUser({ id: 'user_4', username: 'raj', name: 'Raj Johnson', email: 'raj@teamtask.local', role: 'developer', title: 'QA Engineer', department: 'qa' })
+  const maya = makeUser({ id: 'user_5', username: 'maya', name: 'Maya Kapoor', email: 'maya@teamtask.local', role: 'developer', title: 'UI/UX Designer', department: 'design' })
 
   const tasks: Task[] = [
     { id: 'task_1', code: 'TASK-0001', title: 'Implement dark mode toggle across dashboard', description: 'Add a dark mode toggle to the main dashboard interface. The toggle should persist the user\'s preference and apply system-wide CSS variable overrides.', status: 'in_progress', priority: 'high', assigneeId: 'user_3', creatorId: 'user_2', dueDate: new Date(Date.now() + 86400000 * 3).toISOString(), estHours: 8, project: 'Frontend', createdAt: new Date(Date.now() - 86400000 * 5).toISOString(), updatedAt: new Date(Date.now() - 86400000).toISOString() },
@@ -108,6 +150,7 @@ function getDefaultStore(): StoreSchema {
     sessions: [{ userId: 'user_1', token: 'tok_' + crypto.randomUUID() }],
     passwords: { ...DEFAULT_HASHES },
     auditEntries: [],
+    supportTickets: [],
   }
 }
 
@@ -122,7 +165,10 @@ class Database {
         const parsed = JSON.parse(stored)
         const defaults = getDefaultStore()
         this.data = {
-          users: parsed.users || defaults.users,
+          users: (parsed.users || defaults.users).map((u: User) => ({
+            ...u,
+            permissions: u.permissions || ROLE_PERMISSIONS[u.role] || ROLE_PERMISSIONS.developer,
+          })),
           tasks: parsed.tasks || defaults.tasks,
           comments: parsed.comments || defaults.comments,
           notifications: parsed.notifications || defaults.notifications,
@@ -130,10 +176,20 @@ class Database {
           sessions: parsed.sessions || defaults.sessions,
           passwords: { ...defaults.passwords, ...parsed.passwords },
           auditEntries: parsed.auditEntries || [],
+          supportTickets: parsed.supportTickets || [],
+        }
+        const adminUser = this.data.users.find(u => u.username === 'admin')
+        const adminHashed = this.data.passwords['admin']
+        if (!adminUser || !adminHashed || !adminUser.active || adminUser.approved === false) {
+          console.warn('Admin user misconfigured — fix admin account manually. Data preserved.')
         }
         this.persist()
         return
-      } catch { /* fall through */ }
+      } catch (e) {
+        console.error('Failed to initialize DB', e)
+        localStorage.removeItem(STORE_KEY)
+        localStorage.removeItem('ttm_token')
+      }
     }
     this.data = getDefaultStore()
     this.persist()
@@ -150,6 +206,7 @@ class Database {
   get settings() { return this.data.settings }
   get sessions() { return this.data.sessions }
   get auditEntries() { return this.data.auditEntries }
+  get supportTickets() { return this.data.supportTickets || [] }
 
   // Auth
   async authenticate(username: string, password: string) {
@@ -163,24 +220,29 @@ class Database {
     const user = this.data.users.find(u => u.username === username)
     if (!user) {
       this.recordFailedAttempt(username)
-      this.addAuditEntry('login_failed', '', username, `فشل تسجيل الدخول: اسم المستخدم "${username}" غير موجود`)
+      this.addAuditEntry('login_failed', '', username, i18n.t('db.login_failed.user_not_found').replace('{username}', username))
       return null
     }
 
     if (!user.active) {
       this.recordFailedAttempt(username)
-      this.addAuditEntry('login_failed', user.id, username, `فشل تسجيل الدخول: الحساب "${username}" معطل`)
+      this.addAuditEntry('login_failed', user.id, username, i18n.t('db.login_failed.user_inactive').replace('{username}', username))
       throw new Error('Account is deactivated')
     }
 
     if (user.approved === false) {
       this.recordFailedAttempt(username)
-      this.addAuditEntry('login_failed', user.id, username, `فشل تسجيل الدخول: الحساب "${username}" لم يتم الموافقة عليه بعد`)
+      this.addAuditEntry('login_failed', user.id, username, i18n.t('db.login_failed.user_pending').replace('{username}', username))
       throw new Error('Account pending administrator approval')
     }
 
-    const hashed = await hashPassword(password)
-    if (this.data.passwords[username] === hashed) {
+    const stored = this.data.passwords[username]
+    const matched = await verifyPassword(password, stored)
+    if (matched) {
+      if (stored.indexOf(':') === -1) {
+        this.data.passwords[username] = await hashPassword(password)
+        this.persist()
+      }
       this.loginAttempts.delete(username)
       const maxSessions = settings.maxConcurrentSessions
       const userSessions = this.data.sessions.filter(s => s.userId === user.id)
@@ -190,12 +252,12 @@ class Database {
       const token = 'tok_' + generateId()
       this.data.sessions.push({ userId: user.id, token })
       this.persist()
-      this.addAuditEntry('login', user.id, username, `تسجيل دخول ناجح للمستخدم "${username}"`)
+      this.addAuditEntry('login', user.id, username, i18n.t('db.login.success').replace('{username}', username))
       return { user, token }
     }
 
     this.recordFailedAttempt(username)
-    this.addAuditEntry('login_failed', user.id, username, `فشل تسجيل الدخول: كلمة مرور خاطئة للمستخدم "${username}"`)
+    this.addAuditEntry('login_failed', user.id, username, i18n.t('db.login_failed.wrong_password').replace('{username}', username))
     return null
   }
 
@@ -225,14 +287,14 @@ class Database {
     if (session) {
       const user = this.data.users.find(u => u.id === session.userId)
       if (user) {
-        this.addAuditEntry('logout', user.id, user.username, `تسجيل خروج المستخدم "${user.username}"`)
+        this.addAuditEntry('logout', user.id, user.username, i18n.t('db.logout').replace('{username}', user.username))
       }
     }
   }
 
   getUsers(): User[] { return this.data.users }
 
-  async createUser(u: Omit<User, 'id' | 'createdAt' | 'approved'> & { approved?: boolean }, password = 'changeme'): Promise<User> {
+  async createUser(u: Omit<User, 'id' | 'createdAt' | 'approved' | 'permissions'> & { approved?: boolean; permissions?: Permission[] }, password = 'changeme'): Promise<User> {
     if (this.data.users.some(ex => ex.username === u.username)) {
       throw new Error('Username already exists')
     }
@@ -240,7 +302,8 @@ class Database {
       ...u, 
       id: generateId(), 
       createdAt: new Date().toISOString(),
-      approved: u.approved !== undefined ? u.approved : true
+      approved: u.approved !== undefined ? u.approved : true,
+      permissions: u.permissions || ROLE_PERMISSIONS[u.role] || ROLE_PERMISSIONS.developer,
     }
     this.data.users.push(user)
     this.data.passwords[user.username] = await hashPassword(password)
@@ -252,14 +315,14 @@ class Database {
         this.addNotification({
           userId: adm.id,
           type: 'registration',
-          title: 'طلب انضمام جديد',
-          message: `طلب الموظف ${user.name} (@${user.username}) الانضمام إلى مساحة العمل.`,
+          title: i18n.t('db.notif.new_join_request.title'),
+          message: i18n.t('db.notif.new_join_request.msg').replace('{name}', user.name).replace('{username}', user.username),
           read: false
         })
       })
     }
 
-    this.addAuditEntry('user_created', user.id, user.username, `إنشاء مستخدم جديد: "${user.username}" (${user.name}) بدور ${user.role}`)
+    this.addAuditEntry('user_created', user.id, user.username, i18n.t('db.user_created').replace('{username}', user.username).replace('{name}', user.name).replace('{role}', user.role))
     return user
   }
 
@@ -275,13 +338,51 @@ class Database {
           this.addNotification({
             userId: adm.id,
             type: 'security_alert',
-            title: 'تغيير كلمة المرور',
-            message: `قام الموظف ${user.name} بتغيير كلمة المرور الخاصة به.`,
+            title: i18n.t('db.notif.password_changed.title'),
+            message: i18n.t('db.notif.password_changed.msg').replace('{name}', user.name),
             read: false
           })
         })
       }
     }
+  }
+
+  private migratePasswordUsername(oldUser: User, updates: Partial<User>) {
+    if (updates.username && updates.username !== oldUser.username && this.data.passwords[oldUser.username]) {
+      this.data.passwords[updates.username] = this.data.passwords[oldUser.username]
+      delete this.data.passwords[oldUser.username]
+    }
+  }
+
+  private handleApproval(user: User, approved: boolean) {
+    if (approved && !user.approved) {
+      this.addNotification({ userId: user.id, type: 'approval', title: i18n.t('db.notif.account_activated.title'), message: i18n.t('db.notif.account_activated.msg'), read: false })
+      this.addAuditEntry('user_approved', user.id, user.username, i18n.t('db.user_approved').replace('{username}', user.username))
+    } else if (!approved && user.approved !== false) {
+      this.addAuditEntry('user_rejected', user.id, user.username, i18n.t('db.user_rejected').replace('{username}', user.username))
+    }
+  }
+
+  private alertProfileChange(userId: string, oldUser: User, updates: Partial<User>) {
+    if (oldUser.approved !== false && (updates.name || updates.email)) {
+      this.data.users.filter(usr => usr.role === 'admin' && usr.id !== userId).forEach(adm => {
+        this.addNotification({ userId: adm.id, type: 'security_alert', title: i18n.t('db.notif.profile_updated.title'), message: i18n.t('db.notif.profile_updated.msg').replace('{name}', oldUser.name), read: false })
+      })
+    }
+  }
+
+  private auditUpdateUser(oldUser: User, updated: User, updates: Partial<User>) {
+    const changes: string[] = []
+    if (updates.name && updates.name !== oldUser.name) changes.push(`${i18n.t('db.audit.name')}: "${oldUser.name}" → "${updates.name}"`)
+    if (updates.email && updates.email !== oldUser.email) changes.push(`${i18n.t('db.audit.email')}: "${oldUser.email}" → "${updates.email}"`)
+    if (updates.role && updates.role !== oldUser.role) changes.push(`${i18n.t('db.audit.role')}: "${oldUser.role}" → "${updates.role}"`)
+    if (updates.active !== undefined && updates.active !== oldUser.active) {
+      const oldActive = oldUser.active ? i18n.t('db.audit.active') : i18n.t('db.audit.inactive')
+      const newActive = updates.active ? i18n.t('db.audit.active') : i18n.t('db.audit.inactive')
+      changes.push(`${i18n.t('db.audit.status')}: ${oldActive} → ${newActive}`)
+    }
+    if (updates.permissions && JSON.stringify(updates.permissions) !== JSON.stringify(oldUser.permissions)) changes.push(i18n.t('db.audit.permissions_modified'))
+    if (changes.length > 0) this.addAuditEntry('user_updated', updated.id, updated.username, i18n.t('db.user_updated').replace('{username}', updated.username).replace('{details}', changes.join(' | ')))
   }
 
   updateUser(id: string, updates: Partial<User>) {
@@ -291,44 +392,10 @@ class Database {
     const updated = { ...oldUser, ...updates }
     this.data.users[idx] = updated
     this.persist()
-
-    if (updates.approved === true && oldUser.approved === false) {
-      this.addNotification({
-        userId: updated.id,
-        type: 'approval',
-        title: 'تفعيل الحساب',
-        message: 'تم تفعيل حسابك، مرحباً بك في الفريق!',
-        read: false
-      })
-      this.addAuditEntry('user_approved', updated.id, updated.username, `تمت الموافقة على حساب "${updated.username}"`)
-    }
-
-    if (updates.approved === false && oldUser.approved !== false) {
-      this.addAuditEntry('user_rejected', oldUser.id, oldUser.username, `تم رفض حساب "${oldUser.username}"`)
-    }
-
-    if (oldUser.approved !== false && (updates.name || updates.email)) {
-      const admins = this.data.users.filter(usr => usr.role === 'admin' && usr.id !== id)
-      admins.forEach(adm => {
-        this.addNotification({
-          userId: adm.id,
-          type: 'security_alert',
-          title: 'تعديل الملف الشخصي',
-          message: `قام الموظف ${oldUser.name} بتعديل بياناته الشخصية/الأمان.`,
-          read: false
-        })
-      })
-    }
-
-    const changes: string[] = []
-    if (updates.name && updates.name !== oldUser.name) changes.push(`الاسم: "${oldUser.name}" ← "${updates.name}"`)
-    if (updates.email && updates.email !== oldUser.email) changes.push(`البريد: "${oldUser.email}" ← "${updates.email}"`)
-    if (updates.role && updates.role !== oldUser.role) changes.push(`الدور: "${oldUser.role}" ← "${updates.role}"`)
-    if (updates.active !== undefined && updates.active !== oldUser.active) changes.push(`الحالة: ${oldUser.active ? 'نشط' : 'غير نشط'} ← ${updates.active ? 'نشط' : 'غير نشط'}`)
-    if (changes.length > 0) {
-      this.addAuditEntry('user_updated', updated.id, updated.username, `تحديث المستخدم "${updated.username}": ${changes.join(' | ')}`)
-    }
-
+    this.migratePasswordUsername(oldUser, updates)
+    if (updates.approved !== undefined) this.handleApproval(updated, updates.approved)
+    this.alertProfileChange(id, oldUser, updates)
+    this.auditUpdateUser(oldUser, updated, updates)
     return updated
   }
 
@@ -336,7 +403,7 @@ class Database {
     const user = this.data.users.find(u => u.id === id)
     if (user) {
       delete this.data.passwords[user.username]
-      this.addAuditEntry('user_deleted', user.id, user.username, `حذف المستخدم "${user.username}" (${user.name})`)
+      this.addAuditEntry('user_deleted', user.id, user.username, i18n.t('db.user_deleted').replace('{username}', user.username).replace('{name}', user.name))
     }
     this.data.users = this.data.users.filter(u => u.id !== id)
     this.persist()
@@ -377,23 +444,88 @@ class Database {
 
     if (task.assigneeId) {
       const creator = this.data.users.find(u => u.id === task.creatorId)
-      const creatorName = creator ? creator.name : 'المدير'
+      const creatorName = creator ? creator.name : i18n.t('db.creator.default')
       this.addNotification({
         userId: task.assigneeId,
         type: 'task_assigned',
-        title: 'مهمة جديدة',
-        message: `أسنَد إليك المدير ${creatorName} مهمة [${task.title}]`,
+        title: i18n.t('db.notif.new_task.title'),
+        message: i18n.t('db.notif.new_task.msg').replace('{creator}', creatorName).replace('{title}', task.title),
         taskId: task.id,
         read: false
       })
     }
 
     const creator = this.data.users.find(u => u.id === task.creatorId)
+    const assigneeName = task.assigneeId
+      ? this.data.users.find(u => u.id === task.assigneeId)?.name || (i18n.lang === 'ar' ? 'غير معروف' : 'unknown')
+      : (i18n.lang === 'ar' ? 'غير محدد' : 'unassigned')
     this.addAuditEntry('task_created', task.creatorId, creator?.username || '',
-      `إنشاء مهمة "${task.code}: ${task.title}" (${task.priority}) للمسؤول ${task.assigneeId ? this.data.users.find(u => u.id === task.assigneeId)?.name || 'غير معروف' : 'غير محدد'}`)
+      i18n.t('db.task_created').replace('{code}', task.code).replace('{title}', task.title).replace('{priority}', i18n.t(`priority.${task.priority}`)).replace('{assignee}', assigneeName))
 
     return task
   }
+  private notifyAssigneeChange(oldTask: Task, updatedTask: Task, updates: Partial<Task>) {
+    if (updates.assigneeId !== undefined && updates.assigneeId !== oldTask.assigneeId && updates.assigneeId !== null) {
+      this.addNotification({
+        userId: updates.assigneeId,
+        type: 'task_assigned',
+        title: i18n.t('db.notif.new_task_assigned.title'),
+        message: i18n.t('db.notif.new_task_assigned.msg').replace('{title}', updatedTask.title),
+        taskId: updatedTask.id,
+        read: false
+      })
+    }
+  }
+
+  private notifyPriorityChange(oldTask: Task, updatedTask: Task, updates: Partial<Task>) {
+    if (updates.priority === undefined || updates.priority === oldTask.priority) return
+    const assigneeName = this.data.users.find(u => u.id === oldTask.assigneeId)?.name || i18n.t('db.assignee.default')
+    this.addNotification({
+      userId: updatedTask.creatorId,
+      type: 'task_modification',
+      title: i18n.t('db.notif.task_priority.title'),
+      message: i18n.t('db.notif.task_priority.msg').replace('{assignee}', assigneeName).replace('{title}', updatedTask.title),
+      taskId: updatedTask.id,
+      read: false
+    })
+  }
+
+  private notifyStatusChange(oldTask: Task, updatedTask: Task, updates: Partial<Task>) {
+    if (updates.status === undefined || updates.status === oldTask.status) return
+    if (updates.status !== 'done' && updates.status !== 'cancelled') return
+    const assigneeName = this.data.users.find(u => u.id === oldTask.assigneeId)?.name || i18n.t('db.assignee.default')
+    const stateText = updates.status === 'done' ? i18n.t('db.status.completed') : i18n.t('db.status.cancelled')
+    this.addNotification({
+      userId: updatedTask.creatorId,
+      type: 'task_status',
+      title: i18n.t('db.notif.task_status.title'),
+      message: i18n.t('db.notif.task_status.msg').replace('{state}', stateText).replace('{assignee}', assigneeName).replace('{title}', updatedTask.title),
+      taskId: updatedTask.id,
+      read: false
+    })
+  }
+
+  private auditUpdateTask(oldTask: Task, updates: Partial<Task>) {
+    const changes: string[] = []
+    if (updates.title && updates.title !== oldTask.title) changes.push(`${i18n.t('db.audit.title')}: "${oldTask.title}" → "${updates.title}"`)
+    if (updates.status && updates.status !== oldTask.status) changes.push(`${i18n.t('export.status')}: "${oldTask.status}" → "${updates.status}"`)
+    if (updates.priority && updates.priority !== oldTask.priority) changes.push(`${i18n.t('export.priority')}: "${oldTask.priority}" → "${updates.priority}"`)
+    if (updates.assigneeId !== undefined && updates.assigneeId !== oldTask.assigneeId) {
+      const oldAssignee = oldTask.assigneeId ? this.data.users.find(u => u.id === oldTask.assigneeId)?.name || (i18n.lang === 'ar' ? 'غير معروف' : 'unknown') : (i18n.lang === 'ar' ? 'غير محدد' : 'unassigned')
+      const newAssignee = updates.assigneeId ? this.data.users.find(u => u.id === updates.assigneeId)?.name || (i18n.lang === 'ar' ? 'غير معروف' : 'unknown') : (i18n.lang === 'ar' ? 'غير محدد' : 'unassigned')
+      changes.push(`${i18n.t('export.assignee')}: "${oldAssignee}" → "${newAssignee}"`)
+    }
+    if (updates.dueDate !== undefined && updates.dueDate !== oldTask.dueDate) {
+      const oldDue = oldTask.dueDate || i18n.t('db.audit.none')
+      const newDue = updates.dueDate || i18n.t('db.audit.none')
+      changes.push(`${i18n.t('export.due_date')}: "${oldDue}" → "${newDue}"`)
+    }
+    if (changes.length > 0) {
+      this.addAuditEntry('task_updated', oldTask.creatorId, this.data.users.find(u => u.id === oldTask.creatorId)?.username || '',
+        i18n.t('db.task_updated').replace('{code}', oldTask.code).replace('{details}', changes.join(' | ')))
+    }
+  }
+
   updateTask(id: string, updates: Partial<Task>) {
     const idx = this.data.tasks.findIndex(t => t.id === id)
     if (idx === -1) return null
@@ -401,63 +533,10 @@ class Database {
     const updatedTask = { ...oldTask, ...updates, updatedAt: new Date().toISOString() }
     this.data.tasks[idx] = updatedTask
     this.persist()
-
-    if (updates.assigneeId !== undefined && updates.assigneeId !== oldTask.assigneeId && updates.assigneeId !== null) {
-      this.addNotification({
-        userId: updates.assigneeId,
-        type: 'task_assigned',
-        title: 'مهمة جديدة مسندة',
-        message: `أسنَد إليك المدير مهمة [${updatedTask.title}]`,
-        taskId: updatedTask.id,
-        read: false
-      })
-    }
-
-    if (updates.priority !== undefined && updates.priority !== oldTask.priority) {
-      const assignee = this.data.users.find(u => u.id === oldTask.assigneeId)
-      const assigneeName = assignee ? assignee.name : 'الموظف'
-      this.addNotification({
-        userId: updatedTask.creatorId,
-        type: 'task_modification',
-        title: 'تعديل أولوية المهمة',
-        message: `قام ${assigneeName} بتعديل أولوية المهمة [${updatedTask.title}]`,
-        taskId: updatedTask.id,
-        read: false
-      })
-    }
-
-    if (updates.status !== undefined && updates.status !== oldTask.status) {
-      const assignee = this.data.users.find(u => u.id === oldTask.assigneeId)
-      const assigneeName = assignee ? assignee.name : 'الموظف'
-
-      if (updates.status === 'done' || updates.status === 'cancelled') {
-        const stateText = updates.status === 'done' ? 'أكمل' : 'ألغى'
-        this.addNotification({
-          userId: updatedTask.creatorId,
-          type: 'task_status',
-          title: 'تحديث حالة المهمة',
-          message: `${stateText} الموظف ${assigneeName} المهمة [${updatedTask.title}]`,
-          taskId: updatedTask.id,
-          read: false
-        })
-      }
-    }
-
-    const changes: string[] = []
-    if (updates.title && updates.title !== oldTask.title) changes.push(`العنوان: "${oldTask.title}" ← "${updates.title}"`)
-    if (updates.status && updates.status !== oldTask.status) changes.push(`الحالة: "${oldTask.status}" ← "${updates.status}"`)
-    if (updates.priority && updates.priority !== oldTask.priority) changes.push(`الأولوية: "${oldTask.priority}" ← "${updates.priority}"`)
-    if (updates.assigneeId !== undefined && updates.assigneeId !== oldTask.assigneeId) {
-      const oldAssignee = oldTask.assigneeId ? this.data.users.find(u => u.id === oldTask.assigneeId)?.name || 'غير معروف' : 'غير محدد'
-      const newAssignee = updates.assigneeId ? this.data.users.find(u => u.id === updates.assigneeId)?.name || 'غير معروف' : 'غير محدد'
-      changes.push(`المسؤول: "${oldAssignee}" ← "${newAssignee}"`)
-    }
-    if (updates.dueDate !== undefined && updates.dueDate !== oldTask.dueDate) changes.push(`تاريخ التسليم: "${oldTask.dueDate || 'بدون'}" ← "${updates.dueDate || 'بدون'}"`)
-    if (changes.length > 0) {
-      this.addAuditEntry('task_updated', oldTask.creatorId, this.data.users.find(u => u.id === oldTask.creatorId)?.username || '',
-        `تحديث المهمة "${oldTask.code}: ${changes[0].length > 50 ? changes[0] : oldTask.title}": ${changes.join(' | ')}`)
-    }
-
+    this.notifyAssigneeChange(oldTask, updatedTask, updates)
+    this.notifyPriorityChange(oldTask, updatedTask, updates)
+    this.notifyStatusChange(oldTask, updatedTask, updates)
+    this.auditUpdateTask(oldTask, updates)
     return updatedTask
   }
   deleteTask(id: string) {
@@ -468,7 +547,7 @@ class Database {
     if (task) {
       const user = this.data.users.find(u => u.id === task.creatorId)
       this.addAuditEntry('task_deleted', task.creatorId, user?.username || '',
-        `حذف المهمة "${task.code}: ${task.title}"`)
+        i18n.t('db.task_deleted').replace('{code}', task.code).replace('{title}', task.title))
     }
   }
 
@@ -485,15 +564,16 @@ class Database {
     const task = this.getTask(comment.taskId)
     if (task) {
       const commenter = this.data.users.find(u => u.id === comment.authorId)
-      const commenterName = commenter ? commenter.name : 'شخص ما'
+      const commenterName = commenter ? commenter.name : (i18n.lang === 'ar' ? 'شخص ما' : 'Someone')
       
-      const targetUserId = comment.authorId === task.assigneeId ? task.creatorId : task.assigneeId
+      const targetUserId = !task.assigneeId ? task.creatorId :
+        comment.authorId === task.assigneeId ? task.creatorId : task.assigneeId
       if (targetUserId && targetUserId !== comment.authorId) {
         this.addNotification({
           userId: targetUserId,
           type: 'comment',
-          title: 'تعليق جديد',
-          message: `أضاف ${commenterName} تعليقاً على المهمة: [${task.title}]`,
+          title: i18n.t('db.notif.new_comment.title'),
+          message: i18n.t('db.comment_created.msg').replace('{commenter}', commenterName).replace('{title}', task.title),
           taskId: task.id,
           read: false
         })
@@ -512,8 +592,8 @@ class Database {
           this.addNotification({
             userId: mentionedUser.id,
             type: 'mention',
-            title: 'إشارة إليك',
-            message: `أشار ${commenterName} إليك في تعليق على المهمة: [${task.title}]`,
+            title: i18n.t('db.notif.mention.title'),
+            message: i18n.t('db.mention.msg').replace('{commenter}', commenterName).replace('{title}', task.title),
             taskId: task.id,
             read: false
           })
@@ -523,9 +603,10 @@ class Database {
 
     return comment
   }
-  updateComment(id: string, content: string) {
+  updateComment(id: string, content: string, authorId?: string) {
     const idx = this.data.comments.findIndex(c => c.id === id)
     if (idx === -1) return null
+    if (authorId && this.data.comments[idx].authorId !== authorId) return null
     this.data.comments[idx].content = content
     this.data.comments[idx].editedAt = new Date().toISOString()
     this.persist()
@@ -550,14 +631,15 @@ class Database {
         const dueStr = task.dueDate.split('T')[0]
         
         if (dueStr === tomorrowStr) {
-          const uniqueKey = `deadline_tomorrow_${task.id}_${dueStr}`
-          const exists = this.data.notifications.some(n => n.type === uniqueKey)
+          const dedupKey = `deadline_tomorrow_${task.id}_${dueStr}`
+          const exists = this.data.notifications.some(n => n.dedupKey === dedupKey)
           if (!exists) {
             this.addNotification({
               userId,
-              type: uniqueKey,
-              title: 'تنبيه موعد نهائي',
-              message: `الموعد النهائي لمهمة [${task.title}] غداً.`,
+              type: 'deadline_tomorrow',
+              dedupKey,
+              title: i18n.t('db.notif.deadline_alert.title'),
+              message: i18n.t('db.deadline.msg').replace('{title}', task.title),
               taskId: task.id,
               read: false
             })
@@ -566,14 +648,15 @@ class Database {
 
         const dueTime = new Date(task.dueDate).getTime()
         if (dueTime < now.getTime()) {
-          const uniqueKey = `overdue_${task.id}`
-          const exists = this.data.notifications.some(n => n.type === uniqueKey)
+          const dedupKey = `overdue_${task.id}`
+          const exists = this.data.notifications.some(n => n.dedupKey === dedupKey)
           if (!exists) {
             this.addNotification({
-              userId: task.creatorId,
-              type: uniqueKey,
-              title: 'مهمة متأخرة',
-              message: `تأخرت المهمة [${task.title}] عن موعد تسليمها.`,
+              userId: task.assigneeId || task.creatorId,
+              type: 'overdue',
+              dedupKey,
+              title: i18n.t('db.notif.overdue_task.title'),
+              message: i18n.t('db.overdue.msg').replace('{title}', task.title),
               taskId: task.id,
               read: false
             })
@@ -596,8 +679,8 @@ class Database {
     }
 
     const currentWeek = getWeekNumber(new Date())
-    const digestKey = `weekly_digest_${userId}_${currentWeek}`
-    const exists = this.data.notifications.some(n => n.type === digestKey)
+    const dedupKey = `weekly_digest_${userId}_${currentWeek}`
+    const exists = this.data.notifications.some(n => n.dedupKey === dedupKey)
     if (exists) return
 
     if (user.role === 'admin' || user.role === 'manager') {
@@ -606,9 +689,10 @@ class Database {
       const rate = activeTasks.length > 0 ? Math.round((completedTasks.length / activeTasks.length) * 100) : 0
       this.addNotification({
         userId,
-        type: digestKey,
-        title: 'ملخص الأداء الأسبوعي للمدير',
-        message: `تم إنجاز ${rate}% من إجمالي المهام النشطة في مساحة العمل هذا الأسبوع.`,
+        type: 'weekly_digest',
+        dedupKey,
+        title: i18n.t('db.notif.digest_manager.title'),
+        message: i18n.t('db.notif.digest_manager.msg').replace('{rate}', String(rate)),
         read: false
       })
     } else {
@@ -621,9 +705,10 @@ class Database {
       
       this.addNotification({
         userId,
-        type: digestKey,
-        title: 'ملخص الأداء الأسبوعي للموظف',
-        message: `تهانينا! لقد أنجزت ${completedThisWeek} مهام هذا الأسبوع بنجاح.`,
+        type: 'weekly_digest',
+        dedupKey,
+        title: i18n.t('db.notif.digest_employee.title'),
+        message: i18n.t('db.notif.digest_employee.msg').replace('{count}', String(completedThisWeek)),
         read: false
       })
     }
@@ -665,7 +750,7 @@ class Database {
     }
     if (changed.length > 0 && userId) {
       this.addAuditEntry('settings_updated', userId, username || '',
-        `تحديث الإعدادات: ${changed.join(', ')}`)
+        i18n.t('db.audit.settings_updated').replace('{details}', changed.join(', ')))
     }
   }
   resetSettings(userId?: string, username?: string) {
@@ -673,7 +758,7 @@ class Database {
     this.persist()
     if (userId) {
       this.addAuditEntry('settings_reset', userId, username || '',
-        'إعادة تعيين جميع الإعدادات إلى القيم الافتراضية')
+        i18n.t('db.audit.settings_reset'))
     }
   }
 
@@ -717,71 +802,50 @@ class Database {
 
   clearAuditLog(userId?: string, username?: string) {
     if (userId) {
-      this.addAuditEntry('audit_log_cleared', userId, username || '', `مسح سجل التدقيق بواسطة "${username || userId}"`)
+      this.addAuditEntry('audit_log_cleared', userId, username || '', i18n.t('db.audit.audit_log_cleared').replace('{user}', username || userId))
     }
     this.data.auditEntries = []
     this.persist()
   }
 
+  private filterByPeriod(tasks: Task[], period?: string): Task[] {
+    if (!period || period === 'All') return tasks
+    const cutoffs: Record<string, number> = {
+      '7 Days': Date.now() - 7 * 86400000,
+      '30 Days': Date.now() - 30 * 86400000,
+      'Quarter': Date.now() - 90 * 86400000,
+    }
+    const cutoff = cutoffs[period]
+    return cutoff ? tasks.filter(t => new Date(t.updatedAt).getTime() >= cutoff) : tasks
+  }
+
   getReportMetrics(period?: string): ReportMetrics {
     const tasks = this.data.tasks
     const users = this.data.users
-
-    const now = Date.now()
-    let filtered = tasks
-    if (period && period !== 'All') {
-      const cutoffs: Record<string, number> = {
-        '7 Days': now - 7 * 86400000,
-        '30 Days': now - 30 * 86400000,
-        'Quarter': now - 90 * 86400000,
-      }
-      const cutoff = cutoffs[period]
-      if (cutoff) filtered = tasks.filter(t => new Date(t.updatedAt).getTime() >= cutoff)
-    }
-
+    const filtered = this.filterByPeriod(tasks, period)
     const total = filtered.length
     const completedTasks = filtered.filter(t => t.status === 'done')
     const completed = completedTasks.length
-
     const overdue = filtered.filter(t => t.status !== 'done' && t.dueDate && new Date(t.dueDate) < new Date()).length
 
-    const completedWithDuration = completedTasks
-      .map(t => {
-        const created = new Date(t.createdAt).getTime()
-        const doneDate = new Date(t.updatedAt).getTime()
-        return (doneDate - created) / 86400000
-      })
-      .filter(d => d > 0)
-    const avgResolutionDays = completedWithDuration.length > 0
-      ? Math.round((completedWithDuration.reduce((a, b) => a + b, 0) / completedWithDuration.length) * 10) / 10
-      : 0
+    const durations = completedTasks.map(t => (new Date(t.updatedAt).getTime() - new Date(t.createdAt).getTime()) / 86400000).filter(d => d > 0)
+    const avgResolutionDays = durations.length > 0 ? Math.round((durations.reduce((a, b) => a + b, 0) / durations.length) * 10) / 10 : 0
 
     const tasksByUser: Record<string, number> = {}
-    completedTasks.forEach(t => {
-      if (t.assigneeId) tasksByUser[t.assigneeId] = (tasksByUser[t.assigneeId] || 0) + 1
-    })
+    completedTasks.forEach(t => { if (t.assigneeId) tasksByUser[t.assigneeId] = (tasksByUser[t.assigneeId] || 0) + 1 })
     const topPerformers = Object.entries(tasksByUser)
-      .map(([userId, count]) => ({
-        userId,
-        name: users.find(u => u.id === userId)?.name || 'Unknown',
-        completed: count,
-      }))
+      .map(([userId, count]) => ({ userId, name: users.find(u => u.id === userId)?.name || 'Unknown', completed: count }))
       .sort((a, b) => b.completed - a.completed)
 
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
     const trendMap: Record<string, number> = {}
-    completedTasks.forEach(t => {
-      const day = dayNames[new Date(t.updatedAt).getDay()]
-      trendMap[day] = (trendMap[day] || 0) + 1
-    })
+    completedTasks.forEach(t => { const day = dayNames[new Date(t.updatedAt).getDay()]; trendMap[day] = (trendMap[day] || 0) + 1 })
     const trend = dayNames.map(date => ({ date, completed: trendMap[date] || 0 }))
 
     return {
-      totalTasks: total,
-      completedTasks: completed,
+      totalTasks: total, completedTasks: completed,
       completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
-      avgResolutionDays,
-      overdueTasks: overdue,
+      avgResolutionDays, overdueTasks: overdue,
       byStatus: [
         { status: 'todo', count: filtered.filter(t => t.status === 'todo').length },
         { status: 'in_progress', count: filtered.filter(t => t.status === 'in_progress').length },
@@ -794,9 +858,77 @@ class Database {
         { priority: 'high', count: filtered.filter(t => t.priority === 'high').length },
         { priority: 'critical', count: filtered.filter(t => t.priority === 'critical').length },
       ],
-      topPerformers,
-      trend,
+      topPerformers, trend,
     }
+  }
+
+  getSupportTickets(): SupportTicket[] {
+    return this.data.supportTickets || []
+  }
+
+  createSupportTicket(t: Omit<SupportTicket, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'assigneeId'>): SupportTicket {
+    const ticket: SupportTicket = {
+      ...t,
+      id: generateId(),
+      status: 'pending',
+      assigneeId: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+    if (!this.data.supportTickets) {
+      this.data.supportTickets = []
+    }
+    this.data.supportTickets.push(ticket)
+    this.persist()
+
+    const itUsers = this.data.users.filter(u => u.department === 'it' && u.id !== t.creatorId)
+    const creatorUser = this.data.users.find(u => u.id === t.creatorId)
+    const creatorName = creatorUser ? creatorUser.name : (i18n.lang === 'ar' ? 'موظف' : 'Employee')
+    const categoryLabel = i18n.t(`support.ticket.category.${t.category}`)
+    
+    itUsers.forEach(it => {
+      this.addNotification({
+        userId: it.id,
+        type: 'support_ticket',
+        title: i18n.lang === 'ar' ? 'طلب دعم فني جديد' : 'New Support Ticket',
+        message: i18n.lang === 'ar' 
+          ? `طلب دعم فني جديد من ${creatorName} بخصوص [${categoryLabel}]`
+          : `New support ticket from ${creatorName} regarding [${categoryLabel}]`,
+        read: false
+      })
+    })
+
+    return ticket
+  }
+
+  updateSupportTicket(id: string, updates: Partial<SupportTicket>): SupportTicket | null {
+    if (!this.data.supportTickets) return null
+    const idx = this.data.supportTickets.findIndex(t => t.id === id)
+    if (idx === -1) return null
+    const old = this.data.supportTickets[idx]
+    const updated = {
+      ...old,
+      ...updates,
+      updatedAt: new Date().toISOString()
+    }
+    this.data.supportTickets[idx] = updated
+    this.persist()
+
+    if (updates.status && updates.status !== old.status) {
+      const creatorId = old.creatorId
+      const statusLabel = i18n.t(`support.status.${updates.status}`)
+      this.addNotification({
+        userId: creatorId,
+        type: 'support_status_update',
+        title: i18n.lang === 'ar' ? 'تحديث حالة طلب الدعم' : 'Support Ticket Status Update',
+        message: i18n.lang === 'ar'
+          ? `تم تحديث حالة طلبك إلى [${statusLabel}]`
+          : `Your support ticket status has been updated to [${statusLabel}]`,
+        read: false
+      })
+    }
+
+    return updated
   }
 }
 

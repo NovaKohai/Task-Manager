@@ -6,9 +6,10 @@ interface NotificationState {
   notifications: Notification[]
   unreadCount: number
   isLoading: boolean
-  fetchNotifications: (userId: string) => Promise<void>
-  markRead: (id: string) => Promise<void>
-  markAllRead: (userId: string) => Promise<void>
+  fetchNotifications: (userId: string) => void
+  refreshNotifications: (userId: string) => void
+  markRead: (id: string) => void
+  markAllRead: (userId: string) => void
 }
 
 export const useNotificationStore = create<NotificationState>((set) => ({
@@ -16,16 +17,33 @@ export const useNotificationStore = create<NotificationState>((set) => ({
   unreadCount: 0,
   isLoading: false,
 
-  fetchNotifications: async (userId: string) => {
+  fetchNotifications: (userId: string) => {
     set({ isLoading: true })
-    await new Promise(r => setTimeout(r, 0))
-    const notifications = db.getNotifications(userId)
-    const unreadCount = notifications.filter(n => !n.read).length
-    set({ notifications, unreadCount, isLoading: false })
+    try {
+      const notifications = db.getNotifications(userId)
+      const unreadCount = notifications.filter(n => !n.read).length
+      set({ notifications, unreadCount, isLoading: false })
+    } catch (e) {
+      console.error('fetchNotifications failed', e)
+      set({ isLoading: false })
+    }
   },
 
-  markRead: async (id: string) => {
-    await new Promise(r => setTimeout(r, 0))
+  refreshNotifications: (userId: string) => {
+    db.checkDeadlinesAndOverdue(userId)
+    db.checkWeeklyDigests(userId)
+    set({ isLoading: true })
+    try {
+      const notifications = db.getNotifications(userId)
+      const unreadCount = notifications.filter(n => !n.read).length
+      set({ notifications, unreadCount, isLoading: false })
+    } catch (e) {
+      console.error('refreshNotifications failed', e)
+      set({ isLoading: false })
+    }
+  },
+
+  markRead: (id: string) => {
     db.markNotificationRead(id)
     set(state => {
       const notifications = state.notifications.map(n =>
@@ -35,8 +53,7 @@ export const useNotificationStore = create<NotificationState>((set) => ({
     })
   },
 
-  markAllRead: async (userId: string) => {
-    await new Promise(r => setTimeout(r, 0))
+  markAllRead: (userId: string) => {
     db.markAllNotificationsRead(userId)
     set(state => ({
       notifications: state.notifications.map(n => ({ ...n, read: true })),

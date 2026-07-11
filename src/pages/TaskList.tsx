@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import { i18n } from '@/lib/i18n'
-import { priorityBadge } from '@/lib/constants'
+import { priorityBadge, roleBadge, getDepartmentConfig } from '@/lib/constants'
+import { Badge } from '@/components/ui/badge'
 
 function formatDate(d: string | null): string {
   if (!d) return '—'
@@ -26,9 +27,9 @@ export default function TaskList() {
 
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
-  const getUserName = useCallback((id: string | null): string => {
-    if (!id) return '—'
-    return users.find(u => u.id === id)?.name || '—'
+  const getUser = useCallback((id: string | null) => {
+    if (!id) return null
+    return users.find(u => u.id === id) || null
   }, [users])
 
   return (
@@ -121,7 +122,13 @@ export default function TaskList() {
                         {i18n.t(`task.status.${t.status}`)}
                       </span>
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{getUserName(t.assigneeId)}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {(() => {
+                        const assignee = getUser(t.assigneeId)
+                        if (!assignee) return '—'
+                        return <span className="inline-flex items-center gap-1.5"><span>{assignee.name}</span><Badge variant={roleBadge[assignee.role]} className="rounded-full text-micro px-1.5 py-0">{i18n.t(`user.${assignee.role}`)}</Badge>{assignee.department ? <Badge variant={getDepartmentConfig(assignee.department).variant} className="rounded-full text-micro px-1.5 py-0">{i18n.t(getDepartmentConfig(assignee.department).label)}</Badge> : null}</span>
+                      })()}
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{formatDate(t.dueDate)}</span>
                     </TableCell>
