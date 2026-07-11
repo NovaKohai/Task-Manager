@@ -29,7 +29,13 @@ export default function Settings() {
   const [form, setForm] = useState<Partial<AppSettings>>({})
   const [toasts, setToasts] = useState<{ id: number; message: string }[]>([])
   const toastId = useRef(0)
-  const [updateState, setUpdateState] = useState<{ status: 'idle' | 'checking' | 'available' | 'uptodate' | 'error' | 'applying' | 'done'; commits: UpdateCommit[]; version: string; error?: string }>({ status: 'idle', commits: [], version: '' })
+  const [updateState, setUpdateState] = useState<{
+    status: 'idle' | 'checking' | 'available' | 'uptodate' | 'error' | 'downloading' | 'downloaded' | 'done'
+    info: UpdateInfo | null
+    version: string
+    error?: string
+    progress?: UpdateProgress
+  }>({ status: 'idle', info: null, version: '' })
 
   useEffect(() => { fetchSettings() }, [fetchSettings])
   useEffect(() => { if (settings) setForm({ ...settings }) }, [settings])
@@ -41,38 +47,48 @@ export default function Settings() {
 
   async function handleSave() { await updateSettings(form) }
 
+  useEffect(() => {
+    if (!window.electronAPI) return
+    const cleanup = window.electronAPI.onUpdateStatus((status) => {
+      if (status.type === 'progress') {
+        setUpdateState(s => ({ ...s, status: 'downloading', progress: status }))
+      } else if (status.type === 'downloaded') {
+        setUpdateState(s => ({ ...s, status: 'downloaded' }))
+      } else if (status.type === 'error') {
+        setUpdateState(s => ({ ...s, status: 'error', error: status.message }))
+      }
+    })
+    return cleanup
+  }, [])
+
   async function handleCheckUpdates() {
     if (!window.electronAPI) return
     setUpdateState(s => ({ ...s, status: 'checking' }))
     try {
       const version = await window.electronAPI.getAppVersion()
       const result = await window.electronAPI.checkForUpdates()
-      if (result.error) {
-        setUpdateState({ status: 'error', commits: [], version, error: result.error })
-      } else if (result.available) {
-        setUpdateState({ status: 'available', commits: result.commits, version })
+      if (result.available) {
+        setUpdateState({ status: 'available', info: result, version })
       } else {
-        setUpdateState({ status: 'uptodate', commits: [], version })
+        setUpdateState({ status: 'uptodate', info: null, version })
       }
     } catch (err: any) {
       setUpdateState(s => ({ ...s, status: 'error', error: err.message }))
     }
   }
 
-  async function handleApplyUpdate() {
+  async function handleDownloadUpdate() {
     if (!window.electronAPI) return
-    setUpdateState(s => ({ ...s, status: 'applying' }))
+    setUpdateState(s => ({ ...s, status: 'downloading' }))
     try {
-      const result = await window.electronAPI.applyUpdate()
-      if (result.success) {
-        setUpdateState(s => ({ ...s, status: 'done' }))
-        showToast(i18n.t('settings.update_success'))
-      } else {
-        setUpdateState(s => ({ ...s, status: 'error', error: result.error }))
-      }
+      await window.electronAPI.downloadUpdate()
     } catch (err: any) {
       setUpdateState(s => ({ ...s, status: 'error', error: err.message }))
     }
+  }
+
+  function handleInstallUpdate() {
+    window.electronAPI?.installUpdate()
   }
 
   const user = useAuthStore((s) => s.user)
@@ -381,31 +397,50 @@ export default function Settings() {
                   </div>
                 )}
 
-                {updateState.status === 'available' && (
+                {updateState.status === 'available' && updateState.info && (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 rounded-xl bg-blue-500/10 p-3 text-xs text-blue-500">
                       <ArrowUpCircle className="h-4 w-4 shrink-0" />
-                      {i18n.t('settings.updates_available')}
+                      {i18n.t('settings.updates_available')} v{updateState.info.version}
                     </div>
-                    <p className="text-xs text-muted-foreground/60">{i18n.t('settings.current_version')}: {updateState.version}</p>
-                    <div className="max-h-40 space-y-1 overflow-y-auto rounded-xl bg-background/50 p-3">
-                      {updateState.commits.map((c, i) => (
-                        <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground/80">
-                          <span className="shrink-0 font-mono text-[10px] text-muted-foreground/40">{c.hash.slice(0, 7)}</span>
-                          <span>{c.message}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <Button onClick={handleApplyUpdate} className="h-10 rounded-full spring-transition font-semibold px-5">
-                      <ArrowUpCircle className="h-4 w-4" />{i18n.t('settings.apply_update')}
+                    <p className="text-xs text-muted-foreground/60">{i18n.t('settings.current_version')}: v{updateState.version}</p>
+                    {updateState.info.releaseNotes && (
+                      <div className="max-h-40 overflow-y-auto rounded-xl bg-background/50 p-3">
+                        <pre className="text-xs text-muted-foreground/80 whitespace-pre-wrap font-sans leading-relaxed">{updateState.info.releaseNotes}</pre>
+                      </div>
+                    )}
+                    <Button onClick={handleDownloadUpdate} className="h-10 rounded-full spring-transition font-semibold px-5">
+                      <Download className="h-4 w-4" />{i18n.t('settings.download_update')}
                     </Button>
                   </div>
                 )}
 
-                {updateState.status === 'applying' && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                    {i18n.t('settings.applying')}
+                {updateState.status === 'downloading' && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      {i18n.t('settings.downloading')}
+                    </div>
+                    {updateState.progress && (
+                      <div className="w-full space-y-1">
+                        <div className="h-2 w-full overflow-hidden rounded-full bg-background/50">
+                          <div className="h-full rounded-full bg-blue-500 spring-transition" style={{ width: `${updateState.progress.percent}%` }} />
+                        </div>
+                        <p className="text-xs text-muted-foreground/60">{Math.round(updateState.progress.percent)}%</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {updateState.status === 'downloaded' && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 p-3 text-xs text-emerald-500">
+                      <CheckCircle2 className="h-4 w-4 shrink-0" />
+                      {i18n.t('settings.update_downloaded')}
+                    </div>
+                    <Button onClick={handleInstallUpdate} className="h-10 rounded-full spring-transition font-semibold px-5">
+                      <ArrowUpCircle className="h-4 w-4" />{i18n.t('settings.install_update')}
+                    </Button>
                   </div>
                 )}
 
