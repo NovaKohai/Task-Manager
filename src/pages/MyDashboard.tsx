@@ -12,14 +12,14 @@ import { i18n } from '@/lib/i18n'
 import { priorityBadge, getInitials } from '@/lib/constants'
 
 function formatDate(d: string | null): string {
-  if (!d) return '—'
+  if (!d) return '\u2014'
   const dt = new Date(d)
   const diff = dt.getTime() - Date.now()
   const days = Math.ceil(diff / 86400000)
-  if (days < 0) return `${Math.abs(days)}d overdue`
-  if (days === 0) return 'Today'
-  if (days === 1) return 'Tomorrow'
-  return `${days}d left`
+  if (days < 0) return i18n.t('dashboard.days_overdue').replace('{days}', String(Math.abs(days)))
+  if (days === 0) return i18n.t('dashboard.today')
+  if (days === 1) return i18n.t('dashboard.tomorrow')
+  return i18n.t('dashboard.days_left').replace('{days}', String(days))
 }
 
 function formatFullDate(d: string): string {
@@ -53,10 +53,10 @@ export default function MyDashboard() {
             </Avatar>
             <div>
               <h1 className="text-lg font-semibold tracking-tight text-foreground">
-                Welcome back, {user?.name?.split(' ')[0] || 'User'}
+                {i18n.t('dashboard.welcome_back').replace('{name}', user?.name?.split(' ')[0] || 'User')}
               </h1>
               <p className="text-xs text-muted-foreground">
-                {openTasks.length} open · {completedCount} completed
+                {i18n.t('dashboard.task_summary').replace('{open}', String(openTasks.length)).replace('{completed}', String(completedCount))}
               </p>
             </div>
           </div>
@@ -105,8 +105,8 @@ export default function MyDashboard() {
               {openTasks.length === 0 ? (
                 <div className="flex flex-col items-center py-8 text-center">
                   <ClipboardList className="mb-2 h-8 w-8 text-muted-foreground/20" />
-                  <p className="text-sm font-semibold text-foreground">No open tasks</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">All caught up! Create a new task to get started.</p>
+                  <p className="text-sm font-semibold text-foreground">{i18n.t('dashboard.no_open_tasks')}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{i18n.t('dashboard.no_open_tasks_desc')}</p>
                 </div>
               ) : (
                 openTasks.map((t) => (
@@ -134,8 +134,8 @@ export default function MyDashboard() {
               {upcomingDeadlines.length === 0 ? (
                 <div className="flex flex-col items-center py-8 text-center">
                   <Clock className="mb-2 h-8 w-8 text-muted-foreground/20" />
-                  <p className="text-sm font-semibold text-foreground">No upcoming deadlines</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">No tasks with due dates yet.</p>
+                  <p className="text-sm font-semibold text-foreground">{i18n.t('dashboard.no_upcoming_deadlines')}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{i18n.t('dashboard.no_upcoming_deadlines_desc')}</p>
                 </div>
               ) : (
                 upcomingDeadlines.map((t) => {
@@ -169,8 +169,8 @@ export default function MyDashboard() {
             {recentActivity.length === 0 ? (
               <div className="flex flex-col items-center py-8 text-center">
                 <TrendingUp className="mb-2 h-8 w-8 text-muted-foreground/20" />
-                <p className="text-sm font-semibold text-foreground">No recent activity</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Task updates will appear here.</p>
+                <p className="text-sm font-semibold text-foreground">{i18n.t('dashboard.no_recent_activity')}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{i18n.t('dashboard.no_recent_activity_desc')}</p>
               </div>
             ) : (
               recentActivity.map((t) => (
@@ -195,7 +195,7 @@ export default function MyDashboard() {
         <div className="glass-panel-inner">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 mb-3">{i18n.t('dashboard.quick_update')}</h2>
           <div className="flex gap-2">
-            <Input aria-label={i18n.t('dashboard.quick_update')} placeholder="What are you working on?" value={quickUpdate} onChange={(e) => setQuickUpdate(e.target.value)} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition flex-1" maxLength={500} />
+            <Input aria-label={i18n.t('dashboard.quick_update')} placeholder={i18n.t('dashboard.quick_update_placeholder')} value={quickUpdate} onChange={(e) => setQuickUpdate(e.target.value)} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition flex-1" maxLength={500} />
             <Button onClick={() => { if (quickUpdate.trim()) { setQuickUpdate('') } }} size="icon" disabled={!quickUpdate.trim()} className="h-10 w-10 shrink-0 rounded-full bg-primary hover:bg-primary/90 spring-transition">
               <Send className="h-4 w-4" />
             </Button>

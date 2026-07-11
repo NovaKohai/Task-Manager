@@ -61,10 +61,10 @@ export default memo(function Sidebar({ user, onLogout }: SidebarProps) {
               key={link.to}
               onClick={() => navigate(link.to)}
               className={cn(
-                'flex w-full items-center gap-3 px-3 py-2.5 text-xs font-semibold tracking-wide spring-transition pressable rtl:border-r-4 ltr:border-l-4',
+                'flex w-full items-center gap-3 px-3 py-2.5 text-xs font-semibold tracking-wide spring-fast pressable rtl:border-r-4 ltr:border-l-4',
                 isActive
                   ? 'text-primary bg-primary/5 rtl:border-r-primary ltr:border-l-primary'
-                  : 'text-muted-foreground/80 border-transparent hover:bg-primary/10 hover:text-primary hover:scale-[1.02]'
+                  : 'text-muted-foreground/80 border-transparent hover:bg-primary/10 hover:text-primary'
               )}
             >
               <Icon className={cn('h-4 w-4 shrink-0', isActive ? 'text-primary' : 'text-muted-foreground/80')} />

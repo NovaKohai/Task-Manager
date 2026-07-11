@@ -44,12 +44,12 @@ export default function LoginPage() {
     e.preventDefault()
     setError('')
     if (!regName.trim() || !regEmail.trim() || !regUsername.trim() || !regPassword) {
-      setError('All fields are required')
+      setError(i18n.t('register.all_fields_required'))
       return
     }
 
     if (regPassword.length < 8) {
-      setError('Password must be at least 8 characters')
+      setError(i18n.t('register.pwd_min_length'))
       return
     }
     const hasUppercase = /[A-Z]/.test(regPassword)
@@ -76,7 +76,7 @@ export default function LoginPage() {
       setRegUsername('')
       setRegPassword('')
     } catch (e: any) {
-      setError(e.message || 'Registration failed')
+      setError(e.message || i18n.t('register.registration_failed'))
     }
   }
 
@@ -182,7 +182,7 @@ export default function LoginPage() {
                 </div>
                 <div className="space-y-2">
                   <label htmlFor="regUsername" className="text-xs font-semibold text-muted-foreground">{i18n.t('profile.username')}</label>
-                  <Input id="regUsername" type="text" placeholder="username" value={regUsername} onChange={(e) => setRegUsername(e.target.value)} className="h-10 rounded-xl bg-muted/20 border-muted/40" />
+                  <Input id="regUsername" type="text" placeholder={i18n.t('register.username_placeholder')} value={regUsername} onChange={(e) => setRegUsername(e.target.value)} className="h-10 rounded-xl bg-muted/20 border-muted/40" />
                 </div>
                 <div className="space-y-2">
                   <label htmlFor="regPassword" className="text-xs font-semibold text-muted-foreground">{i18n.t('login.password')}</label>

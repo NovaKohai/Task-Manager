@@ -9,6 +9,7 @@ import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 import { db } from '@/lib/db'
 import { i18n } from '@/lib/i18n'
+import { isAnalyticsOptedIn, setAnalyticsOptIn, getAnalyticsEvents, clearAnalyticsEvents, track } from '@/lib/analytics'
 import type { AppSettings } from '@/lib/types'
 
 type Section = 'general' | 'security' | 'sessions' | 'notifications' | 'data' | 'ratelimit' | 'updates'
@@ -260,15 +261,15 @@ export default function Settings() {
               <div className="glass-panel-inner space-y-5">
                 <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">{i18n.t('settings.notifications')}</h2>
                 {([
-                  { key: 'enableEmailNotif' as const, label: 'Email Notifications', help: 'settings.enableEmailNotif.help' },
-                  { key: 'enablePushNotif' as const, label: 'Push Notifications', help: 'settings.enablePushNotif.help' },
-                  { key: 'enableSlackNotif' as const, label: 'Slack Integration', help: 'settings.enableSlackNotif.help' },
-                  { key: 'enableDigest' as const, label: 'Daily Digest', help: 'settings.enableDigest.help' },
+                  { key: 'enableEmailNotif' as const, label: () => i18n.t('settings.email_notifications'), help: 'settings.enableEmailNotif.help' },
+                  { key: 'enablePushNotif' as const, label: () => i18n.t('settings.push_notifications'), help: 'settings.enablePushNotif.help' },
+                  { key: 'enableSlackNotif' as const, label: () => i18n.t('settings.slack_integration'), help: 'settings.enableSlackNotif.help' },
+                  { key: 'enableDigest' as const, label: () => i18n.t('settings.daily_digest'), help: 'settings.enableDigest.help' },
                 ] as const).map((n) => (
                   <div key={n.key} className="space-y-1">
                     <div className="flex items-center gap-3">
                       <Switch id={n.key} checked={form[n.key] ?? false} onCheckedChange={(v) => update(n.key, v)} />
-                      <Label htmlFor={n.key} className="text-sm font-bold">{n.label}</Label>
+                      <Label htmlFor={n.key} className="text-sm font-bold">{n.label()}</Label>
                     </div>
                     <p className="text-caption text-muted-foreground/80 leading-normal pl-11 rtl:pr-11 rtl:pl-0">{i18n.t(n.help)}</p>
                   </div>
@@ -333,6 +334,23 @@ export default function Settings() {
                   </div>
                 </div>
                 <Button onClick={handleSave} className="h-10 rounded-full spring-transition font-semibold px-5"><Save className="h-4 w-4" />{i18n.t('settings.save')}</Button>
+
+                <hr className="border-border/10" />
+
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 pt-2">{i18n.t('settings.usage_analytics')}</h2>
+                <p className="text-sm text-muted-foreground/90 leading-relaxed">{i18n.t('settings.analytics_desc')}</p>
+                <div className="flex items-center gap-3">
+                  <Switch id="srvAnalytics" checked={isAnalyticsOptedIn()} onCheckedChange={(v) => { setAnalyticsOptIn(v); if (v) track('analytics_optin') }} />
+                  <Label htmlFor="srvAnalytics" className="text-sm font-bold">{i18n.t('settings.share_analytics')}</Label>
+                </div>
+                {isAnalyticsOptedIn() && (
+                  <div className="space-y-2">
+                    <p className="text-caption text-muted-foreground/80">{i18n.t('settings.events_collected').replace('{count}', String(getAnalyticsEvents().length))}</p>
+                    <Button variant="secondary" size="sm" onClick={() => { clearAnalyticsEvents(); showToast(i18n.t('settings.events_cleared')) }} className="h-8 rounded-full text-xs spring-transition">
+                      {i18n.t('settings.clear_events')}
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -367,7 +385,7 @@ export default function Settings() {
                 {!window.electronAPI && (
                   <div className="flex items-center gap-2 rounded-xl bg-amber-500/10 p-3 text-xs text-amber-500">
                     <XCircle className="h-4 w-4 shrink-0" />
-                    Updates only available in the desktop app.
+                    {i18n.t('settings.updates_web_only')}
                   </div>
                 )}
 
@@ -462,7 +480,7 @@ export default function Settings() {
                     <div className="flex items-center gap-2 rounded-xl bg-red-500/10 p-3 text-xs text-red-500">
                       <XCircle className="h-4 w-4 shrink-0" />
                       {i18n.t('settings.update_error')}
-                      {updateState.error && <span className="text-muted-foreground/60">: {updateState.error}</span>}
+                      {updateState.error && <span className="text-red-300">: {updateState.error}</span>}
                     </div>
                     <Button onClick={handleCheckUpdates} variant="secondary" className="h-9 rounded-full spring-transition text-xs font-semibold px-4">
                       <RefreshCw className="h-3.5 w-3.5" />{i18n.t('retry')}
@@ -481,14 +499,14 @@ export default function Settings() {
               </h2>
               <p className="text-sm text-muted-foreground/90 leading-relaxed mb-4">{i18n.t('settings.danger_desc')}</p>
               <div className="flex flex-wrap gap-3">
-                <Button variant="danger" onClick={async () => { await resetSettings(); showToast('Settings reset to defaults') }} className="h-9 rounded-full spring-transition text-xs font-semibold px-4">
-                  <RotateCcw className="h-3.5 w-3.5" />Reset to Defaults
+                <Button variant="danger" onClick={async () => { await resetSettings(); showToast(i18n.t('settings.reset_toast')) }} className="h-9 rounded-full spring-transition text-xs font-semibold px-4">
+                  <RotateCcw className="h-3.5 w-3.5" />{i18n.t('settings.reset_defaults')}
                 </Button>
-                <Button variant="danger" onClick={() => { localStorage.removeItem('ttm_data'); showToast('System data cleared — reload to apply') }} className="h-9 rounded-full spring-transition text-xs font-semibold px-4">
-                  <AlertTriangle className="h-3.5 w-3.5" />Clear All Data
+                <Button variant="danger" onClick={() => { localStorage.removeItem('ttm_data'); showToast(i18n.t('settings.data_cleared_toast')) }} className="h-9 rounded-full spring-transition text-xs font-semibold px-4">
+                  <AlertTriangle className="h-3.5 w-3.5" />{i18n.t('settings.clear_data')}
                 </Button>
-                <Button variant="danger" onClick={() => { db.clearAuditLog(user?.id, user?.username); showToast('Audit log cleared') }} className="h-9 rounded-full spring-transition text-xs font-bold px-4">
-                  Clear Audit Log
+                <Button variant="danger" onClick={() => { db.clearAuditLog(user?.id, user?.username); showToast(i18n.t('settings.audit_cleared_toast')) }} className="h-9 rounded-full spring-transition text-xs font-bold px-4">
+                  {i18n.t('settings.clear_audit')}
                 </Button>
               </div>
             </div>

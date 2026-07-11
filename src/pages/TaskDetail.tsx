@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft, Calendar, Clock, User, CheckCircle2, XCircle, Edit3, Trash2, Send,
+  ArrowLeft, Calendar, Clock, User, CheckCircle2, XCircle, Edit3, Trash2, Send, Download,
 } from 'lucide-react'
 import { useTaskStore } from '@/stores/taskStore'
 import { useCommentStore } from '@/stores/commentStore'
@@ -68,8 +68,8 @@ export default function TaskDetail() {
     db.addNotification({
       userId: t.creatorId,
       type: 'qa_review',
-      title: 'طلب مراجعة جودة',
-      message: `طلب الموظف ${user.name} مراجعة الكود/التصميم الخاص بمهمة [${t.title}]`,
+      title: i18n.t('task_detail.qa_notification'),
+      message: i18n.t('task_detail.qa_message').replace('{user}', user.name).replace('{title}', t.title),
       taskId: t.id,
       read: false
     })
@@ -82,7 +82,7 @@ export default function TaskDetail() {
   }, [users])
 
   const statusTransitions = useMemo(() => [
-    { from: ['todo'] as TaskStatus[], to: 'in_progress' as TaskStatus, label: 'Start', variant: 'primary' as const },
+    { from: ['todo'] as TaskStatus[], to: 'in_progress' as TaskStatus, label: i18n.t('task_detail.start'), variant: 'primary' as const },
     { from: ['in_progress'] as TaskStatus[], to: 'done' as TaskStatus, label: i18n.t('task.complete'), variant: 'success' as const },
     { from: ['todo', 'in_progress'] as TaskStatus[], to: 'cancelled' as TaskStatus, label: i18n.t('task.cancel'), variant: 'danger' as const },
   ], [])
@@ -117,18 +117,21 @@ export default function TaskDetail() {
               <h1 className="text-lg font-bold tracking-tight text-foreground">{t.title}</h1>
               <p className="mt-0.5 text-xs text-muted-foreground font-mono">{t.code}</p>
             </div>
-            <div className="flex gap-2 shrink-0">
+            <div className="flex gap-2 shrink-0 items-center">
               <span className={cn('text-caption font-semibold px-2.5 py-0.5 rounded-full', priorityBadge[t.priority].variant === 'danger' ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary')}>{i18n.t(`priority.${t.priority}`)}</span>
               <span className="text-caption font-semibold px-2.5 py-0.5 rounded-full bg-muted/30 text-muted-foreground">{i18n.t(`task.status.${t.status}`)}</span>
+              <Button variant="ghost" size="icon" onClick={async () => { const { exportTaskPDF } = await import('@/lib/export'); exportTaskPDF(t) }} className="h-7 w-7 rounded-full hover:bg-muted/40 spring-transition" title={i18n.t('task_detail.export_pdf')}>
+                <Download className="h-3.5 w-3.5" />
+              </Button>
             </div>
           </div>
 
-          <p className="text-sm leading-relaxed text-muted-foreground/80 max-w-prose">{t.description || 'No description'}</p>
+          <p className="text-sm leading-relaxed text-muted-foreground/80 max-w-prose">{t.description || i18n.t('task_detail.no_description')}</p>
 
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 pt-2">
             <div className="bg-muted/20 rounded-xl p-3 border border-border/10">
               <Label className="text-caption font-semibold uppercase tracking-wider text-muted-foreground/60">{i18n.t('task.assignee')}</Label>
-              <p className="mt-1 flex items-center gap-1 text-sm font-semibold"><User className="h-3 w-3 shrink-0 text-primary" />{t.assigneeId ? getUserName(t.assigneeId) : 'Unassigned'}</p>
+              <p className="mt-1 flex items-center gap-1 text-sm font-semibold"><User className="h-3 w-3 shrink-0 text-primary" />{t.assigneeId ? getUserName(t.assigneeId) : i18n.t('task_detail.unassigned')}</p>
             </div>
             <div className="bg-muted/20 rounded-xl p-3 border border-border/10">
               <Label className="text-caption font-semibold uppercase tracking-wider text-muted-foreground/60">{i18n.t('task.due_date')}</Label>
@@ -146,7 +149,7 @@ export default function TaskDetail() {
 
           {t.project && (
             <div className="bg-muted/20 rounded-xl p-3 border border-border/10 inline-block">
-              <Label className="text-caption font-semibold uppercase tracking-wider text-muted-foreground/60">Project</Label>
+              <Label className="text-caption font-semibold uppercase tracking-wider text-muted-foreground/60">{i18n.t('task_detail.project')}</Label>
               <p className="mt-0.5 text-sm font-semibold">{t.project}</p>
             </div>
           )}
@@ -180,9 +183,9 @@ export default function TaskDetail() {
       {/* Acceptance Criteria */}
       <div className="glass-panel animate-rise stagger-3">
         <div className="glass-panel-inner">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 mb-3">Acceptance Criteria</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 mb-3">{i18n.t('task_detail.acceptance_criteria')}</h2>
           <div className="rounded-xl border-2 border-dashed border-border/40 p-6 text-center text-sm text-muted-foreground/60">
-            No acceptance criteria defined
+            {i18n.t('task_detail.no_criteria')}
           </div>
         </div>
       </div>
@@ -190,7 +193,7 @@ export default function TaskDetail() {
       {/* Comments */}
       <div className="glass-panel animate-rise stagger-4">
         <div className="glass-panel-inner">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 mb-4">Comments ({comments.length})</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 mb-4">{i18n.t('task_detail.comments')} ({comments.length})</h2>
 
           <div className="flex gap-2 mb-5">
             <Input aria-label={i18n.t('comment.placeholder')} placeholder={i18n.t('comment.placeholder')} value={commentText} onChange={(e) => setCommentText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddComment() } }} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition flex-1" maxLength={2000} />
@@ -218,13 +221,13 @@ export default function TaskDetail() {
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-bold text-foreground">{getUserName(c.authorId)}</span>
                         <span className="text-caption text-muted-foreground font-mono">{formatFull(c.createdAt)}</span>
-                        {c.editedAt && <span className="text-caption text-muted-foreground/60">(edited)</span>}
+                        {c.editedAt && <span className="text-caption text-muted-foreground/60">{i18n.t('task_detail.edited')}</span>}
                       </div>
                       {editingId === c.id ? (
                         <div className="flex gap-2">
                           <Input aria-label={i18n.t('edit')} value={editText} onChange={(e) => setEditText(e.target.value)} className="h-8 text-sm rounded-xl bg-background/50 flex-1 spring-transition" />
-                          <Button size="sm" onClick={() => handleEditComment(c.id)} className="h-8 text-xs rounded-full spring-transition">Save</Button>
-                          <Button size="sm" variant="ghost" onClick={() => setEditingId(null)} className="h-8 text-xs rounded-full spring-transition">Cancel</Button>
+                          <Button size="sm" onClick={() => handleEditComment(c.id)} className="h-8 text-xs rounded-full spring-transition">{i18n.t('task_detail.save_edit')}</Button>
+                          <Button size="sm" variant="ghost" onClick={() => setEditingId(null)} className="h-8 text-xs rounded-full spring-transition">{i18n.t('task_detail.cancel_edit')}</Button>
                         </div>
                       ) : (
                         <p className="text-sm text-foreground/80">{c.content}</p>
@@ -251,12 +254,12 @@ export default function TaskDetail() {
       <Dialog open={deleteConfirm !== null} onOpenChange={(o) => { if (!o) setDeleteConfirm(null) }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Comment</DialogTitle>
-            <DialogDescription>Are you sure you want to delete this comment? This action cannot be undone.</DialogDescription>
+            <DialogTitle>{i18n.t('task_detail.delete_comment')}</DialogTitle>
+            <DialogDescription>{i18n.t('task_detail.delete_comment_desc')}</DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex gap-2">
-            <Button variant="secondary" onClick={() => setDeleteConfirm(null)} className="h-9 rounded-full spring-transition">Cancel</Button>
-            <Button variant="danger" onClick={() => { if (deleteConfirm) handleDeleteComment(deleteConfirm) }} className="h-9 rounded-full spring-transition">Delete</Button>
+            <Button variant="secondary" onClick={() => setDeleteConfirm(null)} className="h-9 rounded-full spring-transition">{i18n.t('cancel')}</Button>
+            <Button variant="danger" onClick={() => { if (deleteConfirm) handleDeleteComment(deleteConfirm) }} className="h-9 rounded-full spring-transition">{i18n.t('delete')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

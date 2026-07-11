@@ -36,7 +36,7 @@ export default function TaskList() {
       <div className="flex items-center justify-between animate-rise stagger-1">
         <div>
           <h1 className="text-lg font-bold tracking-tight text-foreground">{i18n.t('nav.tasks')}</h1>
-          <p className="text-xs text-muted-foreground/80 mt-1">Manage and track all tasks</p>
+          <p className="text-xs text-muted-foreground/80 mt-1">{i18n.t('task_list.subtitle')}</p>
         </div>
         <Button onClick={() => navigate('/tasks/create')} className="h-10 rounded-full bg-primary hover:bg-primary/90 text-xs font-semibold spring-transition shadow-lg shadow-primary/20">
           <Plus className="h-4 w-4" />
@@ -54,7 +54,7 @@ export default function TaskList() {
             <Select aria-label={i18n.t('task.status')} value={filters.status || '_all'} onValueChange={(v) => setFilters({ ...filters, status: v === '_all' ? undefined : v })}>
               <SelectTrigger className="w-[150px] h-9 rounded-xl border-border/40 bg-background/50"><SelectValue placeholder={i18n.t('task.status')} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="_all">All Statuses</SelectItem>
+                <SelectItem value="_all">{i18n.t('task_list.all_statuses')}</SelectItem>
                 <SelectItem value="todo">{i18n.t('task.status.todo')}</SelectItem>
                 <SelectItem value="in_progress">{i18n.t('task.status.in_progress')}</SelectItem>
                 <SelectItem value="done">{i18n.t('task.status.done')}</SelectItem>
@@ -64,7 +64,7 @@ export default function TaskList() {
             <Select aria-label={i18n.t('task.priority')} value={filters.priority || '_all'} onValueChange={(v) => setFilters({ ...filters, priority: v === '_all' ? undefined : v })}>
               <SelectTrigger className="w-[150px] h-9 rounded-xl border-border/40 bg-background/50"><SelectValue placeholder={i18n.t('task.priority')} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="_all">All Priorities</SelectItem>
+                <SelectItem value="_all">{i18n.t('task_list.all_priorities')}</SelectItem>
                 <SelectItem value="low">{i18n.t('priority.low')}</SelectItem>
                 <SelectItem value="medium">{i18n.t('priority.medium')}</SelectItem>
                 <SelectItem value="high">{i18n.t('priority.high')}</SelectItem>
@@ -128,7 +128,7 @@ export default function TaskList() {
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Button variant="ghost" size="sm" className="h-7 text-xs rounded-full hover:bg-primary/10 hover:text-primary spring-transition" onClick={(e) => { e.stopPropagation(); navigate(`/tasks/${t.id}`) }}>
-                          View
+                          {i18n.t('task_list.view')}
                         </Button>
                         <Button variant="ghost" size="sm" className="h-7 w-7 rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive spring-transition" onClick={(e) => { e.stopPropagation(); setDeleteConfirm(t.id) }}>
                           <Trash2 className="h-3.5 w-3.5" />

@@ -1,11 +1,13 @@
 import { useEffect, Suspense } from 'react'
-import { Outlet, useNavigate } from 'react-router-dom'
+import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useNotificationStore } from '@/stores/notificationStore'
 import Sidebar from '@/components/layout/Sidebar'
 import Header from '@/components/layout/Header'
+import { ErrorBoundary } from '@/components/ui/error-boundary'
 import { i18n } from '@/lib/i18n'
 import { db } from '@/lib/db'
+import { track } from '@/lib/analytics'
 
 export default function AppShell() {
   const user = useAuthStore(s => s.user)
@@ -16,12 +18,23 @@ export default function AppShell() {
   const unreadCount = useNotificationStore(s => s.unreadCount)
   const fetchNotifications = useNotificationStore(s => s.fetchNotifications)
   const navigate = useNavigate()
+  const location = useLocation()
 
   useEffect(() => { checkSession() }, [checkSession])
 
   useEffect(() => {
+    if (user) track('page_view', { path: location.pathname })
+  }, [location.pathname, user])
+
+  useEffect(() => {
     if (!isLoading && !user) navigate('/login', { replace: true })
   }, [user, isLoading, navigate])
+
+  useEffect(() => {
+    if (user && !localStorage.getItem('ttm_onboarding_done') && location.pathname !== '/onboarding') {
+      navigate('/onboarding', { replace: true })
+    }
+  }, [user, location.pathname, navigate])
 
   useEffect(() => {
     if (user) {
@@ -78,16 +91,18 @@ export default function AppShell() {
       <div className="flex flex-1 flex-col ms-60">
         <Header user={user} unreadCount={unreadCount} />
         <main id="main" role="main" className="flex-1 p-4 md:p-6 lg:p-8 relative">
-          <Suspense fallback={
-            <div className="flex h-full items-center justify-center">
-              <div className="flex flex-col items-center gap-3">
-                <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                <p className="text-sm text-muted-foreground">{i18n.t('loading')}</p>
+          <ErrorBoundary>
+            <Suspense fallback={
+              <div className="flex h-full items-center justify-center">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  <p className="text-sm text-muted-foreground">{i18n.t('loading')}</p>
+                </div>
               </div>
-            </div>
-          }>
-            <Outlet />
-          </Suspense>
+            }>
+              <Outlet />
+            </Suspense>
+          </ErrorBoundary>
         </main>
       </div>
     </div>

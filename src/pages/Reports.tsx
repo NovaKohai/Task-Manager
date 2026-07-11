@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 import { i18n } from '@/lib/i18n'
 import type { TaskStatus } from '@/lib/types'
 
-const periods = ['7 Days', '30 Days', 'Quarter', 'All'] as const
+const periodKeys = ['reports.period_7d', 'reports.period_30d', 'reports.period_quarter', 'reports.period_all'] as const
 
 const statusColors: Record<TaskStatus, string> = {
   todo: 'bg-slate-400', in_progress: 'bg-blue-500', done: 'bg-green-500', cancelled: 'bg-red-400',
@@ -33,25 +33,28 @@ export default function Reports() {
       <div className="flex items-center justify-between animate-rise stagger-1">
         <div>
           <h1 className="text-lg font-bold tracking-tight text-foreground">{i18n.t('report.title')}</h1>
-          <p className="text-xs text-muted-foreground/80 mt-1">Track team performance and trends</p>
+          <p className="text-xs text-muted-foreground/80 mt-1">{i18n.t('reports.subtitle')}</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary" size="sm" className="h-8 rounded-full spring-transition text-xs font-semibold px-4">
-            <Download className="h-3.5 w-3.5" />{i18n.t('report.csv')}
+          <Button variant="secondary" size="sm" onClick={async () => { const { exportReportXLSX } = await import('@/lib/export'); exportReportXLSX(m, period) }} className="h-8 rounded-full spring-transition text-xs font-semibold px-4">
+            <Download className="h-3.5 w-3.5" />XLSX
           </Button>
-          <Button variant="secondary" size="sm" className="h-8 rounded-full spring-transition text-xs font-semibold px-4">
-            <Download className="h-3.5 w-3.5" />{i18n.t('report.pdf')}
+          <Button variant="secondary" size="sm" onClick={async () => { const { exportReportPDF } = await import('@/lib/export'); exportReportPDF(m, period) }} className="h-8 rounded-full spring-transition text-xs font-semibold px-4">
+            <Download className="h-3.5 w-3.5" />PDF
           </Button>
         </div>
       </div>
 
       <div className="flex gap-1.5 bg-muted/40 p-1.5 rounded-2xl border border-border/10 w-fit animate-rise stagger-2">
-        {periods.map((p) => (
-          <button key={p} onClick={() => setPeriod(p)}
-            className={cn('pill-tab spring-fast', period === p ? 'pill-tab-active' : 'pill-tab-inactive')}>
-            {p}
+        {periodKeys.map((k) => {
+          const label = i18n.t(k)
+          return (
+          <button key={k} onClick={() => setPeriod(label)}
+            className={cn('pill-tab spring-fast', period === label ? 'pill-tab-active' : 'pill-tab-inactive')}>
+            {label}
           </button>
-        ))}
+          )
+        })}
       </div>
 
       {isLoading ? (
@@ -68,7 +71,7 @@ export default function Reports() {
                   <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                 </div>
                 <p className="text-2xl font-bold text-foreground">{m.completedTasks}</p>
-                <p className="text-xs text-muted-foreground">out of {m.totalTasks} tasks</p>
+                <p className="text-xs text-muted-foreground">{i18n.t('reports.out_of').replace('{count}', String(m.totalTasks))}</p>
               </div>
             </div>
             <div className="glass-panel">
@@ -144,7 +147,7 @@ export default function Reports() {
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground shadow-sm">{i + 1}</div>
                     <div>
                       <p className="text-sm font-bold text-foreground">{p.name}</p>
-                      <p className="text-xs text-muted-foreground font-semibold">{p.completed} completed</p>
+                      <p className="text-xs text-muted-foreground font-semibold">{i18n.t('reports.completed_count').replace('{count}', String(p.completed))}</p>
                     </div>
                   </div>
                 ))}

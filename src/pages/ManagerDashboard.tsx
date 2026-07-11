@@ -30,7 +30,7 @@ function renderTrendCard(completionRate: number) {
             <p className="text-2xl font-black text-foreground mt-1">{completionRate}% {i18n.t('report.completion_rate')}</p>
           </div>
           <span className="text-caption bg-emerald-500/10 text-emerald-500 px-2.5 py-1 rounded-full border border-emerald-500/20 font-semibold">
-            +12% this week
+            {i18n.t('manager.weekly_trend')}
           </span>
         </div>
         
@@ -50,7 +50,7 @@ function renderTrendCard(completionRate: number) {
           </svg>
         </div>
           <div className="flex justify-between text-micro text-muted-foreground/60 font-medium mt-2 px-1">
-          <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+          <span>{i18n.t('manager.day_mon')}</span><span>{i18n.t('manager.day_tue')}</span><span>{i18n.t('manager.day_wed')}</span><span>{i18n.t('manager.day_thu')}</span><span>{i18n.t('manager.day_fri')}</span><span>{i18n.t('manager.day_sat')}</span><span>{i18n.t('manager.day_sun')}</span>
         </div>
       </div>
     </div>
@@ -81,7 +81,7 @@ function renderStatsGrid(stats: StatsData) {
               <p className="text-xl font-bold text-primary mt-1">{stats.completedTasks}</p>
             </div>
             <div className="bg-muted/30 p-3 rounded-2xl border border-border/10">
-              <p className="text-micro uppercase font-semibold text-muted-foreground/60 tracking-wider">Rate</p>
+              <p className="text-micro uppercase font-semibold text-muted-foreground/60 tracking-wider">{i18n.t('manager.rate')}</p>
               <p className="text-xl font-bold text-foreground mt-1">{stats.completionRate}%</p>
             </div>
             <div className="bg-muted/30 p-3 rounded-2xl border border-border/10">
@@ -96,7 +96,7 @@ function renderStatsGrid(stats: StatsData) {
         <div className="mt-4 p-3 rounded-xl bg-primary/5 border border-primary/10 flex items-center gap-2.5">
           <TrendingUp className="h-4 w-4 text-primary shrink-0" />
           <p className="text-micro text-muted-foreground/80 font-medium leading-normal">
-            You completed 15% more tasks this sprint. Keep it up!
+            {i18n.t('dashboard.motivational')}
           </p>
         </div>
       </div>
@@ -116,7 +116,7 @@ function renderRecentTasks(
         <div className="flex justify-between items-center mb-6">
           <div>
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">{i18n.t('nav.tasks')}</h3>
-            <p className="text-caption text-muted-foreground/60 mt-1">Active items requiring your attention.</p>
+            <p className="text-caption text-muted-foreground/60 mt-1">{i18n.t('dashboard.active_tasks_subtitle')}</p>
           </div>
           {recentTasks.length > 0 && (
             <Button variant="ghost" size="sm" onClick={() => navigate('/tasks')} className="h-7 text-xs rounded-full px-4 hover:bg-muted/40 spring-transition">
@@ -200,8 +200,8 @@ function renderTeamPerformance(users: any[]) {
         </div>
 
         <div className="mt-6 pt-4 border-t border-border/10 flex justify-between items-center text-caption text-muted-foreground font-medium">
-          <span>{users.length} Workspace Members</span>
-          <span className="text-primary font-bold">Active Status</span>
+          <span>{i18n.t('dashboard.workspace_members').replace('{count}', String(users.length))}</span>
+          <span className="text-primary font-bold">{i18n.t('dashboard.active_status')}</span>
         </div>
       </div>
     </div>
@@ -232,7 +232,7 @@ export default function ManagerDashboard() {
           <h1 className="text-lg font-bold tracking-tight text-foreground">
             {i18n.t('greeting.morning')}, <span className="text-primary">{user?.name?.split(' ')[0]}</span>
           </h1>
-          <p className="text-xs text-muted-foreground/80 mt-1">Here is a quick overview of your team's workspace.</p>
+          <p className="text-xs text-muted-foreground/80 mt-1">{i18n.t('dashboard.team_overview')}</p>
         </div>
 
         <Button onClick={() => navigate('/tasks/create')} className="group flex items-center justify-between gap-4 bg-gradient-to-r from-primary to-primary/80 hover:opacity-95 text-primary-foreground font-medium text-xs px-5 py-2.5 rounded-full shadow-lg shadow-primary/10 active:scale-[0.98] spring-transition h-10 border-none">

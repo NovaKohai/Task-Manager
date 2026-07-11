@@ -9,21 +9,8 @@ import { i18n } from '@/lib/i18n'
 import { db } from '@/lib/db'
 import type { AuditAction, AuditEntry } from '@/lib/types'
 
-const actionLabels: Record<AuditAction, string> = {
-  login: 'تسجيل دخول',
-  logout: 'تسجيل خروج',
-  login_failed: 'فشل تسجيل الدخول',
-  task_created: 'إنشاء مهمة',
-  task_updated: 'تحديث مهمة',
-  task_deleted: 'حذف مهمة',
-  user_created: 'إنشاء مستخدم',
-  user_updated: 'تحديث مستخدم',
-  user_deleted: 'حذف مستخدم',
-  user_approved: 'موافقة على مستخدم',
-  user_rejected: 'رفض مستخدم',
-  settings_updated: 'تحديث الإعدادات',
-  settings_reset: 'إعادة تعيين الإعدادات',
-  audit_log_cleared: 'مسح سجل التدقيق',
+function actionLabel(action: AuditAction): string {
+  return i18n.t(`audit_log.action_${action}`)
 }
 
 const actionVariants: Record<AuditAction, 'default' | 'success' | 'danger' | 'warning'> = {
@@ -43,7 +30,7 @@ const actionVariants: Record<AuditAction, 'default' | 'success' | 'danger' | 'wa
   audit_log_cleared: 'danger',
 }
 
-const uniqueActions = Object.keys(actionLabels) as AuditAction[]
+const allActions: AuditAction[] = ['login', 'logout', 'login_failed', 'task_created', 'task_updated', 'task_deleted', 'user_created', 'user_updated', 'user_deleted', 'user_approved', 'user_rejected', 'settings_updated', 'settings_reset', 'audit_log_cleared']
 
 export default function AuditLog() {
   const [entries, setEntries] = useState<AuditEntry[]>([])
@@ -66,7 +53,8 @@ export default function AuditLog() {
 
   function formatDate(iso: string) {
     const d = new Date(iso)
-    return d.toLocaleString('ar-SA', {
+    const locale = i18n.lang === 'ar' ? 'ar-SA' : 'en-US'
+    return d.toLocaleString(locale, {
       year: 'numeric', month: 'short', day: 'numeric',
       hour: '2-digit', minute: '2-digit',
     })
@@ -74,10 +62,10 @@ export default function AuditLog() {
 
   function handleExportCSV() {
     const all = db.getAuditLog()
-    const headers = ['التاريخ', 'الإجراء', 'المستخدم', 'التفاصيل']
+    const headers = [i18n.t('audit_log.date'), i18n.t('audit_log.action'), i18n.t('audit_log.user'), i18n.t('audit_log.details')]
     const rows = all.map(e => [
       new Date(e.timestamp).toISOString(),
-      actionLabels[e.action] || e.action,
+      actionLabel(e.action),
       e.username,
       `"${e.details.replace(/"/g, '""')}"`,
     ])
@@ -133,13 +121,13 @@ export default function AuditLog() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{i18n.t('audit_log.all_actions')}</SelectItem>
-            {uniqueActions.map(action => (
-              <SelectItem key={action} value={action}>{actionLabels[action]}</SelectItem>
+            {allActions.map(action => (
+              <SelectItem key={action} value={action}>{actionLabel(action)}</SelectItem>
             ))}
           </SelectContent>
         </Select>
         <span className="text-caption text-muted-foreground/60 whitespace-nowrap">
-          {totalCount} {totalCount === 1 ? 'إدخال' : 'إدخالاً'}
+          {i18n.t('audit_log.entries').replace('{count}', String(totalCount))}
         </span>
       </div>
 
@@ -178,7 +166,7 @@ export default function AuditLog() {
                           variant={actionVariants[entry.action] || 'default'}
                           className="rounded-full text-caption px-2.5 py-0"
                         >
-                          {actionLabels[entry.action] || entry.action}
+                          {actionLabel(entry.action)}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm font-medium">{entry.username || '-'}</TableCell>
@@ -193,18 +181,18 @@ export default function AuditLog() {
               {totalCount > PAGE_SIZE && (
                 <div className="flex items-center justify-between px-4 py-3 border-t border-border/10">
                   <span className="text-caption text-muted-foreground/60">
-                    الصفحة {page + 1} من {Math.ceil(totalCount / PAGE_SIZE)}
+                    {i18n.t('audit_log.page').replace('{page}', String(page + 1)).replace('{total}', String(Math.ceil(totalCount / PAGE_SIZE)))}
                   </span>
                   <div className="flex gap-2">
                     <Button variant="ghost" size="sm" disabled={page === 0}
                       onClick={() => setPage(p => p - 1)}
                       className="h-8 rounded-full text-xs spring-transition">
-                      السابق
+                      {i18n.t('audit_log.previous')}
                     </Button>
                     <Button variant="ghost" size="sm" disabled={(page + 1) * PAGE_SIZE >= totalCount}
                       onClick={() => setPage(p => p + 1)}
                       className="h-8 rounded-full text-xs spring-transition">
-                      التالي
+                      {i18n.t('audit_log.next')}
                     </Button>
                   </div>
                 </div>

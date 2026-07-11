@@ -12,13 +12,13 @@ function formatTime(dateStr: string): string {
   const d = new Date(dateStr)
   const diff = Date.now() - d.getTime()
   const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'Just now'
-  if (mins < 60) return `${mins}m ago`
+  if (mins < 1) return i18n.t('notifications.just_now')
+  if (mins < 60) return i18n.t('notifications.min_ago').replace('{m}', String(mins))
   const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h ago`
+  if (hours < 24) return i18n.t('notifications.hour_ago').replace('{h}', String(hours))
   const days = Math.floor(hours / 24)
-  if (days < 7) return `${days}d ago`
-  return d.toLocaleDateString()
+  if (days < 7) return i18n.t('notifications.day_ago').replace('{d}', String(days))
+  return d.toLocaleDateString(i18n.lang === 'ar' ? 'ar-SA' : 'en-US')
 }
 
 function getNotificationIcon(type: string): { bg: string; icon: string } {
@@ -54,10 +54,10 @@ export default function Notifications() {
   const hasUnread = useMemo(() => notifications.some(n => !n.read), [notifications])
 
   const filters: { key: FilterType; label: string }[] = [
-    { key: 'all', label: i18n.t('all') || 'All' },
-    { key: 'unread', label: i18n.t('notifications.unread') || 'Unread' },
-    { key: 'announcement', label: i18n.t('notifications.announcement') || 'Admin Alert' },
-    { key: 'task', label: 'Tasks' },
+    { key: 'all', label: i18n.t('all') },
+    { key: 'unread', label: i18n.t('notifications.unread') },
+    { key: 'announcement', label: i18n.t('notifications.announcement') },
+    { key: 'task', label: i18n.t('notifications.tasks') },
   ]
 
   return (
@@ -66,7 +66,7 @@ export default function Notifications() {
       <div className="flex items-center justify-between animate-rise stagger-1">
         <div>
           <h1 className="text-lg font-bold tracking-tight text-foreground">{i18n.t('notifications.title')}</h1>
-          <p className="text-xs text-muted-foreground/80 mt-1">{i18n.t('notifications.subtitle') || 'Stay updated with your team'}</p>
+          <p className="text-xs text-muted-foreground/80 mt-1">{i18n.t('notifications.subtitle')}</p>
         </div>
         <Button variant="ghost" size="sm" onClick={handleMarkAll} className="h-8 rounded-full text-xs font-semibold hover:bg-primary/10 hover:text-primary spring-transition border border-border/20">
           <CheckCheck className="h-3.5 w-3.5 ml-1" />
@@ -138,13 +138,13 @@ export default function Notifications() {
                       <p className={cn('mt-0.5 text-sm line-clamp-2', !n.read ? 'text-foreground/70' : 'text-muted-foreground/70')}>{n.message}</p>
                       {n.taskId && !n.type.includes('announcement') && (
                         <div role="link" tabIndex={0} className="mt-1.5 flex items-center gap-1 text-caption font-semibold text-primary hover:underline spring-fast cursor-pointer" onClick={(e) => { e.stopPropagation(); navigate(`/tasks/${n.taskId}`) }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); navigate(`/tasks/${n.taskId}`) }}}>
-                          View task <ArrowRight className="h-3 w-3" />
+                          {i18n.t('notifications.view_task')} <ArrowRight className="h-3 w-3" />
                         </div>
                       )}
                       {n.type.includes('announcement') && (
                         <div className="mt-1.5">
                           <span className="text-caption font-semibold px-2 py-0.5 rounded-full bg-secondary/10 text-secondary border border-secondary/20">
-                            Admin Alert
+                            {i18n.t('notifications.admin_alert_badge')}
                           </span>
                         </div>
                       )}
@@ -196,7 +196,7 @@ export default function Notifications() {
             {selectedAnn && selectedAnn.read === false && (
               <Button onClick={async () => { if (selectedAnn) { await markRead(selectedAnn.id); setSelectedAnn(null) } }} className="h-10 rounded-full bg-primary hover:bg-primary/90 text-xs font-semibold spring-transition shadow-lg shadow-primary/20">
                 <CheckCheck className="h-3.5 w-3.5 ml-1" />
-                Mark as Read
+                {i18n.t('notifications.mark_as_read')}
               </Button>
             )}
           </div>

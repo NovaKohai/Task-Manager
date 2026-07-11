@@ -34,7 +34,7 @@ export default function Profile() {
     const file = e.target.files?.[0]
     if (file) {
       if (file.size > 2 * 1024 * 1024) {
-        setError('Image file is too large (maximum 2MB)')
+        setError(i18n.t('profile.avatar_too_large'))
         return
       }
       const reader = new FileReader()
@@ -53,7 +53,7 @@ export default function Profile() {
     setError('')
     setSaved(false)
     if (!name.trim()) {
-      setError('Name is required')
+      setError(i18n.t('profile.name_required'))
       return
     }
 
@@ -71,10 +71,10 @@ export default function Profile() {
         setSaved(true)
         setTimeout(() => setSaved(false), 3000)
       } else {
-        setError('Failed to update profile')
+        setError(i18n.t('profile.update_failed'))
       }
     } catch (e: any) {
-      setError(e.message || 'Failed to update profile')
+      setError(e.message || i18n.t('profile.update_failed'))
     }
   }
 

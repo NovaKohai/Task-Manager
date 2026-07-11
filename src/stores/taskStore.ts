@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { Task } from '@/lib/types'
 import { db } from '@/lib/db'
+import { track } from '@/lib/analytics'
 
 interface TaskFilters {
   status?: string
@@ -47,6 +48,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     await new Promise(r => setTimeout(r, 0))
     const task = db.createTask(data)
     set(state => ({ tasks: [task, ...state.tasks], isLoading: false }))
+    track('task_created', { priority: task.priority })
     return task
   },
 
@@ -59,6 +61,8 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       currentTask: state.currentTask?.id === id ? updated : state.currentTask,
       isLoading: false,
     }))
+    if (data.status === 'done') track('task_completed')
+    if (data.status) track('task_status_change', { status: data.status })
     return updated
   },
 

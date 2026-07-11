@@ -70,7 +70,7 @@ export default function AdminUsers() {
 
   async function handleSave() {
     if (!name.trim() || !username.trim()) {
-      setError('Name and username are required')
+      setError(i18n.t('admin_users.error_name_username'))
       return
     }
     setError('')
@@ -96,7 +96,7 @@ export default function AdminUsers() {
       setModalOpen(false)
       resetForm()
     } catch (e: any) {
-      setError(e.message || 'Failed to save user')
+      setError(e.message || i18n.t('admin_users.error_save'))
     }
   }
 
@@ -109,14 +109,14 @@ export default function AdminUsers() {
   }
 
   async function handleReject(u: User) {
-    if (window.confirm(`Are you sure you want to reject the registration request from ${u.name}?`)) {
+    if (window.confirm(i18n.t('admin_users.confirm_reject').replace('{name}', u.name))) {
       await deleteUser(u.id)
     }
   }
 
   async function handleSendBroadcast() {
     if (!broadcastMsg.trim()) {
-      setBroadcastError('Announcement content is required')
+      setBroadcastError(i18n.t('admin_users.error_broadcast_content'))
       return
     }
     setBroadcastError('')
@@ -127,19 +127,19 @@ export default function AdminUsers() {
         db.addNotification({
           userId: u.id,
           type: 'announcement',
-          title: 'إعلان إداري هام',
+          title: i18n.t('announcement.title'),
           message: broadcastMsg.trim(),
           read: false
         })
       })
-      setBroadcastSuccess('Announcement broadcasted successfully!')
+      setBroadcastSuccess(i18n.t('admin_users.broadcast_success'))
       setBroadcastMsg('')
       setTimeout(() => {
         setBroadcastOpen(false)
         setBroadcastSuccess('')
       }, 1500)
     } catch (e: any) {
-      setBroadcastError(e.message || 'Failed to send announcement')
+      setBroadcastError(e.message || i18n.t('admin_users.error_broadcast_send'))
     }
   }
 
@@ -158,7 +158,7 @@ export default function AdminUsers() {
       <div className="flex items-center justify-between animate-rise stagger-1">
         <div>
           <h1 className="text-lg font-bold tracking-tight text-foreground">{i18n.t('users.title')}</h1>
-          <p className="text-xs text-muted-foreground/80 mt-1">Manage team members and access</p>
+          <p className="text-xs text-muted-foreground/80 mt-1">{i18n.t('admin_users.subtitle')}</p>
         </div>
         <div className="flex gap-2">
           <Dialog open={modalOpen} onOpenChange={(o) => { if (!o) resetForm(); setModalOpen(o) }}>
@@ -250,13 +250,13 @@ export default function AdminUsers() {
           ) : filteredUsers.length === 0 ? (
             <div className="flex flex-col items-center py-16 text-center">
               <UserIcon className="mb-3 h-10 w-10 text-muted-foreground/20" />
-              <p className="text-base font-semibold text-foreground">No {activeTab === 'pending' ? 'pending' : ''} users</p>
-              <p className="text-sm text-muted-foreground mt-1">Get started by creating a new user</p>
+              <p className="text-base font-semibold text-foreground">{i18n.t('admin_users.no_users').replace('{tab}', activeTab === 'pending' ? i18n.t('users.pending') : '')}</p>
+              <p className="text-sm text-muted-foreground mt-1">{i18n.t('admin_users.no_users_desc')}</p>
               {activeTab === 'active' && (
-                <Button onClick={openCreate} className="mt-4 h-9 rounded-full bg-primary hover:bg-primary/90 text-xs font-semibold spring-transition shadow-lg shadow-primary/20">
-                  <Plus className="h-4 w-4" />
-                  Create User
-                </Button>
+                  <Button onClick={openCreate} className="mt-4 h-9 rounded-full bg-primary hover:bg-primary/90 text-xs font-semibold spring-transition shadow-lg shadow-primary/20">
+                    <Plus className="h-4 w-4" />
+                    {i18n.t('admin_users.create_user')}
+                  </Button>
               )}
             </div>
           ) : (
@@ -323,7 +323,7 @@ export default function AdminUsers() {
         className="fab"
       >
         <Bell className="h-4 w-4" />
-        {i18n.t('broadcast') || 'Broadcast'}
+        {i18n.t('admin_users.broadcast')}
       </button>
 
       {/* Animated Broadcast Modal */}
@@ -341,8 +341,8 @@ export default function AdminUsers() {
                 <Bell className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="text-base font-bold text-foreground">Send Broadcast</h2>
-                <p className="text-caption text-muted-foreground">Announcement to all active employees</p>
+                <h2 className="text-base font-bold text-foreground">{i18n.t('admin_users.broadcast_title')}</h2>
+                <p className="text-caption text-muted-foreground">{i18n.t('admin_users.broadcast_desc')}</p>
               </div>
             </div>
             <button
@@ -355,11 +355,11 @@ export default function AdminUsers() {
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-xs font-semibold text-muted-foreground">Message</Label>
+              <Label className="text-xs font-semibold text-muted-foreground">{i18n.t('admin_users.broadcast_title')}</Label>
               <textarea
                 value={broadcastMsg}
                 onChange={(e) => setBroadcastMsg(e.target.value)}
-                placeholder="Type your announcement here..."
+                placeholder={i18n.t('admin_users.broadcast_placeholder')}
                 rows={4}
                 className="flex w-full rounded-xl border border-border/40 bg-background/50 px-4 py-3 text-sm placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 spring-transition"
               />
@@ -382,7 +382,7 @@ export default function AdminUsers() {
               </Button>
               <Button onClick={handleSendBroadcast} className="h-10 rounded-full bg-primary hover:bg-primary/90 text-xs font-semibold spring-transition shadow-lg shadow-primary/20">
                 <Send className="h-3.5 w-3.5 ml-1" />
-                Send & Broadcast
+                {i18n.t('admin_users.broadcast_send')}
               </Button>
             </div>
           </div>

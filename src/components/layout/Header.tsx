@@ -32,7 +32,7 @@ export default function Header({ user, unreadCount }: HeaderProps) {
         <input
           type="text"
           placeholder={i18n.t('search')}
-          className="h-8 w-full rounded-full border border-input/40 bg-muted/30 pl-9 pr-4 text-xs outline-none transition-[border-color,background] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] placeholder:text-muted-foreground/40 focus:border-primary/30 focus:bg-background/80"
+          className="h-8 w-full rounded-full border border-input/40 bg-muted/30 pl-9 pr-4 text-xs outline-none transition-[border-color,background] duration-150 ease-out placeholder:text-muted-foreground/40 focus:border-primary/30 focus:bg-background/80"
         />
       </div>
 

@@ -21,6 +21,7 @@ const AdminUsers = lazy(() => import('@/pages/AdminUsers'))
 const AuditLog = lazy(() => import('@/pages/AuditLog'))
 const Notifications = lazy(() => import('@/pages/Notifications'))
 const Profile = lazy(() => import('@/pages/Profile'))
+const Onboarding = lazy(() => import('@/pages/Onboarding'))
 
 export default function App() {
   const checkSession = useAuthStore((s) => s.checkSession)
@@ -107,6 +108,7 @@ export default function App() {
             <Route path="/admin/audit-log" element={<AuditLog />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/onboarding" element={<Onboarding />} />
           </Route>
         </Routes>
       </HashRouter>
@@ -142,7 +144,7 @@ export default function App() {
                 {i18n.t('settings.applying')} {progress}%
               </div>
               <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                <div className="h-full rounded-full bg-primary transition-all duration-300" style={{ width: `${progress}%` }} />
+                <div className="h-full rounded-full bg-primary transition-[width] duration-300" style={{ width: `${progress}%` }} />
               </div>
             </div>
           )}

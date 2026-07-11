@@ -44,6 +44,7 @@
   --shadow-diffusion: 0 25px 50px -15px oklch(0 0 0 / 0.06);
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --spring: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 .dark {
@@ -118,6 +119,8 @@
   --bezel-gap: var(--bezel-gap);
   --shadow-diffusion: var(--shadow-diffusion);
   --spring: var(--spring);
+  --ease-out-expo: var(--ease-out-expo);
+  --ease-out: var(--ease-out);
   --font-size-caption: 0.6875rem;
   --font-size-micro: 0.625rem;
 }
@@ -143,7 +146,7 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    transition: background 0.3s var(--ease-out-expo);
+    transition: background 200ms var(--ease-out);
   }
 
   .dashboard-bg {
@@ -193,13 +196,13 @@
 }
 
 @layer components {
-  /* Spring kinetic transitions */
+  /* Spring kinetic transitions — transform/box-shadow are movement (slower), color/border are state (faster) */
   .spring-transition {
-    transition: transform 0.4s var(--spring), opacity 0.4s var(--spring), box-shadow 0.4s var(--spring), background 0.4s var(--spring), border-color 0.4s var(--spring), color 0.4s var(--spring);
+    transition: transform 0.4s var(--spring), box-shadow 0.4s var(--spring), background 160ms var(--ease-out), border-color 160ms var(--ease-out), color 160ms var(--ease-out), opacity 0.4s var(--ease-out);
   }
 
   .spring-fast {
-    transition: transform 0.2s var(--spring), opacity 0.2s var(--spring);
+    transition: transform 200ms var(--ease-out), opacity 200ms var(--ease-out);
   }
 
   /* Double Bezel Card Structure */
@@ -209,7 +212,7 @@
     border-radius: 2rem;
     padding: 0.375rem;
     box-shadow: var(--shadow-diffusion);
-    transition: box-shadow 0.4s var(--spring), border-color 0.4s var(--spring);
+    transition: box-shadow 200ms var(--ease-out), border-color 200ms var(--ease-out);
   }
 
   .double-bezel-inner {
@@ -219,7 +222,7 @@
     box-shadow: inset 0 1px 1px color-mix(in oklch, var(--background) 15%, white);
     padding: 1.5rem;
     height: 100%;
-    transition: box-shadow 0.4s var(--spring), border-color 0.4s var(--spring);
+    transition: box-shadow 200ms var(--ease-out), border-color 200ms var(--ease-out);
   }
 
   .dark .double-bezel-inner {
@@ -231,7 +234,7 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-xl);
     box-shadow: var(--shadow-diffusion);
-    transition: box-shadow 0.7s var(--spring), transform 0.7s var(--spring);
+    transition: box-shadow 200ms var(--ease-out), transform 200ms var(--ease-out);
   }
 
   @media (hover: hover) and (pointer: fine) {
@@ -290,6 +293,9 @@
   }
 
   /* Press feedback for non-Button interactive elements */
+  .pressable {
+    transition: transform 160ms var(--ease-out-expo);
+  }
   .pressable:active {
     transform: scale(0.97);
   }
@@ -317,7 +323,7 @@
     border-radius: 0.75rem;
     font-size: 0.75rem;
     font-weight: 600;
-    transition: background 0.25s var(--spring), color 0.25s var(--spring), box-shadow 0.25s var(--spring);
+    transition: background 160ms var(--ease-out), color 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
   }
 
   .pill-tab-active {
@@ -358,7 +364,7 @@
     z-index: 40;
     cursor: pointer;
     border: none;
-    transition: transform 0.4s var(--spring), box-shadow 0.4s var(--spring);
+    transition: transform 200ms var(--ease-out), box-shadow 200ms var(--ease-out);
   }
 
   @media (hover: hover) and (pointer: fine) {
@@ -368,9 +374,13 @@
     }
   }
 
+  .fab:active {
+    transform: scale(0.95);
+  }
+
   /* Staggered entry animation */
   .animate-rise {
-    animation: riseUp 0.7s var(--spring) backwards;
+    animation: riseUp 400ms var(--ease-out) backwards;
   }
 
   @keyframes riseUp {
@@ -385,7 +395,7 @@
   }
 
   .animate-fade {
-    animation: fadeUp 0.7s var(--spring) backwards;
+    animation: fadeUp 400ms var(--ease-out) backwards;
   }
 
   @keyframes fadeUp {
@@ -400,12 +410,14 @@
   }
 
   /* Staggered delays */
-  .stagger-1 { animation-delay: 0.05s; }
-  .stagger-2 { animation-delay: 0.1s; }
-  .stagger-3 { animation-delay: 0.15s; }
-  .stagger-4 { animation-delay: 0.2s; }
-  .stagger-5 { animation-delay: 0.25s; }
-  .stagger-6 { animation-delay: 0.3s; }
+  .stagger-1 { animation-delay: 0.04s; }
+  .stagger-2 { animation-delay: 0.08s; }
+  .stagger-3 { animation-delay: 0.12s; }
+  .stagger-4 { animation-delay: 0.16s; }
+  .stagger-5 { animation-delay: 0.2s; }
+  .stagger-6 { animation-delay: 0.24s; }
+
+
 
   /* Animated Modal overlay */
   .modal-overlay {
@@ -420,7 +432,7 @@
     justify-content: center;
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.3s var(--spring), visibility 0.3s var(--spring);
+    transition: opacity 200ms var(--ease-out), visibility 200ms var(--ease-out);
   }
 
   .modal-overlay.active {
@@ -439,13 +451,15 @@
     overflow-y: auto;
     transform: translateY(20px) scale(0.95);
     opacity: 0;
-    transition: transform 0.3s var(--spring), opacity 0.3s var(--spring);
+    transition: transform 200ms var(--ease-out), opacity 200ms var(--ease-out);
   }
 
   .modal-overlay.active .modal-content {
     transform: translateY(0) scale(1);
     opacity: 1;
   }
+
+  
 
   /* Background glow */
   .bg-glow {
@@ -484,7 +498,7 @@
     border: 2px dashed var(--outline-variant);
     border-radius: 0.75rem;
     color: var(--on-surface-variant);
-    transition: border-color 0.3s var(--spring), color 0.3s var(--spring), background 0.3s var(--spring);
+    transition: border-color 160ms var(--ease-out), color 160ms var(--ease-out), background 160ms var(--ease-out);
     cursor: pointer;
     display: flex;
     align-items: center;

@@ -1,7 +1,7 @@
 {
   "name": "team-task-manager",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.2",
   "repository": {
     "type": "git",
     "url": "https://github.com/NovaKohai/Task-Manager.git"
@@ -37,12 +37,15 @@
     "clsx": "^2.1.1",
     "electron-updater": "^6.8.9",
     "geist": "^1.7.2",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "lucide-react": "^1.24.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.18.1",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.2",
+    "xlsx": "^0.18.5",
     "zustand": "^5.0.14"
   },
   "devDependencies": {

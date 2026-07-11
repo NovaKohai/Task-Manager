@@ -30,8 +30,8 @@ export default function CreateTask() {
 
   function validate(): boolean {
     const e: Record<string, string> = {}
-    if (!title.trim()) e.title = 'Title is required'
-    if (dueDate && new Date(dueDate) < new Date(new Date().toDateString())) e.dueDate = 'Due date must be in the future'
+    if (!title.trim()) e.title = i18n.t('create_task.title_required')
+    if (dueDate && new Date(dueDate) < new Date(new Date().toDateString())) e.dueDate = i18n.t('create_task.invalid_due_date')
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -63,13 +63,13 @@ export default function CreateTask() {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="title" className="text-sm font-bold">{i18n.t('task.title')} *</Label>
-              <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Enter task title" className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" maxLength={200} />
+              <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={i18n.t('create_task.title_placeholder')} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" maxLength={200} />
               {errors.title && <p className="flex items-center gap-1 text-xs text-destructive font-semibold"><AlertTriangle className="h-3 w-3" />{errors.title}</p>}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="description" className="text-sm font-bold">{i18n.t('task.description')}</Label>
-              <textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Enter task description" rows={4} maxLength={5000}
+              <textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={i18n.t('create_task.desc_placeholder')} rows={4} maxLength={5000}
                 className="flex w-full rounded-xl border border-input/60 bg-background/50 px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring spring-transition" />
             </div>
 
@@ -91,9 +91,9 @@ export default function CreateTask() {
               <div className="space-y-2">
                 <Label htmlFor="assignee" className="text-sm font-bold">{i18n.t('task.assignee')}</Label>
                 <Select aria-label={i18n.t('task.assignee')} value={assigneeId} onValueChange={setAssigneeId}>
-                  <SelectTrigger id="assignee" className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition"><SelectValue placeholder="Select assignee" /></SelectTrigger>
+                  <SelectTrigger id="assignee" className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition"><SelectValue placeholder={i18n.t('create_task.select_assignee')} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="_none">Unassigned</SelectItem>
+                    <SelectItem value="_none">{i18n.t('create_task.unassigned')}</SelectItem>
                     {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
@@ -105,11 +105,11 @@ export default function CreateTask() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="estHours" className="text-sm font-bold">{i18n.t('task.est_hours')}</Label>
-                <Input id="estHours" type="number" min="0" step="0.5" value={estHours} onChange={(e) => setEstHours(e.target.value)} placeholder="e.g. 4" className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
+                <Input id="estHours" type="number" min="0" step="0.5" value={estHours} onChange={(e) => setEstHours(e.target.value)} placeholder={i18n.t('create_task.est_placeholder')} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="project" className="text-sm font-bold">Project</Label>
-                <Input id="project" value={project} onChange={(e) => setProject(e.target.value)} placeholder="e.g. Frontend" className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" maxLength={100} />
+                <Label htmlFor="project" className="text-sm font-bold">{i18n.t('task_detail.project')}</Label>
+                <Input id="project" value={project} onChange={(e) => setProject(e.target.value)} placeholder={i18n.t('create_task.project_placeholder')} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" maxLength={100} />
               </div>
             </div>
 
