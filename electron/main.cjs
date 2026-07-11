@@ -1,9 +1,11 @@
 const { app, BrowserWindow, Menu, ipcMain } = require('electron')
 const path = require('path')
-const { execSync } = require('child_process')
+const { autoUpdater } = require('electron-updater')
 
 const isDev = process.argv.includes('--dev')
-const REPO_DIR = app.isPackaged ? path.dirname(app.getPath('exe')) : __dirname
+
+autoUpdater.autoDownload = false
+autoUpdater.autoInstallOnAppQuit = false
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -30,35 +32,50 @@ function createWindow() {
   }
 }
 
-ipcMain.handle('get-app-version', () => {
+function sendToRenderer(channel, data) {
+  const win = BrowserWindow.getAllWindows()[0]
+  if (win) win.webContents.send(channel, data)
+}
+
+ipcMain.handle('get-app-version', () => app.getVersion())
+
+ipcMain.handle('check-for-updates', async () => {
   try {
-    return execSync('git describe --tags --abbrev=0 2>nul || git rev-parse --short HEAD', { cwd: REPO_DIR }).toString().trim()
+    const result = await autoUpdater.checkForUpdates()
+    if (!result || !result.updateInfo) return { available: false }
+    const current = app.getVersion()
+    const latest = result.updateInfo.version
+    if (latest === current && !result.updateInfo.releaseNotes) return { available: false }
+    return {
+      available: true,
+      version: latest,
+      releaseNotes: result.updateInfo.releaseNotes || '',
+      releaseDate: result.updateInfo.releaseDate,
+    }
   } catch {
-    return 'unknown'
+    return { available: false }
   }
 })
 
-ipcMain.handle('check-for-updates', () => {
-  try {
-    execSync('git fetch origin', { cwd: REPO_DIR, timeout: 30000 })
-    const log = execSync('git log HEAD..origin/main --oneline', { cwd: REPO_DIR, timeout: 10000 }).toString().trim()
-    if (!log) return { available: false, commits: [] }
-    const commits = log.split('\n').map(line => ({ hash: line.split(' ')[0], message: line.slice(line.indexOf(' ') + 1) }))
-    return { available: true, commits }
-  } catch (err) {
-    return { available: false, commits: [], error: err.message }
-  }
+ipcMain.handle('download-update', () => {
+  autoUpdater.downloadUpdate()
+  return { started: true }
 })
 
-ipcMain.handle('apply-update', () => {
-  try {
-    const before = execSync('git rev-parse HEAD', { cwd: REPO_DIR }).toString().trim()
-    execSync('git pull origin main', { cwd: REPO_DIR, timeout: 60000 })
-    const after = execSync('git rev-parse HEAD', { cwd: REPO_DIR }).toString().trim()
-    return { success: true, before, after, changed: before !== after }
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
+ipcMain.handle('install-update', () => {
+  setImmediate(() => autoUpdater.quitAndInstall())
+})
+
+autoUpdater.on('download-progress', (progress) => {
+  sendToRenderer('update-status', { type: 'progress', percent: Math.round(progress.percent), bytesPerSecond: progress.bytesPerSecond })
+})
+
+autoUpdater.on('update-downloaded', () => {
+  sendToRenderer('update-status', { type: 'downloaded' })
+})
+
+autoUpdater.on('error', (err) => {
+  sendToRenderer('update-status', { type: 'error', message: err.message })
 })
 
 app.whenReady().then(createWindow)

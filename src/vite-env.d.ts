@@ -1,28 +1,35 @@
 /// <reference types="vite/client" />
 
-interface UpdateCommit {
-  hash: string
+interface UpdateInfo {
+  available: boolean
+  version?: string
+  releaseNotes?: string
+  releaseDate?: string
+}
+
+interface UpdateProgress {
+  type: 'progress'
+  percent: number
+  bytesPerSecond: number
+}
+
+interface UpdateDownloaded {
+  type: 'downloaded'
+}
+
+interface UpdateError {
+  type: 'error'
   message: string
 }
 
-interface UpdateResult {
-  available: boolean
-  commits: UpdateCommit[]
-  error?: string
-}
-
-interface ApplyResult {
-  success: boolean
-  before?: string
-  after?: string
-  changed?: boolean
-  error?: string
-}
+type UpdateStatus = UpdateProgress | UpdateDownloaded | UpdateError
 
 interface ElectronAPI {
   getAppVersion: () => Promise<string>
-  checkForUpdates: () => Promise<UpdateResult>
-  applyUpdate: () => Promise<ApplyResult>
+  checkForUpdates: () => Promise<UpdateInfo>
+  downloadUpdate: () => Promise<{ started: boolean }>
+  installUpdate: () => Promise<void>
+  onUpdateStatus: (callback: (status: UpdateStatus) => void) => () => void
 }
 
 interface Window {

@@ -24,5 +24,10 @@
     "createStartMenuShortcut": true,
     "installerIcon": "build/icon.ico",
     "uninstallerIcon": "build/icon.ico"
+  },
+  "publish": {
+    "provider": "github",
+    "owner": "NovaKohai",
+    "repo": "Task-Manager"
   }
 }

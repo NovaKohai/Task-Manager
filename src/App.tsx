@@ -1,6 +1,6 @@
 import { useEffect, lazy, useState } from 'react'
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { Sparkles, GitCommit } from 'lucide-react'
+import { Sparkles, Download } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useThemeStore } from '@/stores/themeStore'
 import { Button } from '@/components/ui/button'
@@ -26,10 +26,10 @@ export default function App() {
   const checkSession = useAuthStore((s) => s.checkSession)
   const isDark = useThemeStore((s) => s.isDark)
 
-  const [updateCommits, setUpdateCommits] = useState<UpdateCommit[]>([])
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false)
-  const [applyingUpdate, setApplyingUpdate] = useState(false)
-  const [updateApplied, setUpdateApplied] = useState(false)
+  const [updateState, setUpdateState] = useState<'idle' | 'downloading' | 'downloaded' | 'error'>('idle')
+  const [progress, setProgress] = useState(0)
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDark)
@@ -44,34 +44,50 @@ export default function App() {
       if (!window.electronAPI) return
       const dismissed = localStorage.getItem('dismissed_update')
       const result = await window.electronAPI.checkForUpdates()
-      if (result.available && result.commits.length > 0 && result.commits[0].hash !== dismissed) {
-        setUpdateCommits(result.commits)
+      if (result.available && result.version !== dismissed) {
+        setUpdateInfo(result)
         setUpdateDialogOpen(true)
       }
     })()
   }, [])
 
-  async function handleApplyUpdate() {
+  useEffect(() => {
     if (!window.electronAPI) return
-    setApplyingUpdate(true)
-    try {
-      const result = await window.electronAPI.applyUpdate()
-      if (result.success && result.changed) {
-        setUpdateApplied(true)
-        setUpdateCommits([])
+    const cleanup = window.electronAPI.onUpdateStatus((status) => {
+      if (status.type === 'progress') {
+        setProgress(status.percent)
+        setUpdateState('downloading')
+      } else if (status.type === 'downloaded') {
+        setUpdateState('downloaded')
+      } else if (status.type === 'error') {
+        setUpdateState('error')
       }
-    } finally {
-      setApplyingUpdate(false)
-    }
+    })
+    return cleanup
+  }, [])
+
+  async function handleDownload() {
+    if (!window.electronAPI) return
+    setUpdateState('downloading')
+    await window.electronAPI.downloadUpdate()
+  }
+
+  function handleInstall() {
+    if (!window.electronAPI) return
+    window.electronAPI.installUpdate()
   }
 
   function handleDismiss() {
-    if (updateCommits.length > 0) {
-      localStorage.setItem('dismissed_update', updateCommits[0].hash)
+    if (updateInfo?.version) {
+      localStorage.setItem('dismissed_update', updateInfo.version)
     }
     setUpdateDialogOpen(false)
-    setUpdateCommits([])
+    setUpdateInfo(null)
   }
+
+  const showDownloadButton = updateState === 'idle'
+  const showProgress = updateState === 'downloading'
+  const showInstallButton = updateState === 'downloaded'
 
   return (
     <ToastProvider>
@@ -104,42 +120,64 @@ export default function App() {
               {i18n.t('update.notification_title')}
             </DialogTitle>
             <DialogDescription>
-              {updateApplied
-                ? i18n.t('settings.update_success')
-                : i18n.t('update.notification_desc')}
+              {i18n.t('update.notification_desc')} {updateInfo?.version ? `v${updateInfo.version}` : ''}
             </DialogDescription>
           </DialogHeader>
 
-          {!updateApplied && updateCommits.length > 0 && (
-            <div className="max-h-48 overflow-y-auto space-y-2 rounded-xl border border-border/20 bg-muted/20 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">
+          {updateInfo?.releaseNotes && (
+            <div className="max-h-48 overflow-y-auto rounded-xl border border-border/20 bg-muted/20 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 mb-2">
                 {i18n.t('update.changelog')}
               </p>
-              {updateCommits.map((c) => (
-                <div key={c.hash} className="flex items-start gap-2 text-sm">
-                  <GitCommit className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-                  <span className="text-foreground/80">{c.message}</span>
-                </div>
-              ))}
+              <div className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
+                {updateInfo.releaseNotes}
+              </div>
             </div>
           )}
 
-          {updateApplied ? (
-            <DialogFooter>
-              <Button onClick={handleDismiss} className="h-9 rounded-full spring-transition">
-                {i18n.t('close')}
-              </Button>
-            </DialogFooter>
-          ) : (
-            <DialogFooter className="flex gap-2">
-              <Button variant="secondary" onClick={handleDismiss} className="h-9 rounded-full spring-transition">
-                {i18n.t('update.later')}
-              </Button>
-              <Button onClick={handleApplyUpdate} disabled={applyingUpdate} className="h-9 rounded-full spring-transition">
-                {applyingUpdate ? i18n.t('settings.applying') : i18n.t('update.now')}
-              </Button>
-            </DialogFooter>
+          {showProgress && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Download className="h-4 w-4 animate-bounce" />
+                {i18n.t('settings.applying')} {progress}%
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                <div className="h-full rounded-full bg-primary transition-all duration-300" style={{ width: `${progress}%` }} />
+              </div>
+            </div>
           )}
+
+          {updateState === 'error' && (
+            <p className="text-sm text-destructive">{i18n.t('error.generic')}</p>
+          )}
+
+          <DialogFooter className="flex gap-2">
+            {showDownloadButton && (
+              <>
+                <Button variant="secondary" onClick={handleDismiss} className="h-9 rounded-full spring-transition">
+                  {i18n.t('update.later')}
+                </Button>
+                <Button onClick={handleDownload} className="h-9 rounded-full spring-transition">
+                  {i18n.t('update.now')}
+                </Button>
+              </>
+            )}
+            {showInstallButton && (
+              <>
+                <Button variant="secondary" onClick={handleDismiss} className="h-9 rounded-full spring-transition">
+                  {i18n.t('update.later')}
+                </Button>
+                <Button onClick={handleInstall} className="h-9 rounded-full spring-transition">
+                  {i18n.t('settings.restart_hint')}
+                </Button>
+              </>
+            )}
+            {showProgress && (
+              <Button variant="secondary" disabled className="h-9 rounded-full spring-transition">
+                {i18n.t('settings.applying')}
+              </Button>
+            )}
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </ToastProvider>

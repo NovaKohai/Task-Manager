@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { Save, AlertTriangle, RotateCcw, RefreshCw, ArrowUpCircle, CheckCircle2, XCircle } from 'lucide-react'
+import { Save, AlertTriangle, RotateCcw, RefreshCw, ArrowUpCircle, CheckCircle2, XCircle, Download } from 'lucide-react'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useAuthStore } from '@/stores/authStore'
 import { Button } from '@/components/ui/button'
