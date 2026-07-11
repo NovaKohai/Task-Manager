@@ -238,6 +238,12 @@ const translations: Translations = {
     'settings.update_error': 'Update check failed',
     'settings.current_version': 'Current version',
     'settings.update_success': 'Update applied successfully!',
+    'update.notification_title': 'Update Available',
+    'update.notification_desc': 'A new version of TeamTask Manager is available.',
+    'update.changelog': "What's New",
+    'update.now': 'Update Now',
+    'update.later': 'Later',
+    'update.no_commits': 'No changelog available',
   },
   ar: {
     'app.name': 'TeamTask',
@@ -476,6 +482,12 @@ const translations: Translations = {
     'settings.update_error': 'فشل التحقق من التحديثات',
     'settings.current_version': 'الإصدار الحالي',
     'settings.update_success': 'تم تطبيق التحديث بنجاح!',
+    'update.notification_title': 'تحديث متاح',
+    'update.notification_desc': 'إصدار جديد من TeamTask Manager متاح.',
+    'update.changelog': 'ما الجديد',
+    'update.now': 'تحديث الآن',
+    'update.later': 'لاحقاً',
+    'update.no_commits': 'لا يوجد سجل تغييرات',
   },
 }
 
