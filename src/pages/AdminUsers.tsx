@@ -1,0 +1,393 @@
+import { useEffect, useState, useMemo } from 'react'
+import { Plus, Pencil, X, AlertTriangle, Check, Trash2, Send, Bell, User as UserIcon } from 'lucide-react'
+import { useUserStore } from '@/stores/userStore'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import { cn } from '@/lib/utils'
+import { i18n } from '@/lib/i18n'
+import { db } from '@/lib/db'
+import type { Role, User } from '@/lib/types'
+
+const roleBadge: Record<Role, 'default' | 'primary' | 'success' | 'outline'> = {
+  admin: 'default',
+  manager: 'primary',
+  developer: 'success',
+  viewer: 'outline',
+}
+
+export default function AdminUsers() {
+  const { users, isLoading, fetchUsers, createUser, updateUser, deleteUser } = useUserStore()
+  
+  const [activeTab, setActiveTab] = useState<'active' | 'pending'>('active')
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editUser, setEditUser] = useState<User | null>(null)
+  
+  const [name, setName] = useState('')
+  const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
+  const [role, setRole] = useState<Role>('developer')
+  const [active, setActive] = useState(true)
+  const [error, setError] = useState('')
+
+  const [broadcastOpen, setBroadcastOpen] = useState(false)
+  const [broadcastMsg, setBroadcastMsg] = useState('')
+  const [broadcastError, setBroadcastError] = useState('')
+  const [broadcastSuccess, setBroadcastSuccess] = useState('')
+
+  useEffect(() => {
+    fetchUsers()
+  }, [fetchUsers])
+
+  function resetForm() {
+    setName('')
+    setUsername('')
+    setEmail('')
+    setRole('developer')
+    setActive(true)
+    setEditUser(null)
+    setError('')
+  }
+
+  function openEdit(u: User) {
+    setEditUser(u)
+    setName(u.name)
+    setUsername(u.username)
+    setEmail(u.email)
+    setRole(u.role)
+    setActive(u.active)
+    setModalOpen(true)
+  }
+
+  function openCreate() {
+    resetForm()
+    setModalOpen(true)
+  }
+
+  async function handleSave() {
+    if (!name.trim() || !username.trim()) {
+      setError('Name and username are required')
+      return
+    }
+    setError('')
+    try {
+      if (editUser) {
+        await updateUser(editUser.id, {
+          name: name.trim(),
+          username: username.trim(),
+          email: email.trim(),
+          role,
+          active,
+        })
+      } else {
+        await createUser({
+          name: name.trim(),
+          username: username.trim(),
+          email: email.trim(),
+          role,
+          active,
+          approved: true, // admin created users are auto-approved
+        })
+      }
+      setModalOpen(false)
+      resetForm()
+    } catch (e: any) {
+      setError(e.message || 'Failed to save user')
+    }
+  }
+
+  async function handleToggleActive(u: User) {
+    await updateUser(u.id, { active: !u.active })
+  }
+
+  async function handleApprove(u: User) {
+    await updateUser(u.id, { approved: true, active: true })
+  }
+
+  async function handleReject(u: User) {
+    if (window.confirm(`Are you sure you want to reject the registration request from ${u.name}?`)) {
+      await deleteUser(u.id)
+    }
+  }
+
+  async function handleSendBroadcast() {
+    if (!broadcastMsg.trim()) {
+      setBroadcastError('Announcement content is required')
+      return
+    }
+    setBroadcastError('')
+    setBroadcastSuccess('')
+    try {
+      const activeUsers = users.filter(u => u.approved !== false)
+      activeUsers.forEach(u => {
+        db.addNotification({
+          userId: u.id,
+          type: 'announcement',
+          title: 'إعلان إداري هام',
+          message: broadcastMsg.trim(),
+          read: false
+        })
+      })
+      setBroadcastSuccess('Announcement broadcasted successfully!')
+      setBroadcastMsg('')
+      setTimeout(() => {
+        setBroadcastOpen(false)
+        setBroadcastSuccess('')
+      }, 1500)
+    } catch (e: any) {
+      setBroadcastError(e.message || 'Failed to send announcement')
+    }
+  }
+
+  const filteredUsers = useMemo(() => users.filter((u) => {
+    if (activeTab === 'pending') return u.approved === false
+    return u.approved !== false
+  }), [users, activeTab])
+
+  const activeCount = useMemo(() => users.filter(u => u.approved !== false).length, [users])
+  const pendingCount = useMemo(() => users.filter(u => u.approved === false).length, [users])
+
+  return (
+    <div className="space-y-5 page-bg relative min-h-[calc(100vh-8rem)]">
+      <div aria-hidden="true" className="absolute inset-0 dotted-bg pointer-events-none" />
+      {/* Header */}
+      <div className="flex items-center justify-between animate-rise stagger-1">
+        <div>
+          <h1 className="text-lg font-bold tracking-tight text-foreground">{i18n.t('users.title')}</h1>
+          <p className="text-xs text-muted-foreground/80 mt-1">Manage team members and access</p>
+        </div>
+        <div className="flex gap-2">
+          <Dialog open={modalOpen} onOpenChange={(o) => { if (!o) resetForm(); setModalOpen(o) }}>
+            <DialogTrigger asChild>
+              <Button onClick={openCreate} className="h-10 rounded-full bg-primary hover:bg-primary/90 text-xs font-semibold spring-transition shadow-lg shadow-primary/20">
+                <Plus className="h-4 w-4" />
+                {i18n.t('users.create')}
+              </Button>
+            </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{editUser ? i18n.t('users.edit') : i18n.t('users.create')}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="dialogName">{i18n.t('users.name')}</Label>
+                <Input id="dialogName" value={name} onChange={(e) => setName(e.target.value)} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" maxLength={100} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dialogUsername">{i18n.t('users.username')}</Label>
+                <Input id="dialogUsername" value={username} onChange={(e) => setUsername(e.target.value)} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" maxLength={50} disabled={!!editUser} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dialogEmail">{i18n.t('users.email')}</Label>
+                <Input id="dialogEmail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" maxLength={200} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dialogRole">{i18n.t('users.role')}</Label>
+                <Select aria-label={i18n.t('users.role')} value={role} onValueChange={(v) => setRole(v as Role)}>
+                  <SelectTrigger id="dialogRole" className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">{i18n.t('user.admin')}</SelectItem>
+                    <SelectItem value="manager">{i18n.t('user.manager')}</SelectItem>
+                    <SelectItem value="developer">{i18n.t('user.developer')}</SelectItem>
+                    <SelectItem value="viewer">{i18n.t('user.viewer')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <fieldset className="flex items-center gap-3 border-0 p-0 m-0">
+                <legend className="sr-only">{i18n.t('users.active')}</legend>
+                <input type="checkbox" id="userActive" checked={active} onChange={(e) => setActive(e.target.checked)} className="h-4 w-4 rounded border-muted" />
+                <Label htmlFor="userActive">{i18n.t('users.active')}</Label>
+              </fieldset>
+              {error && (
+                <div className="flex items-center gap-2 rounded-xl bg-destructive/10 border border-destructive/20 p-3 text-xs text-destructive font-bold">
+                  <AlertTriangle className="h-4 w-4" />
+                  {error}
+                </div>
+              )}
+              <div className="flex justify-end gap-3">
+                <Button variant="secondary" onClick={() => setModalOpen(false)} className="h-10 rounded-full spring-transition px-4">{i18n.t('cancel')}</Button>
+                <Button onClick={handleSave} className="h-10 rounded-full spring-transition px-4 font-semibold">{i18n.t('save')}</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+        </div>
+      </div>
+
+      {/* Pill Tabs */}
+      <div className="flex gap-1.5 bg-muted/40 p-1.5 rounded-2xl border border-border/10 w-fit animate-rise stagger-2">
+        <button
+          onClick={() => setActiveTab('active')}
+          className={cn(
+            "pill-tab spring-fast",
+            activeTab === 'active' ? "pill-tab-active" : "pill-tab-inactive"
+          )}
+        >
+          {i18n.t('users.active')} ({activeCount})
+        </button>
+        <button
+          onClick={() => setActiveTab('pending')}
+          className={cn(
+            "pill-tab spring-fast",
+            activeTab === 'pending' ? "pill-tab-active" : "pill-tab-inactive"
+          )}
+        >
+          {i18n.t('users.pending')} ({pendingCount})
+        </button>
+      </div>
+
+      {/* Table */}
+      <div className="glass-panel animate-rise stagger-3">
+        <div className="glass-panel-inner p-0">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            </div>
+          ) : filteredUsers.length === 0 ? (
+            <div className="flex flex-col items-center py-16 text-center">
+              <UserIcon className="mb-3 h-10 w-10 text-muted-foreground/20" />
+              <p className="text-base font-semibold text-foreground">No {activeTab === 'pending' ? 'pending' : ''} users</p>
+              <p className="text-sm text-muted-foreground mt-1">Get started by creating a new user</p>
+              {activeTab === 'active' && (
+                <Button onClick={openCreate} className="mt-4 h-9 rounded-full bg-primary hover:bg-primary/90 text-xs font-semibold spring-transition shadow-lg shadow-primary/20">
+                  <Plus className="h-4 w-4" />
+                  Create User
+                </Button>
+              )}
+            </div>
+          ) : (
+            <Table>
+              <caption className="sr-only">{i18n.t('users.title')}</caption>
+              <TableHeader>
+                <TableRow>
+                  <th scope="col" className="sr-only">{i18n.t('users.name')}</th>
+                  <TableHead className="text-xs font-medium">{i18n.t('users.name')}</TableHead>
+                  <TableHead className="text-xs font-medium">{i18n.t('users.username')}</TableHead>
+                  <TableHead className="text-xs font-medium">{i18n.t('users.email')}</TableHead>
+                  <TableHead className="text-xs font-medium">{i18n.t('users.role')}</TableHead>
+                  {activeTab === 'active' && <TableHead className="text-xs font-medium">{i18n.t('users.status')}</TableHead>}
+                  <TableHead></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredUsers.map((u) => (
+                  <TableRow key={u.id} className="hover:bg-muted/20 spring-fast">
+                    <TableCell className="text-sm font-medium">{u.name}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{u.username}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{u.email}</TableCell>
+                    <TableCell>
+                      <Badge variant={roleBadge[u.role]} className="rounded-full text-caption px-2.5 py-0">
+                        {i18n.t(`user.${u.role}`)}
+                      </Badge>
+                    </TableCell>
+                    {activeTab === 'active' && (
+                      <TableCell>
+                        <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium', u.active ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive')}>
+                          <span className={cn('h-1.5 w-1.5 rounded-full', u.active ? 'bg-success neon-dot' : 'bg-destructive')} style={u.active ? { width: 6, height: 6 } : {}} />
+                          {u.active ? i18n.t('users.active') : i18n.t('users.inactive')}
+                        </span>
+                      </TableCell>
+                    )}
+                    <TableCell>
+                      {activeTab === 'active' ? (
+                        <div className="flex gap-1 justify-end">
+                          <Button variant="ghost" size="icon" onClick={() => openEdit(u)} className="h-7 w-7 rounded-full hover:bg-primary/10 hover:text-primary spring-transition"><Pencil className="h-3.5 w-3.5" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleToggleActive(u)} className="h-7 w-7 rounded-full hover:bg-destructive/10 hover:text-destructive spring-transition">{u.active ? <X className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}</Button>
+                        </div>
+                      ) : (
+                        <div className="flex gap-1 justify-end">
+                          <Button variant="ghost" size="icon" onClick={() => handleApprove(u)} className="h-7 w-7 rounded-full text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-500 spring-transition" title={i18n.t('users.approve')}>
+                            <Check className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleReject(u)} className="h-7 w-7 rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive spring-transition" title={i18n.t('users.reject')}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+      </div>
+
+      {/* FAB for Broadcast */}
+      <button
+        onClick={() => { setBroadcastOpen(true) }}
+        className="fab"
+      >
+        <Bell className="h-4 w-4" />
+        {i18n.t('broadcast') || 'Broadcast'}
+      </button>
+
+      {/* Animated Broadcast Modal */}
+      <div
+        className={cn('modal-overlay', broadcastOpen && 'active')}
+        onClick={(e) => { if (e.target === e.currentTarget) { setBroadcastOpen(false); setBroadcastMsg(''); setBroadcastError(''); setBroadcastSuccess('') } }}
+        onKeyDown={(e) => { if (e.key === 'Escape') { setBroadcastOpen(false); setBroadcastMsg(''); setBroadcastError(''); setBroadcastSuccess('') } }}
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className="modal-content p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-secondary/20 text-secondary">
+                <Bell className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-foreground">Send Broadcast</h2>
+                <p className="text-caption text-muted-foreground">Announcement to all active employees</p>
+              </div>
+            </div>
+            <button
+              onClick={() => { setBroadcastOpen(false); setBroadcastMsg(''); setBroadcastError(''); setBroadcastSuccess('') }}
+              className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-muted/50 spring-fast text-muted-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-muted-foreground">Message</Label>
+              <textarea
+                value={broadcastMsg}
+                onChange={(e) => setBroadcastMsg(e.target.value)}
+                placeholder="Type your announcement here..."
+                rows={4}
+                className="flex w-full rounded-xl border border-border/40 bg-background/50 px-4 py-3 text-sm placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 spring-transition"
+              />
+            </div>
+            {broadcastError && (
+              <div className="flex items-center gap-2 rounded-xl bg-destructive/10 p-3 text-xs text-destructive font-bold border border-destructive/20">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                {broadcastError}
+              </div>
+            )}
+            {broadcastSuccess && (
+              <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 p-3 text-xs text-emerald-500 font-bold border border-emerald-500/20">
+                <Check className="h-4 w-4 shrink-0" />
+                {broadcastSuccess}
+              </div>
+            )}
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="ghost" onClick={() => { setBroadcastOpen(false); setBroadcastMsg(''); setBroadcastError(''); setBroadcastSuccess('') }} className="h-10 rounded-full text-xs font-semibold hover:bg-muted/40 spring-transition">
+                {i18n.t('cancel')}
+              </Button>
+              <Button onClick={handleSendBroadcast} className="h-10 rounded-full bg-primary hover:bg-primary/90 text-xs font-semibold spring-transition shadow-lg shadow-primary/20">
+                <Send className="h-3.5 w-3.5 ml-1" />
+                Send & Broadcast
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
