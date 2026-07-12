@@ -226,3 +226,19 @@ export type SupportTicket = {
   rating?: number
   feedbackText?: string
 }
+
+export type ChatRequest = {
+  id: string
+  senderId: string
+  receiverId: string
+  status: 'pending' | 'accepted' | 'rejected'
+  createdAt: string
+}
+
+export type ChatMessage = {
+  id: string
+  senderId: string
+  receiverId: string
+  text: string
+  createdAt: string
+}

@@ -22,6 +22,7 @@ const Focus = lazy(() => import('@/pages/Focus'))
 const Profile = lazy(() => import('@/pages/Profile'))
 const Onboarding = lazy(() => import('@/pages/Onboarding'))
 const SupportPage = lazy(() => import('@/pages/Support'))
+const ChatPage = lazy(() => import('@/pages/Chat'))
 
 export default function App() {
   const checkSession = useAuthStore((s) => s.checkSession)
@@ -61,6 +62,7 @@ export default function App() {
             <Route path="/profile" element={<Profile />} />
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/support" element={<SupportPage />} />
+            <Route path="/chat" element={<ChatPage />} />
           </Route>
         </Routes>
       </HashRouter>

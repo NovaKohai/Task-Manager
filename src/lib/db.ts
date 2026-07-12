@@ -1,4 +1,4 @@
-import type { User, Task, Comment, Notification, ReportMetrics, AppSettings, AuditEntry, AuditAction, Permission, Role, SupportTicket, TimeEntry, TaskStatus } from './types'
+import type { User, Task, Comment, Notification, ReportMetrics, AppSettings, AuditEntry, AuditAction, Permission, Role, SupportTicket, TimeEntry, TaskStatus, ChatRequest, ChatMessage } from './types'
 import { i18n } from './i18n'
 
 const STORE_KEY = 'ttm_data'
@@ -14,6 +14,8 @@ interface StoreSchema {
   passwords: Record<string, string>
   auditEntries: AuditEntry[]
   supportTickets: SupportTicket[]
+  chatRequests: ChatRequest[]
+  chatMessages: ChatMessage[]
 }
 
 function generateId(): string {
@@ -177,6 +179,8 @@ function getDefaultStore(): StoreSchema {
     passwords: { ...DEFAULT_HASHES },
     auditEntries: [],
     supportTickets: [],
+    chatRequests: [],
+    chatMessages: [],
   }
 }
 
@@ -217,6 +221,8 @@ class Database {
           passwords: { ...defaults.passwords, ...parsed.passwords },
           auditEntries: parsed.auditEntries || [],
           supportTickets: parsed.supportTickets || [],
+          chatRequests: parsed.chatRequests || [],
+          chatMessages: parsed.chatMessages || [],
         }
         if (needsMigration) {
           this.persist()
@@ -1110,6 +1116,64 @@ class Database {
     }
 
     return updated
+  }
+
+  getChatRequests(userId: string): ChatRequest[] {
+    return (this.data.chatRequests || []).filter(r => r.senderId === userId || r.receiverId === userId)
+  }
+
+  sendChatRequest(senderId: string, receiverId: string): ChatRequest {
+    if (!this.data.chatRequests) this.data.chatRequests = []
+    const exists = this.data.chatRequests.find(r => 
+      (r.senderId === senderId && r.receiverId === receiverId && r.status !== 'rejected') ||
+      (r.senderId === receiverId && r.receiverId === senderId && r.status !== 'rejected')
+    )
+    if (exists) return exists
+
+    const req: ChatRequest = {
+      id: generateId(),
+      senderId,
+      receiverId,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    }
+    this.data.chatRequests.push(req)
+    this.persist()
+    window.dispatchEvent(new CustomEvent('ttm_realtime_update'))
+    return req
+  }
+
+  respondToChatRequest(requestId: string, status: 'accepted' | 'rejected'): ChatRequest | null {
+    if (!this.data.chatRequests) return null
+    const idx = this.data.chatRequests.findIndex(r => r.id === requestId)
+    if (idx === -1) return null
+    const req = this.data.chatRequests[idx]
+    req.status = status
+    this.persist()
+    window.dispatchEvent(new CustomEvent('ttm_realtime_update'))
+    return req
+  }
+
+  getChatMessages(userA: string, userB: string): ChatMessage[] {
+    return (this.data.chatMessages || []).filter(m => 
+      (m.senderId === userA && m.receiverId === userB) ||
+      (m.senderId === userB && m.receiverId === userA)
+    )
+  }
+
+  sendChatMessage(senderId: string, receiverId: string, text: string): ChatMessage {
+    if (!this.data.chatMessages) this.data.chatMessages = []
+    const msg: ChatMessage = {
+      id: generateId(),
+      senderId,
+      receiverId,
+      text,
+      createdAt: new Date().toISOString()
+    }
+    this.data.chatMessages.push(msg)
+    this.persist()
+    window.dispatchEvent(new CustomEvent('ttm_realtime_update'))
+    return msg
   }
 }
 

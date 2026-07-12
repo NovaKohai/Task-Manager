@@ -2,7 +2,7 @@ import { memo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, CheckSquare, Users, BarChart3,
-  Settings, ScrollText, Bell, LogOut, LifeBuoy,
+  Settings, ScrollText, Bell, LogOut, LifeBuoy, MessageSquare,
 } from 'lucide-react'
 import { i18n } from '@/lib/i18n'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -22,6 +22,7 @@ const adminLinks: Link[] = [
   { to: '/admin/users', label: 'nav.users', icon: Users },
   { to: '/reports', label: 'nav.reports', icon: BarChart3 },
   { to: '/support', label: 'nav.support', icon: LifeBuoy },
+  { to: '/chat', label: 'nav.chat', icon: MessageSquare },
   { to: '/settings', label: 'nav.settings', icon: Settings },
   { to: '/admin/audit-log', label: 'nav.audit_log', icon: ScrollText },
 ]
@@ -30,6 +31,7 @@ const userLinks: Link[] = [
   { to: '/my-dashboard', label: 'nav.my_dashboard', icon: LayoutDashboard },
   { to: '/tasks', label: 'nav.my_tasks', icon: CheckSquare },
   { to: '/notifications', label: 'nav.notifications', icon: Bell, badge: true },
+  { to: '/chat', label: 'nav.chat', icon: MessageSquare },
   { to: '/support', label: 'nav.support', icon: LifeBuoy },
 ]
 
