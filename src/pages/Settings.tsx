@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { Save, AlertTriangle, RotateCcw, RefreshCw, ArrowUpCircle, CheckCircle2, XCircle, Download } from 'lucide-react'
+import { Save, AlertTriangle, RotateCcw, RefreshCw, ArrowUpCircle, CheckCircle2, XCircle, Download, Volume2 } from 'lucide-react'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useUpdateStore } from '@/stores/updateStore'
 import { useAuthStore } from '@/stores/authStore'
@@ -7,9 +7,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import { cn, hasPermission } from '@/lib/utils'
 import { db } from '@/lib/db'
 import { i18n } from '@/lib/i18n'
+import { soundSynthesizer } from '@/lib/sound'
 
 import type { AppSettings } from '@/lib/types'
 
@@ -252,7 +254,68 @@ export default function Settings() {
                     <p className="text-caption text-muted-foreground/80 leading-normal pl-11 rtl:pr-11 rtl:pl-0">{i18n.t(n.help)}</p>
                   </div>
                 ))}
-                <div className="grid gap-4 sm:grid-cols-2 pt-2">
+
+                {/* Sound Notification Settings */}
+                <div className="space-y-1 pt-2 border-t border-border/20">
+                  <div className="flex items-center gap-3">
+                    <Switch id="enableSoundNotif" checked={form.enableSoundNotif ?? false} onCheckedChange={(v) => update('enableSoundNotif', v)} />
+                    <Label htmlFor="enableSoundNotif" className="text-sm font-bold">{i18n.t('settings.sound_notifications')}</Label>
+                  </div>
+                  <p className="text-caption text-muted-foreground/80 leading-normal pl-11 rtl:pr-11 rtl:pl-0">{i18n.t('settings.enableSoundNotif.help')}</p>
+                </div>
+
+                {(form.enableSoundNotif ?? false) && (
+                  <div className="grid gap-4 sm:grid-cols-2 pl-11 rtl:pr-11 rtl:pl-0 animate-rise stagger-1 border-t border-border/10 pt-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="soundNotifTheme" className="text-sm font-bold">{i18n.t('settings.sound_theme')}</Label>
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <Select value={form.soundNotifTheme ?? 'chime'} onValueChange={(v) => update('soundNotifTheme', v)}>
+                            <SelectTrigger className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="chime">{i18n.t('settings.sound_theme.chime')}</SelectItem>
+                              <SelectItem value="glass">{i18n.t('settings.sound_theme.glass')}</SelectItem>
+                              <SelectItem value="cyber">{i18n.t('settings.sound_theme.cyber')}</SelectItem>
+                              <SelectItem value="alert">{i18n.t('settings.sound_theme.alert')}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <Button
+                          type="button"
+                          onClick={() => {
+                            soundSynthesizer.play(form.soundNotifTheme ?? 'chime', form.soundNotifVolume ?? 0.5)
+                          }}
+                          className="h-10 w-10 shrink-0 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 flex items-center justify-center spring-transition"
+                          title={i18n.t('settings.sound_test')}
+                        >
+                          <Volume2 className="h-4.5 w-4.5" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <Label htmlFor="soundNotifVolume" className="text-sm font-bold">{i18n.t('settings.sound_volume')}</Label>
+                        <span className="text-caption font-mono text-muted-foreground">{Math.round((form.soundNotifVolume ?? 0.5) * 100)}%</span>
+                      </div>
+                      <div className="flex items-center gap-3 h-10">
+                        <input
+                          id="soundNotifVolume"
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.05"
+                          value={form.soundNotifVolume ?? 0.5}
+                          onChange={(e) => update('soundNotifVolume', parseFloat(e.target.value))}
+                          className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid gap-4 sm:grid-cols-2 pt-2 border-t border-border/20">
                   <div className="space-y-2">
                     <Label htmlFor="srvQuietStart" className="text-sm font-bold">{i18n.t('settings.quietHoursStart')}</Label>
                     <Input id="srvQuietStart" type="time" value={form.quietHoursStart ?? '22:00'} onChange={(e) => update('quietHoursStart', e.target.value)} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />

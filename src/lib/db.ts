@@ -77,6 +77,9 @@ function getDefaultSettings(): AppSettings {
     enableEmailNotif: true, enablePushNotif: true, enableSlackNotif: false, enableDigest: false,
     quietHoursStart: '22:00', quietHoursEnd: '07:00',
     workDurationMin: 25, shortBreakMin: 5, longBreakMin: 15, longBreakInterval: 4,
+    enableSoundNotif: true,
+    soundNotifVolume: 0.5,
+    soundNotifTheme: 'chime',
   }
 }
 

@@ -164,6 +164,9 @@ export type AppSettings = {
   shortBreakMin: number
   longBreakMin: number
   longBreakInterval: number
+  enableSoundNotif: boolean
+  soundNotifVolume: number
+  soundNotifTheme: string
 }
 
 export type Session = {

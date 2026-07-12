@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { Notification } from '@/lib/types'
+import { db } from '@/lib/db'
+import { soundSynthesizer } from '@/lib/sound'
 
 let permissionRequested = false
 
@@ -24,15 +26,26 @@ export function useOsNotifications(notifications: Notification[]) {
     if (shownRef.current.size > MAX_SHOWN) {
       shownRef.current = new Set([...shownRef.current].slice(-MAX_SHOWN))
     }
-    if (Notification.permission !== 'granted') return
+    
     const now = Date.now()
+    const settings = db.getSettings()
+    let playedSound = false
+
     notifications.forEach(n => {
       if (n.read) return
       if (shownRef.current.has(n.id)) return
       const age = now - new Date(n.createdAt).getTime()
       if (age > 10000) return
       shownRef.current.add(n.id)
-      new Notification(n.title, { body: n.message })
+
+      if (Notification.permission === 'granted') {
+        new Notification(n.title, { body: n.message })
+      }
+
+      if (settings.enableSoundNotif && !playedSound) {
+        soundSynthesizer.play(settings.soundNotifTheme, settings.soundNotifVolume)
+        playedSound = true
+      }
     })
   }, [notifications])
 }
