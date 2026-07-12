@@ -15,13 +15,14 @@ import { soundSynthesizer } from '@/lib/sound'
 
 import type { AppSettings } from '@/lib/types'
 
-type Section = 'general' | 'security' | 'sessions' | 'notifications' | 'data' | 'ratelimit' | 'updates'
+type Section = 'general' | 'security' | 'sessions' | 'notifications' | 'data' | 'ratelimit' | 'updates' | 'support'
 
 const sections: { id: Section; label: string }[] = [
   { id: 'general', label: i18n.t('settings.general') },
   { id: 'security', label: i18n.t('settings.security') },
   { id: 'sessions', label: i18n.t('settings.sessions') },
   { id: 'notifications', label: i18n.t('settings.notifications') },
+  { id: 'support', label: i18n.t('settings.support') },
   { id: 'data', label: i18n.t('settings.data') },
   { id: 'ratelimit', label: i18n.t('settings.ratelimit') },
   { id: 'updates', label: i18n.t('settings.updates') },
@@ -326,6 +327,31 @@ export default function Settings() {
                     <Input id="srvQuietEnd" type="time" value={form.quietHoursEnd ?? '07:00'} onChange={(e) => update('quietHoursEnd', e.target.value)} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
                     <p className="text-caption text-muted-foreground/80 mt-1 leading-normal">{i18n.t('settings.quietHoursEnd.help')}</p>
                   </div>
+                </div>
+                <Button onClick={handleSave} disabled={!canEdit} className="h-10 rounded-full spring-transition font-semibold px-5"><Save className="h-4 w-4" />{i18n.t('settings.save')}</Button>
+              </div>
+            </div>
+          )}
+
+          {activeSection === 'support' && (
+            <div className="glass-panel animate-rise stagger-3">
+              <div className="glass-panel-inner space-y-5">
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">{i18n.t('settings.support')}</h2>
+                <div className="space-y-4">
+                  {([
+                    { key: 'supportEnablePriority' as const, label: () => i18n.t('settings.support.priority'), help: 'settings.support.priority.help' },
+                    { key: 'supportEnableDiagnostics' as const, label: () => i18n.t('settings.support.diagnostics'), help: 'settings.support.diagnostics.help' },
+                    { key: 'supportEnableResolutionNotes' as const, label: () => i18n.t('settings.support.resolution_notes'), help: 'settings.support.resolution_notes.help' },
+                    { key: 'supportEnableFeedback' as const, label: () => i18n.t('settings.support.feedback'), help: 'settings.support.feedback.help' },
+                  ] as const).map((n) => (
+                    <div key={n.key} className="space-y-1">
+                      <div className="flex items-center gap-3">
+                        <Switch id={n.key} checked={form[n.key] ?? false} onCheckedChange={(v) => update(n.key, v)} />
+                        <Label htmlFor={n.key} className="text-sm font-bold">{n.label()}</Label>
+                      </div>
+                      <p className="text-caption text-muted-foreground/80 leading-normal pl-11 rtl:pr-11 rtl:pl-0">{i18n.t(n.help)}</p>
+                    </div>
+                  ))}
                 </div>
                 <Button onClick={handleSave} disabled={!canEdit} className="h-10 rounded-full spring-transition font-semibold px-5"><Save className="h-4 w-4" />{i18n.t('settings.save')}</Button>
               </div>

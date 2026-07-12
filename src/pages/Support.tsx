@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import {
-  LifeBuoy, Wrench, Clock, User, AlertCircle, CheckCircle2, Upload, X
+  LifeBuoy, Wrench, Clock, User, AlertCircle, CheckCircle2, Upload, X, Star
 } from 'lucide-react'
 import { i18n } from '@/lib/i18n'
 import { useAuthStore } from '@/stores/authStore'
@@ -8,10 +8,13 @@ import { useUserStore } from '@/stores/userStore'
 import { useSupportStore } from '@/stores/supportStore'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import { getDepartmentConfig } from '@/lib/constants'
 import { hasPermission } from '@/lib/utils'
-import type { SupportTicketCategory, SupportTicketStatus } from '@/lib/types'
+import type { SupportTicketCategory, SupportTicketStatus, Priority } from '@/lib/types'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
+import { db } from '@/lib/db'
 
 const CATEGORIES: SupportTicketCategory[] = ['network', 'software', 'hardware', 'email_account', 'other']
 
@@ -20,9 +23,11 @@ export default function Support() {
   const { users, fetchUsers } = useUserStore()
   const { tickets, isLoading, fetchTickets, createTicket, updateTicket } = useSupportStore()
 
+  const settings = useMemo(() => db.getSettings(), [])
   const [category, setCategory] = useState<SupportTicketCategory>('network')
   const [description, setDescription] = useState('')
   const [image, setImage] = useState('')
+  const [priority, setPriority] = useState<Priority>('medium')
   
   const [activeTab, setActiveTab] = useState<'submit' | 'my_tickets' | 'queue'>('submit')
   const [filterStatus, setFilterStatus] = useState<'all' | SupportTicketStatus>('all')
@@ -32,6 +37,11 @@ export default function Support() {
   const [success, setSuccess] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const [notesByTicket, setNotesByTicket] = useState<Record<string, string>>({})
+  const [hoveredRating, setHoveredRating] = useState<Record<string, number>>({})
+  const [selectedRating, setSelectedRating] = useState<Record<string, number>>({})
+  const [feedbackTextByTicket, setFeedbackTextByTicket] = useState<Record<string, string>>({})
 
   const isIT = hasPermission(user, 'support.manage')
 
@@ -106,6 +116,8 @@ export default function Support() {
         }
       } catch (_) { /* ignore system info errors */ }
 
+      const usePriority = settings.supportEnablePriority && hasPermission(user, 'support.priority')
+
       await createTicket({
         creatorId: user.id,
         category,
@@ -113,10 +125,12 @@ export default function Support() {
         image: image || undefined,
         deviceInfo,
         systemLog,
+        priority: usePriority ? priority : 'medium',
       })
       setSuccess(true)
       setDescription('')
       setImage('')
+      setPriority('medium')
       if (fileInputRef.current) fileInputRef.current.value = ''
       
       // Auto redirect to My Tickets tab after success
@@ -129,6 +143,18 @@ export default function Support() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const handleResolve = async (ticketId: string) => {
+    const notes = notesByTicket[ticketId] || ''
+    await updateTicket(ticketId, { status: 'completed', resolutionNotes: notes.trim() })
+  }
+
+  const handleFeedbackSubmit = async (ticketId: string) => {
+    const rating = selectedRating[ticketId]
+    const feedbackText = feedbackTextByTicket[ticketId] || ''
+    if (!rating) return
+    await updateTicket(ticketId, { rating, feedbackText: feedbackText.trim() })
   }
 
   const handleAssign = async (ticketId: string) => {
@@ -298,6 +324,26 @@ export default function Support() {
                   />
                 </div>
 
+                {/* Priority Selection - Gated */}
+                {settings.supportEnablePriority && hasPermission(user, 'support.priority') && (
+                  <div className="space-y-2">
+                    <label className="text-caption font-bold text-foreground">{i18n.t('support.priority')}</label>
+                    <div className="w-[180px]">
+                      <Select value={priority} onValueChange={(v) => setPriority(v as Priority)}>
+                        <SelectTrigger className="h-10 rounded-xl bg-background border border-border/10 hover:border-border/20 spring-transition">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="low">{i18n.t('support.priority.low')}</SelectItem>
+                          <SelectItem value="medium">{i18n.t('support.priority.medium')}</SelectItem>
+                          <SelectItem value="high">{i18n.t('support.priority.high')}</SelectItem>
+                          <SelectItem value="critical">{i18n.t('support.priority.critical')}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+
                 {/* Image Upload */}
                 <div className="space-y-2">
                   <label className="text-caption font-bold text-foreground">{i18n.t('support.form.image')}</label>
@@ -378,9 +424,16 @@ export default function Support() {
                       className="animate-rise bg-surface/30 border border-border/10 rounded-xl p-5 hover:shadow-md hover:scale-[1.005] hover:border-border/20 transition-all duration-300 relative flex flex-col gap-3"
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <Badge variant={getStatusBadgeVariant(ticket.status)}>
-                          {i18n.t(`support.status.${ticket.status}`)}
-                        </Badge>
+                        <div className="flex gap-1.5 items-center">
+                          <Badge variant={getStatusBadgeVariant(ticket.status)}>
+                            {i18n.t(`support.status.${ticket.status}`)}
+                          </Badge>
+                          {settings.supportEnablePriority && hasPermission(user, 'support.priority') && ticket.priority && (
+                            <Badge variant={ticket.priority === 'critical' ? 'danger' : ticket.priority === 'high' ? 'warning' : 'outline'}>
+                              {i18n.t(`support.priority.${ticket.priority}`)}
+                            </Badge>
+                          )}
+                        </div>
                         <span className="text-micro text-muted-foreground">
                           {new Date(ticket.createdAt).toLocaleString(i18n.lang === 'ar' ? 'ar-SA' : 'en-US')}
                         </span>
@@ -419,12 +472,93 @@ export default function Support() {
                           <span className="italic">{i18n.lang === 'ar' ? 'بانتظار مستلم فني' : 'Awaiting assignment'}</span>
                         )}
 
-                        {ticket.deviceInfo && (
+                        {ticket.deviceInfo && settings.supportEnableDiagnostics && hasPermission(user, 'support.diagnostics') && (
                           <span className="flex items-center gap-1 text-primary/70 font-medium" title={ticket.systemLog || ''}>
                             ⚙️ {ticket.deviceInfo.length > 60 ? ticket.deviceInfo.slice(0, 60) + '…' : ticket.deviceInfo}
                           </span>
                         )}
                       </div>
+
+                      {/* Resolution Notes for User View */}
+                      {settings.supportEnableResolutionNotes && hasPermission(user, 'support.resolution_notes') && ticket.resolutionNotes && (
+                        <div className="mt-2 bg-primary/5 border border-primary/10 rounded-xl p-3 text-xs leading-relaxed">
+                          <div className="font-bold text-primary flex items-center gap-1.5 mb-1">
+                            <span>💡</span>
+                            <span>{i18n.t('support.resolution_notes')}</span>
+                          </div>
+                          <p className="text-foreground/85 whitespace-pre-wrap font-outfit">{ticket.resolutionNotes}</p>
+                        </div>
+                      )}
+
+                      {/* Feedback & Rating Section on Creator View */}
+                      {settings.supportEnableFeedback && hasPermission(user, 'support.feedback') && ticket.status === 'completed' && (
+                        <div className="mt-2 border-t border-border/5 pt-3">
+                          {ticket.rating ? (
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-foreground/75">{i18n.t('support.feedback.rating')}:</span>
+                              <div className="flex gap-0.5">
+                                {Array.from({ length: 5 }).map((_, i) => (
+                                  <Star 
+                                    key={i} 
+                                    className={`h-4 w-4 ${i < ticket.rating! ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/35'}`} 
+                                  />
+                                ))}
+                              </div>
+                              {ticket.feedbackText && (
+                                <span className="text-xs italic text-muted-foreground pl-2 rtl:pr-2 rtl:pl-0">
+                                  "{ticket.feedbackText}"
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="space-y-3 bg-muted/10 border border-border/5 rounded-xl p-4 animate-rise">
+                              <span className="text-xs font-bold text-foreground/85">{i18n.t('support.feedback.rate')}</span>
+                              <div className="flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
+                                <div className="flex gap-1.5">
+                                  {Array.from({ length: 5 }).map((_, i) => {
+                                    const starVal = i + 1
+                                    const isHovered = (hoveredRating[ticket.id] || 0) >= starVal
+                                    const isSelected = (selectedRating[ticket.id] || 0) >= starVal
+                                    return (
+                                      <button
+                                        key={i}
+                                        type="button"
+                                        onMouseEnter={() => setHoveredRating({ ...hoveredRating, [ticket.id]: starVal })}
+                                        onMouseLeave={() => setHoveredRating({ ...hoveredRating, [ticket.id]: 0 })}
+                                        onClick={() => setSelectedRating({ ...selectedRating, [ticket.id]: starVal })}
+                                        className="cursor-pointer transition-transform duration-100 hover:scale-125"
+                                      >
+                                        <Star 
+                                          className={`h-5 w-5 transition-colors duration-150 ${
+                                            isHovered || isSelected ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/40'
+                                          }`} 
+                                        />
+                                      </button>
+                                    )
+                                  })}
+                                </div>
+
+                                <div className="flex-1 flex gap-2">
+                                  <Input 
+                                    value={feedbackTextByTicket[ticket.id] || ''}
+                                    onChange={(e) => setFeedbackTextByTicket({ ...feedbackTextByTicket, [ticket.id]: e.target.value })}
+                                    placeholder={i18n.t('support.feedback.placeholder')}
+                                    className="h-8 text-xs bg-background/50 rounded-xl"
+                                  />
+                                  <Button
+                                    onClick={() => handleFeedbackSubmit(ticket.id)}
+                                    disabled={!(selectedRating[ticket.id] > 0)}
+                                    size="sm"
+                                    className="h-8 rounded-xl font-bold bg-primary text-xs shrink-0 active:scale-[0.96] transition-transform duration-150"
+                                  >
+                                    {i18n.t('support.feedback.submit')}
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -489,9 +623,16 @@ export default function Support() {
                       >
                         {/* Status + Date */}
                         <div className="flex items-center justify-between gap-3">
-                          <Badge variant={getStatusBadgeVariant(ticket.status)}>
-                            {i18n.t(`support.status.${ticket.status}`)}
-                          </Badge>
+                          <div className="flex gap-1.5 items-center">
+                            <Badge variant={getStatusBadgeVariant(ticket.status)}>
+                              {i18n.t(`support.status.${ticket.status}`)}
+                            </Badge>
+                            {settings.supportEnablePriority && hasPermission(user, 'support.priority') && ticket.priority && (
+                              <Badge variant={ticket.priority === 'critical' ? 'danger' : ticket.priority === 'high' ? 'warning' : 'outline'}>
+                                {i18n.t(`support.priority.${ticket.priority}`)}
+                              </Badge>
+                            )}
+                          </div>
                           <span className="text-micro text-muted-foreground">
                             {new Date(ticket.createdAt).toLocaleString(i18n.lang === 'ar' ? 'ar-SA' : 'en-US')}
                           </span>
@@ -538,7 +679,7 @@ export default function Support() {
 
                         {/* Reminder Metadata */}
                         {/* Device Info */}
-                        {ticket.deviceInfo && (
+                        {ticket.deviceInfo && settings.supportEnableDiagnostics && hasPermission(user, 'support.diagnostics') && (
                           <div className="flex items-start gap-1.5 text-xs text-primary/80 font-semibold bg-primary/5 border border-primary/10 p-2.5 rounded-xl w-fit">
                             <span>⚙️</span>
                             <div className="flex flex-col gap-0.5">
@@ -552,6 +693,50 @@ export default function Support() {
                                 </details>
                               )}
                             </div>
+                          </div>
+                        )}
+
+                        {/* Resolution Notes for IT Queue View */}
+                        {settings.supportEnableResolutionNotes && hasPermission(user, 'support.resolution_notes') && (
+                          <div className="space-y-2 mt-2">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase">{i18n.t('support.resolution_notes')}</label>
+                            {ticket.status !== 'completed' ? (
+                              <textarea
+                                value={notesByTicket[ticket.id] ?? ticket.resolutionNotes ?? ''}
+                                onChange={(e) => setNotesByTicket({ ...notesByTicket, [ticket.id]: e.target.value })}
+                                placeholder={i18n.t('support.resolution_notes.placeholder')}
+                                rows={2}
+                                className="w-full bg-background border border-border/10 hover:border-border/20 focus:border-primary/50 focus:ring-1 focus:ring-primary/30 outline-none rounded-xl p-2.5 text-xs transition-all resize-none font-outfit"
+                              />
+                            ) : (
+                              ticket.resolutionNotes && (
+                                <div className="p-3 bg-muted/20 border border-border/5 rounded-xl text-xs leading-relaxed text-foreground/80 whitespace-pre-wrap font-outfit">
+                                  {ticket.resolutionNotes}
+                                </div>
+                              )
+                            )}
+                          </div>
+                        )}
+
+                        {/* Rating Display in IT Queue */}
+                        {settings.supportEnableFeedback && hasPermission(user, 'support.feedback') && ticket.status === 'completed' && ticket.rating && (
+                          <div className="flex flex-col gap-1.5 bg-muted/10 border border-border/5 p-3 rounded-xl">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-bold text-muted-foreground uppercase">{i18n.t('support.feedback.rating')}:</span>
+                              <div className="flex gap-0.5">
+                                {Array.from({ length: 5 }).map((_, i) => (
+                                  <Star 
+                                    key={i} 
+                                    className={`h-3.5 w-3.5 ${i < ticket.rating! ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/30'}`} 
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                            {ticket.feedbackText && (
+                              <p className="text-caption italic text-muted-foreground/90 font-outfit">
+                                "{ticket.feedbackText}"
+                              </p>
+                            )}
                           </div>
                         )}
 
@@ -585,7 +770,7 @@ export default function Support() {
                                   )}
                                   {ticket.status === 'in_progress' && (
                                     <Button 
-                                      onClick={() => handleStatusChange(ticket.id, 'completed')}
+                                      onClick={() => handleResolve(ticket.id)}
                                       size="sm" 
                                       className="rounded-xl font-bold bg-success hover:bg-success/95 text-success-foreground shadow-sm text-xs px-4 py-1.5 active:scale-[0.96] transition-transform duration-150 ease-out"
                                     >

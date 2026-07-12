@@ -80,6 +80,10 @@ function getDefaultSettings(): AppSettings {
     enableSoundNotif: true,
     soundNotifVolume: 0.5,
     soundNotifTheme: 'chime',
+    supportEnablePriority: true,
+    supportEnableDiagnostics: true,
+    supportEnableResolutionNotes: true,
+    supportEnableFeedback: true,
   }
 }
 
@@ -89,6 +93,7 @@ export const ALL_PERMISSIONS: Permission[] = [
   'settings.view', 'settings.edit',
   'reports.view', 'audit.view',
   'announcement.send', 'support.manage',
+  'support.priority', 'support.diagnostics', 'support.resolution_notes', 'support.feedback',
   'notifications.view', 'subtask.toggle', 'mention.create', 'effort.view_all',
 ]
 
@@ -96,14 +101,20 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   admin: [...ALL_PERMISSIONS],
   manager: [
     'task.create', 'task.edit', 'task.delete', 'task.assign', 'task.view_all', 'task.reorder', 'task.verify',
-    'user.view', 'reports.view',
-    'notifications.view', 'effort.view_all',
+    'user.view', 'settings.view', 'reports.view', 'audit.view', 'announcement.send', 'support.manage',
+    'support.priority', 'support.diagnostics', 'support.resolution_notes', 'support.feedback',
+    'notifications.view', 'subtask.toggle', 'mention.create',
+    'effort.view_all',
   ],
   developer: [
-    'task.create', 'task.edit.own', 'task.view_all',
+    'task.view_all', 'task.edit.own', 'user.view',
+    'support.priority', 'support.diagnostics', 'support.resolution_notes', 'support.feedback',
     'notifications.view', 'subtask.toggle', 'mention.create',
   ],
-  viewer: ['task.view_all', 'notifications.view'],
+  viewer: [
+    'task.view_all', 'notifications.view',
+    'support.priority', 'support.resolution_notes', 'support.feedback',
+  ],
 }
 
 const DEFAULT_HASHES: Record<string, string> = {

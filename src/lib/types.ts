@@ -23,6 +23,10 @@ export type Permission =
   | 'audit.view'
   | 'announcement.send'
   | 'support.manage'
+  | 'support.priority'
+  | 'support.diagnostics'
+  | 'support.resolution_notes'
+  | 'support.feedback'
   | 'notifications.view'
   | 'subtask.toggle'
   | 'mention.create'
@@ -167,6 +171,10 @@ export type AppSettings = {
   enableSoundNotif: boolean
   soundNotifVolume: number
   soundNotifTheme: string
+  supportEnablePriority: boolean
+  supportEnableDiagnostics: boolean
+  supportEnableResolutionNotes: boolean
+  supportEnableFeedback: boolean
 }
 
 export type Session = {
@@ -213,4 +221,8 @@ export type SupportTicket = {
   assigneeId: string | null
   createdAt: string
   updatedAt: string
+  priority?: Priority
+  resolutionNotes?: string
+  rating?: number
+  feedbackText?: string
 }
