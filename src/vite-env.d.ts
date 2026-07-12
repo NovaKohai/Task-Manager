@@ -30,6 +30,7 @@ interface ElectronAPI {
   checkForUpdates: () => Promise<UpdateInfo>
   downloadUpdate: () => Promise<{ started: boolean }>
   installUpdate: () => Promise<void>
+  getSystemInfo: () => Promise<any>
   onUpdateStatus: (callback: (status: UpdateStatus) => void) => () => void
 }
 

@@ -62,4 +62,4 @@ We have successfully implemented all 10 requested notification features and auto
 
 ## 3. Desktop Installer Output
 The native packaged Windows application installer has been compiled and updated successfully at:  
-[Team Task Manager-Setup-0.0.0.exe](file:///f:/Projects/New%20folder/team-task-manager/release/Team%20Task%20Manager-Setup-0.0.0.exe)
+[Team Task Manager-Setup-1.0.4.exe](file:///f:/Projects/New%20folder/team-task-manager/release/Team%20Task%20Manager-Setup-1.0.4.exe)

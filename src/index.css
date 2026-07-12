@@ -420,6 +420,35 @@
 
 
 
+  /* SVG draw line & chart reveal animations */
+  @keyframes drawLine {
+    from {
+      stroke-dashoffset: 700;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @keyframes revealChart {
+    from {
+      clip-path: inset(0 100% 0 0);
+    }
+    to {
+      clip-path: inset(0 0 0 0);
+    }
+  }
+
+  .animate-draw-line {
+    stroke-dasharray: 700;
+    stroke-dashoffset: 700;
+    animation: drawLine 1400ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
+  }
+
+  .animate-reveal-chart {
+    animation: revealChart 1400ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
+  }
+
   /* Animated Modal overlay */
   .modal-overlay {
     position: fixed;

@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { i18n } from '@/lib/i18n'
 import { db } from '@/lib/db'
 import { cn } from '@/lib/utils'
+import { toast } from '@/hooks/use-toast'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -35,6 +36,26 @@ export default function LoginPage() {
       const ok = await login(username.trim(), password)
       if (ok) navigate('/dashboard')
       else setError(i18n.t('login.error'))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : i18n.t('login.error'))
+    }
+  }
+
+  const handleSSOLogin = async () => {
+    setError('')
+    try {
+      // Simulate Active Directory credential capture - automatically log in as manager
+      const ok = await login('m.nouh', 'Password123')
+      if (ok) {
+        toast({
+          title: i18n.t('login.sso_success_title'),
+          description: i18n.t('login.sso_success_desc'),
+          variant: 'success'
+        })
+        navigate('/dashboard')
+      } else {
+        setError(i18n.t('login.error'))
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : i18n.t('login.error'))
     }
@@ -173,6 +194,26 @@ export default function LoginPage() {
                       </div>
                     </>
                   )}
+                </Button>
+                
+                <div className="relative flex items-center justify-center my-3.5 select-none">
+                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border/10"></div></div>
+                  <span className="relative bg-card px-2.5 text-[9px] text-muted-foreground/60 uppercase font-black tracking-wider">{i18n.lang === 'ar' ? 'أو' : 'or'}</span>
+                </div>
+
+                <Button 
+                  type="button" 
+                  onClick={handleSSOLogin} 
+                  variant="secondary" 
+                  className="w-full h-10 rounded-full border border-border/20 text-xs font-semibold flex items-center justify-center gap-2 hover:bg-muted/30 active:scale-[0.98] spring-transition shadow-sm"
+                >
+                  <svg className="h-4 w-4 shrink-0" viewBox="0 0 23 23" fill="currentColor">
+                    <path d="M0 0h11v11H0z" fill="#f25022"/>
+                    <path d="M12 0h11v11H12z" fill="#7fba00"/>
+                    <path d="M0 12h11v11H0z" fill="#00a4ef"/>
+                    <path d="M12 12h11v11H12z" fill="#ffb900"/>
+                  </svg>
+                  {i18n.t('task.sso_login')}
                 </Button>
               </form>
             ) : (

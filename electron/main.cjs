@@ -1,10 +1,131 @@
-const { app, BrowserWindow, Menu, ipcMain, shell } = require('electron')
+const { app, BrowserWindow, Menu, ipcMain, session } = require('electron')
 const path = require('path')
-const fs = require('fs')
+const os = require('os')
+
+// electron-updater reads publish config from electron-builder.json automatically,
+// so update files are downloaded from your GitHub Releases (no code changes needed there).
+const { autoUpdater } = require('electron-updater')
 
 const isDev = process.argv.includes('--dev')
-let latestReleaseInfo = null
-let downloadedInstallerPath = null
+
+// ── Content Security Policy ─────────────────────────────────────────────────
+// Applied to every response via onHeadersReceived so it also covers file:// loads.
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' https://fonts.gstatic.com",
+  "img-src 'self' data: https:",
+  "connect-src 'self' https://api.github.com",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "frame-ancestors 'none'",
+].join('; ')
+
+function sendToRenderer(channel, data) {
+  const win = BrowserWindow.getAllWindows()[0]
+  if (win) win.webContents.send(channel, data)
+}
+
+// ── electron-updater event bridge ──────────────────────────────────────────
+// Maps autoUpdater events to the {type,...} payloads the React updateStore
+// already expects, so the renderer side needs zero changes.
+autoUpdater.autoDownload = false
+autoUpdater.autoInstallOnAppQuit = false
+
+autoUpdater.on('checking-for-update', () => {
+  sendToRenderer('update-status', { type: 'checking' })
+})
+
+autoUpdater.on('update-available', (info) => {
+  sendToRenderer('update-status', { type: 'available', version: info.version, releaseNotes: info.releaseNotes, releaseDate: info.releaseDate })
+})
+
+autoUpdater.on('update-not-available', () => {
+  sendToRenderer('update-status', { type: 'uptodate' })
+})
+
+autoUpdater.on('download-progress', (progress) => {
+  sendToRenderer('update-status', { type: 'progress', percent: Math.round(progress.percent) })
+})
+
+autoUpdater.on('update-downloaded', (info) => {
+  sendToRenderer('update-status', { type: 'downloaded', version: info.version })
+})
+
+autoUpdater.on('error', (err) => {
+  sendToRenderer('update-status', { type: 'error', message: err.message })
+})
+
+// ── IPC handlers ────────────────────────────────────────────────────────────
+
+ipcMain.handle('get-app-version', () => app.getVersion())
+
+ipcMain.handle('get-system-info', () => {
+  try {
+    return {
+      osType: os.type(),
+      osPlatform: os.platform(),
+      osArch: os.arch(),
+      osRelease: os.release(),
+      totalMem: `${(os.totalmem() / (1024 * 1024 * 1024)).toFixed(2)} GB`,
+      freeMem: `${(os.freemem() / (1024 * 1024 * 1024)).toFixed(2)} GB`,
+      cpuModel: os.cpus()[0]?.model || 'Unknown',
+    }
+  } catch (e) {
+    return { error: e?.message ?? String(e) }
+  }
+})
+
+// check-for-updates → autoUpdater.checkForUpdates()
+ipcMain.handle('check-for-updates', async () => {
+  try {
+    const result = await autoUpdater.checkForUpdates()
+    const currentVersion = app.getVersion()
+    const latestVersion = result ? result.updateInfo.version : currentVersion
+    
+    // Compare versions (e.g. 1.0.5 > 1.0.4)
+    const isNewer = (() => {
+      const l = latestVersion.split('.').map(Number)
+      const c = currentVersion.split('.').map(Number)
+      for (let i = 0; i < Math.max(l.length, c.length); i++) {
+        const lVal = l[i] || 0
+        const cVal = c[i] || 0
+        if (lVal > cVal) return true
+        if (lVal < cVal) return false
+      }
+      return false
+    })()
+
+    return {
+      available: isNewer,
+      version: latestVersion,
+      releaseNotes: result ? (typeof result.updateInfo.releaseNotes === 'string' ? result.updateInfo.releaseNotes : JSON.stringify(result.updateInfo.releaseNotes)) : '',
+      releaseDate: result ? result.updateInfo.releaseDate : '',
+    }
+  } catch (e) {
+    return { available: false, error: e?.message ?? String(e) }
+  }
+})
+
+ipcMain.handle('download-update', async () => {
+  try {
+    await autoUpdater.downloadUpdate()
+    return { started: true }
+  } catch (e) {
+    return { started: false, error: e?.message ?? String(e) }
+  }
+})
+
+ipcMain.handle('install-update', async () => {
+  try {
+    autoUpdater.quitAndInstall()
+  } catch (e) {
+    return { error: e?.message ?? String(e) }
+  }
+})
+
+// ── Window ──────────────────────────────────────────────────────────────────
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -17,6 +138,7 @@ function createWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: false,
       preload: path.join(__dirname, 'preload.cjs'),
     },
   })
@@ -30,110 +152,28 @@ function createWindow() {
     win.loadFile(path.join(__dirname, '../dist/index.html'))
   }
 
+  // DevTools shortcut only fires in dev mode — silently ignored in production.
   win.webContents.on('before-input-event', (event, input) => {
-    if (input.control && input.shift && input.key.toLowerCase() === 'i') {
+    if (isDev && input.control && input.shift && input.key.toLowerCase() === 'i') {
       win.webContents.toggleDevTools()
     }
   })
 }
 
-function sendToRenderer(channel, data) {
-  const win = BrowserWindow.getAllWindows()[0]
-  if (win) win.webContents.send(channel, data)
-}
-
-ipcMain.handle('get-app-version', () => app.getVersion())
-
-ipcMain.handle('check-for-updates', async () => {
-  try {
-    const res = await fetch('https://api.github.com/repos/NovaKohai/Task-Manager/releases/latest', {
-      headers: { 'Accept': 'application/vnd.github+json' }
+app.whenReady().then(() => {
+  // Apply CSP on every response so both the initial HTML and any sub-requests
+  // (iframe, print, etc.) receive it. Works for file:// loads where <meta> would not.
+  session.defaultSession.webRequest.onHeadersReceived((_details, callback) => {
+    callback({
+      responseHeaders: {
+        ..._details.responseHeaders,
+        'Content-Security-Policy': [CSP],
+      },
     })
-    if (res.status === 403) {
-      const retryAfter = res.headers.get('X-RateLimit-Reset')
-      const resetTime = retryAfter ? new Date(parseInt(retryAfter) * 1000).toLocaleTimeString() : 'later'
-      return { available: false, error: `Rate limited by GitHub. Try again after ${resetTime}` }
-    }
-    if (res.status === 404) return { available: false, error: 'Release not found' }
-    if (!res.ok) return { available: false, error: `GitHub API error: ${res.status} ${res.statusText}` }
-    const release = await res.json()
-    latestReleaseInfo = release
-    const latest = release.tag_name.replace(/^v/, '')
-    const current = app.getVersion()
-    const c = current.split('.').map(Number)
-    const l = latest.split('.').map(Number)
-    const isNewer = l[0] > c[0] || (l[0] === c[0] && l[1] > c[1]) || (l[0] === c[0] && l[1] === c[1] && l[2] > c[2])
-    if (!isNewer) return { available: false }
-    return {
-      available: true,
-      version: latest,
-      releaseNotes: release.body || '',
-      releaseDate: release.published_at,
-    }
-  } catch (e) {
-    return { available: false, error: e?.message ?? String(e) }
-  }
-})
+  })
 
-ipcMain.handle('download-update', async () => {
-  if (!latestReleaseInfo) return { started: false, error: 'No update info. Check for updates first.' }
-  const asset = latestReleaseInfo.assets?.find(a => a.name.endsWith('.exe') && !a.name.includes('__uninstaller'))
-  if (!asset) return { started: false, error: 'No installer asset found in release' }
-  const ext = path.extname(asset.name)
-  const base = path.basename(asset.name, ext)
-  const dest = path.join(app.getPath('temp'), `${base}.${Date.now()}${ext}`)
-  try {
-    const response = await fetch(asset.browser_download_url)
-    if (!response.ok) return { started: false, error: `Download failed: HTTP ${response.status}` }
-    const total = parseInt(response.headers.get('content-length') || '0', 10)
-    const reader = response.body.getReader()
-    const writer = fs.createWriteStream(dest)
-    let downloaded = 0
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      writer.write(Buffer.from(value))
-      downloaded += value.length
-      if (total) {
-        sendToRenderer('update-status', { type: 'progress', percent: Math.round((downloaded / total) * 100), bytesPerSecond: 0 })
-      }
-    }
-    await new Promise(ok => writer.end(ok))
-    downloadedInstallerPath = dest
-    sendToRenderer('update-status', { type: 'downloaded' })
-    return { started: true }
-  } catch (e) {
-    return { started: false, error: e?.message ?? String(e) }
-  }
+  createWindow()
 })
-
-ipcMain.handle('install-update', async () => {
-  if (!downloadedInstallerPath) return
-  try {
-    const stat = fs.statSync(downloadedInstallerPath)
-    if (stat.size < 1000000) {
-      sendToRenderer('update-status', { type: 'error', message: `Corrupted download: only ${Math.round(stat.size / 1024)} KB` })
-      return
-    }
-  } catch (e) {
-    sendToRenderer('update-status', { type: 'error', message: e?.message ?? String(e) })
-    return
-  }
-  try {
-    const err = await shell.openPath(downloadedInstallerPath)
-    if (err) {
-      sendToRenderer('update-status', { type: 'error', message: err })
-      return
-    }
-    setTimeout(() => {
-      app.quit()
-    }, 1000)
-  } catch (e) {
-    sendToRenderer('update-status', { type: 'error', message: e?.message ?? String(e) })
-  }
-})
-
-app.whenReady().then(createWindow)
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()

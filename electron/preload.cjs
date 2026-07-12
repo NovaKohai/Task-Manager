@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
   installUpdate: () => ipcRenderer.invoke('install-update'),
+  getSystemInfo: () => ipcRenderer.invoke('get-system-info'),
   onUpdateStatus: (callback) => {
     const handler = (_event, data) => callback(data)
     ipcRenderer.on('update-status', handler)

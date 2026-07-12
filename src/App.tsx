@@ -18,6 +18,7 @@ const SettingsPage = lazy(() => import('@/pages/Settings'))
 const AdminUsers = lazy(() => import('@/pages/AdminUsers'))
 const AuditLog = lazy(() => import('@/pages/AuditLog'))
 const Notifications = lazy(() => import('@/pages/Notifications'))
+const Focus = lazy(() => import('@/pages/Focus'))
 const Profile = lazy(() => import('@/pages/Profile'))
 const Onboarding = lazy(() => import('@/pages/Onboarding'))
 const SupportPage = lazy(() => import('@/pages/Support'))
@@ -55,6 +56,8 @@ export default function App() {
             <Route path="/admin/users" element={<AdminUsers />} />
             <Route path="/admin/audit-log" element={<AuditLog />} />
             <Route path="/notifications" element={<Notifications />} />
+            <Route path="/focus" element={<Focus />} />
+            <Route path="/focus/:taskId" element={<Focus />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/support" element={<SupportPage />} />

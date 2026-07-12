@@ -12,9 +12,11 @@ import type { User } from '@/lib/types'
 import { getInitials, roleBadge, getDepartmentConfig } from '@/lib/constants'
 import { Badge } from '@/components/ui/badge'
 
-interface SidebarProps { user: User; onLogout: () => void }
+interface SidebarProps { user: User; onLogout: () => void; unreadCount?: number }
 
-const adminLinks = [
+type Link = { to: string; label: string; icon: typeof LayoutDashboard; badge?: boolean }
+
+const adminLinks: Link[] = [
   { to: '/dashboard', label: 'nav.dashboard', icon: LayoutDashboard },
   { to: '/tasks', label: 'nav.tasks', icon: CheckSquare },
   { to: '/admin/users', label: 'nav.users', icon: Users },
@@ -24,14 +26,14 @@ const adminLinks = [
   { to: '/admin/audit-log', label: 'nav.audit_log', icon: ScrollText },
 ]
 
-const userLinks = [
+const userLinks: Link[] = [
   { to: '/my-dashboard', label: 'nav.my_dashboard', icon: LayoutDashboard },
   { to: '/tasks', label: 'nav.my_tasks', icon: CheckSquare },
-  { to: '/notifications', label: 'nav.notifications', icon: Bell },
+  { to: '/notifications', label: 'nav.notifications', icon: Bell, badge: true },
   { to: '/support', label: 'nav.support', icon: LifeBuoy },
 ]
 
-export default memo(function Sidebar({ user, onLogout }: SidebarProps) {
+export default memo(function Sidebar({ user, onLogout, unreadCount = 0 }: SidebarProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const isAdmin = user.role === 'admin'
@@ -56,22 +58,30 @@ export default memo(function Sidebar({ user, onLogout }: SidebarProps) {
             {i18n.t('nav.admin')}
           </p>
         )}
-        {links.map((link) => {
+        {links.map((link: Link) => {
           const isActive = location.pathname === link.to
           const Icon = link.icon
+          const showBadge = link.badge && unreadCount > 0
           return (
             <button
               key={link.to}
               onClick={() => navigate(link.to)}
               className={cn(
-                'flex w-full items-center gap-3 px-3 py-2.5 text-xs font-semibold tracking-wide spring-fast pressable rtl:border-r-4 ltr:border-l-4',
+                'flex w-full items-center justify-between gap-3 px-3 py-2.5 text-xs font-semibold tracking-wide spring-fast pressable rtl:border-r-4 ltr:border-l-4',
                 isActive
                   ? 'text-primary bg-primary/5 rtl:border-r-primary ltr:border-l-primary'
                   : 'text-muted-foreground/80 border-transparent hover:bg-primary/10 hover:text-primary'
               )}
             >
-              <Icon className={cn('h-4 w-4 shrink-0', isActive ? 'text-primary' : 'text-muted-foreground/80')} />
-              <span>{i18n.t(link.label)}</span>
+              <span className="flex items-center gap-3 min-w-0">
+                <Icon className={cn('h-4 w-4 shrink-0', isActive ? 'text-primary' : 'text-muted-foreground/80')} />
+                <span>{i18n.t(link.label)}</span>
+              </span>
+              {showBadge && (
+                <span className="shrink-0 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-micro font-bold bg-destructive text-destructive-foreground">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
             </button>
           )
         })}

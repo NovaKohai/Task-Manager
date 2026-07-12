@@ -1,19 +1,21 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ClipboardList, CheckCircle2, TrendingUp, Clock, Send } from 'lucide-react'
+import { ClipboardList, CheckCircle2, TrendingUp, Clock } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useTaskStore } from '@/stores/taskStore'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 import { i18n } from '@/lib/i18n'
 import { priorityBadge, getInitials, roleBadge, getDepartmentConfig } from '@/lib/constants'
 import { Badge } from '@/components/ui/badge'
+import { formatFull } from '@/lib/format'
 
-function formatDate(d: string | null): string {
-  if (!d) return '\u2014'
+// formatDueLabel returns a relative-day label (today/tomorrow/days_left/days_overdue)
+// rather than an absolute date — this is dashboard-specific and intentionally
+// distinct from the shared `formatDate` helper in lib/format.ts.
+function formatDueLabel(d: string | null): string {
+  if (!d) return '—'
   const dt = new Date(d)
   const diff = dt.getTime() - Date.now()
   const days = Math.ceil(diff / 86400000)
@@ -23,15 +25,10 @@ function formatDate(d: string | null): string {
   return i18n.t('dashboard.days_left').replace('{days}', String(days))
 }
 
-function formatFullDate(d: string): string {
-  return new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-}
-
 export default function MyDashboard() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
   const { tasks, fetchTasks } = useTaskStore()
-  const [quickUpdate, setQuickUpdate] = useState('')
 
   useEffect(() => { fetchTasks() }, [fetchTasks])
 
@@ -151,7 +148,7 @@ export default function MyDashboard() {
                       </div>
                       <div className={cn('flex shrink-0 items-center gap-1 text-xs font-medium', isOverdue ? 'text-destructive' : 'text-muted-foreground')}>
                         <Clock className="h-3 w-3" />
-                        {formatDate(t.dueDate)}
+                        {formatDueLabel(t.dueDate)}
                       </div>
                     </button>
                   )
@@ -183,7 +180,7 @@ export default function MyDashboard() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="truncate text-sm font-semibold text-foreground">{t.title}</p>
-                    <p className="text-caption text-muted-foreground">{formatFullDate(t.updatedAt)}</p>
+                    <p className="text-caption text-muted-foreground">{formatFull(t.updatedAt)}</p>
                   </div>
                   <span className={cn('text-caption font-semibold px-2.5 py-0.5 rounded-full shrink-0 bg-muted/30 text-muted-foreground')}>{i18n.t(`task.status.${t.status}`)}</span>
                 </button>
@@ -193,18 +190,8 @@ export default function MyDashboard() {
         </div>
       </div>
 
-      {/* Quick Update */}
-      <div className="glass-panel animate-rise stagger-5">
-        <div className="glass-panel-inner">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 mb-3">{i18n.t('dashboard.quick_update')}</h2>
-          <div className="flex gap-2">
-            <Input aria-label={i18n.t('dashboard.quick_update')} placeholder={i18n.t('dashboard.quick_update_placeholder')} value={quickUpdate} onChange={(e) => setQuickUpdate(e.target.value)} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition flex-1" maxLength={500} />
-            <Button onClick={() => { if (quickUpdate.trim()) { setQuickUpdate('') } }} size="icon" disabled={!quickUpdate.trim()} className="h-10 w-10 shrink-0 rounded-full bg-primary hover:bg-primary/90 spring-transition">
-              <Send className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
+      {/* Upcoming Deadlines */}
+
     </div>
   )
 }

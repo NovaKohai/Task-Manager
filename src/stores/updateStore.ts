@@ -37,7 +37,6 @@ let listenerCleanup: (() => void) | null = null
 function subscribeOnce() {
   if (listenerCleanup || !window.electronAPI) return
   listenerCleanup = window.electronAPI.onUpdateStatus((status) => {
-    const update = useUpdateStore.getState()
     if (status.type === 'progress') {
       useUpdateStore.setState({ status: 'downloading', progress: status.percent })
     } else if (status.type === 'downloaded') {
@@ -59,7 +58,7 @@ const initial: UpdateState = {
   dialogOpen: false,
 }
 
-export const useUpdateStore = create<UpdateStore>((set, get) => ({
+export const useUpdateStore = create<UpdateStore>((set) => ({
   ...initial,
 
   check: async () => {

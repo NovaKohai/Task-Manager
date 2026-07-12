@@ -1,5 +1,8 @@
 import { useEffect, useState, useMemo } from 'react'
-import { Download, Search, X } from 'lucide-react'
+import { Download, Search, X, Trash2 } from 'lucide-react'
+import { useAuthStore } from '@/stores/authStore'
+import { useDebounce } from '@/hooks/useDebounce'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
@@ -7,6 +10,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { Badge } from '@/components/ui/badge'
 import { i18n } from '@/lib/i18n'
 import { db } from '@/lib/db'
+import { formatFull } from '@/lib/format'
 import type { AuditAction, AuditEntry } from '@/lib/types'
 
 function actionLabel(action: AuditAction): string {
@@ -36,29 +40,22 @@ export default function AuditLog() {
   const [entries, setEntries] = useState<AuditEntry[]>([])
   const [actionFilter, setActionFilter] = useState<string>('all')
   const [search, setSearch] = useState('')
+  const debouncedSearch = useDebounce(search, 200)
   const [page, setPage] = useState(0)
+  const [showClearConfirm, setShowClearConfirm] = useState(false)
   const PAGE_SIZE = 25
 
   useEffect(() => {
     const results = db.getAuditLog({
       action: actionFilter !== 'all' ? actionFilter : undefined,
-      search: search || undefined,
+      search: debouncedSearch || undefined,
       offset: page * PAGE_SIZE,
       limit: PAGE_SIZE,
     })
     setEntries(results)
-  }, [actionFilter, search, page])
+  }, [actionFilter, debouncedSearch, page])
 
   const totalCount = useMemo(() => db.auditEntries.length, [])
-
-  function formatDate(iso: string) {
-    const d = new Date(iso)
-    const locale = i18n.lang === 'ar' ? 'ar-SA' : 'en-US'
-    return d.toLocaleString(locale, {
-      year: 'numeric', month: 'short', day: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-    })
-  }
 
   function handleExportCSV() {
     const all = db.getAuditLog()
@@ -79,6 +76,24 @@ export default function AuditLog() {
     URL.revokeObjectURL(url)
   }
 
+  function handleClearLog() {
+    setShowClearConfirm(true)
+  }
+
+  function executeClearLog() {
+    const user = useAuthStore.getState().user
+    db.clearAuditLog(user?.id, user?.username)
+    const results = db.getAuditLog({
+      action: actionFilter !== 'all' ? actionFilter : undefined,
+      search: search || undefined,
+      offset: 0,
+      limit: PAGE_SIZE,
+    })
+    setEntries(results)
+    setPage(0)
+    setShowClearConfirm(false)
+  }
+
   function handleSearch(value: string) {
     setSearch(value)
     setPage(0)
@@ -93,10 +108,16 @@ export default function AuditLog() {
           <h1 className="text-lg font-bold tracking-tight text-foreground">{i18n.t('audit_log.title')}</h1>
           <p className="text-xs text-muted-foreground/80 mt-1">{i18n.t('audit_log.subtitle')}</p>
         </div>
-        <Button onClick={handleExportCSV} className="h-10 rounded-full bg-primary hover:bg-primary/90 text-xs font-semibold spring-transition shadow-lg shadow-primary/20">
-          <Download className="h-4 w-4" />
-          {i18n.t('audit_log.export_csv')}
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={handleClearLog} variant="danger" className="h-10 rounded-full text-xs font-semibold spring-transition active:scale-[0.97] shadow-lg shadow-destructive/10">
+            <Trash2 className="h-4 w-4" />
+            {i18n.t('audit_log.clear')}
+          </Button>
+          <Button onClick={handleExportCSV} className="h-10 rounded-full bg-primary hover:bg-primary/90 text-xs font-semibold spring-transition shadow-lg shadow-primary/20 active:scale-[0.97]">
+            <Download className="h-4 w-4" />
+            {i18n.t('audit_log.export_csv')}
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -159,7 +180,7 @@ export default function AuditLog() {
                   {entries.map((entry) => (
                     <TableRow key={entry.id} className="hover:bg-muted/20 spring-fast">
                       <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                        {formatDate(entry.timestamp)}
+                        {formatFull(entry.timestamp)}
                       </TableCell>
                       <TableCell>
                         <Badge
@@ -201,6 +222,15 @@ export default function AuditLog() {
           )}
         </div>
       </div>
+      <ConfirmDialog
+        isOpen={showClearConfirm}
+        title={i18n.t('audit_log.clear')}
+        description={i18n.t('audit_log.confirm_clear')}
+        confirmText={i18n.t('audit_log.clear')}
+        cancelText={i18n.t('cancel') || 'Cancel'}
+        onConfirm={executeClearLog}
+        onCancel={() => setShowClearConfirm(false)}
+      />
     </div>
   )
 }

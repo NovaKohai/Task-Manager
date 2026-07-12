@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Camera, User, Mail, Lock, Check, AlertTriangle, ArrowLeft } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
@@ -6,11 +6,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { DepartmentSelect } from '@/components/ui/DepartmentSelect'
 import { i18n } from '@/lib/i18n'
 import { db } from '@/lib/db'
 import { getInitials, roleBadge, getDepartmentConfig } from '@/lib/constants'
 import { Badge } from '@/components/ui/badge'
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import type { Department } from '@/lib/types'
 
 export default function Profile() {
@@ -24,13 +24,13 @@ export default function Profile() {
   const [title, setTitle] = useState(user?.title ?? '')
   const [department, setDepartment] = useState(user?.department ?? '' as Department | '')
   const [avatar, setAvatar] = useState(user?.avatar || '')
-  const [saving, setSaving] = useState(false)
+const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
 
+  // Session expired → render the gate (which redirects via useEffect).
   if (!user) {
-    navigate('/login')
-    return null
+    return <SessionExpiredGate />
   }
 
   const handleAvatarClick = () => {
@@ -91,7 +91,7 @@ export default function Profile() {
         setSaved(true)
         setTimeout(() => setSaved(false), 3000)
       } else {
-        setError(i18n.t('profile.update_failed'))
+        setError(i18n.t('profile.username_taken'))
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : i18n.t('profile.update_failed'))
@@ -214,25 +214,11 @@ export default function Profile() {
 
               <div className="space-y-2">
                 <Label htmlFor="profDepartment" className="text-xs font-semibold text-muted-foreground">{i18n.t('profile.department')}</Label>
-                <Select aria-label={i18n.t('profile.department')} value={department} onValueChange={(v) => setDepartment(v as Department | '')}>
-                  <SelectTrigger id="profDepartment" className="h-10 rounded-xl bg-background/50 border-muted/40 spring-transition"><SelectValue placeholder={i18n.t('profile.department_placeholder')} /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">—</SelectItem>
-                    <SelectItem value="engineering">{i18n.t('department.engineering')}</SelectItem>
-                    <SelectItem value="qa">{i18n.t('department.qa')}</SelectItem>
-                    <SelectItem value="it">{i18n.t('department.it')}</SelectItem>
-                    <SelectItem value="hr">{i18n.t('department.hr')}</SelectItem>
-                    <SelectItem value="finance">{i18n.t('department.finance')}</SelectItem>
-                    <SelectItem value="accounting">{i18n.t('department.accounting')}</SelectItem>
-                    <SelectItem value="marketing">{i18n.t('department.marketing')}</SelectItem>
-                    <SelectItem value="sales">{i18n.t('department.sales')}</SelectItem>
-                    <SelectItem value="operations">{i18n.t('department.operations')}</SelectItem>
-                    <SelectItem value="design">{i18n.t('department.design')}</SelectItem>
-                    <SelectItem value="legal">{i18n.t('department.legal')}</SelectItem>
-                    <SelectItem value="customer_support">{i18n.t('department.customer_support')}</SelectItem>
-                    <SelectItem value="product">{i18n.t('department.product')}</SelectItem>
-                  </SelectContent>
-                </Select>
+                <DepartmentSelect
+                  id="profDepartment"
+                  value={department}
+                  onValueChange={(v) => setDepartment(v as Department | '')}
+                />
               </div>
             </div>
 
@@ -245,6 +231,26 @@ export default function Profile() {
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  )
+}
+
+function SessionExpiredGate() {
+  const navigate = useNavigate()
+  useEffect(() => {
+    // Brief delay so the gate renders once before we replace history —
+    // avoids a synchronous redirect that completes before React commits.
+    const REDIRECT_AFTER_PAINT_MS = 100
+    const t = setTimeout(() => navigate('/login', { replace: true }), REDIRECT_AFTER_PAINT_MS)
+    return () => clearTimeout(t)
+  }, [navigate])
+  return (
+    <div className="flex h-full items-center justify-center p-8">
+      <div className="rounded-2xl border border-border bg-card/40 p-8 text-center">
+        <ArrowLeft className="mx-auto h-8 w-8 text-muted-foreground" />
+        <h2 className="mt-4 text-lg font-semibold">{i18n.t('login.title')}</h2>
+        <p className="mt-2 text-sm text-muted-foreground">{i18n.t('loading')}</p>
       </div>
     </div>
   )

@@ -36,7 +36,7 @@ The color palette is declared using the modern, uniform lightness OKLCH color sp
 To ensure perfect readability in both languages, TeamTask uses separate typographic hierarchies for Latin and Arabic scripts. 
 
 *   **Arabic Typography**:
-    *   **Font Family**: `Cairo` (imported from Google Fonts).
+    *   **Font Family**: `Tajawal` (imported from Google Fonts in `index.html`; `Cairo` is the cited reference in `index.css` `--font-arabic` but the runtime HTML loads Tajawal — see `index.html`).
     *   **Design Rationale**: A clean, modern geometric Arabic typeface that ensures text remains highly legible at small sizes, especially in dark mode.
     *   **Styling**: Font weights are increased (medium/semibold) and text size is boosted by `1.2x` globally for Arabic screens (`html.rtl body`).
 *   **Latin Typography**:

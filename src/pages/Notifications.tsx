@@ -31,14 +31,16 @@ function notificationConfig(type: string): { bg: string; icon: LucideIcon } {
 function isAnnouncement(n: Notification) { return n.type.includes('announcement') }
 function isDigest(n: Notification) { return n.type.includes('digest') }
 function isSecurity(n: Notification) { return n.type.includes('security') }
+function isMention(n: Notification) { return n.type === 'mention' }
 
-type FilterType = 'all' | 'unread' | 'announcement' | 'task'
+type FilterType = 'all' | 'unread' | 'announcement' | 'task' | 'mention'
 
 const FILTERS: { key: FilterType; label: string }[] = [
   { key: 'all', label: i18n.t('all') },
   { key: 'unread', label: i18n.t('notifications.unread') },
   { key: 'announcement', label: i18n.t('notifications.announcement') },
   { key: 'task', label: i18n.t('notifications.tasks') },
+  { key: 'mention', label: i18n.t('notifications.mention') },
 ]
 
 export default function Notifications() {
@@ -56,6 +58,7 @@ export default function Notifications() {
     if (filter === 'unread') return !n.read
     if (filter === 'announcement') return isAnnouncement(n)
     if (filter === 'task') return !isAnnouncement(n) && !isDigest(n) && !isSecurity(n)
+    if (filter === 'mention') return isMention(n)
     return true
   }), [notifications, filter])
 

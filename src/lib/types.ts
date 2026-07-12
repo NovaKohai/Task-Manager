@@ -1,6 +1,6 @@
 export type Role = 'admin' | 'manager' | 'developer' | 'viewer'
 export type Department = 'engineering' | 'qa' | 'it' | 'hr' | 'finance' | 'accounting' | 'marketing' | 'sales' | 'operations' | 'design' | 'legal' | 'customer_support' | 'product'
-export type TaskStatus = 'todo' | 'in_progress' | 'done' | 'cancelled'
+export type TaskStatus = 'todo' | 'in_progress' | 'under_review' | 'done' | 'cancelled'
 export type Priority = 'low' | 'medium' | 'high' | 'critical'
 
 export type Permission =
@@ -10,6 +10,8 @@ export type Permission =
   | 'task.delete'
   | 'task.assign'
   | 'task.view_all'
+  | 'task.reorder'
+  | 'task.verify'
   | 'user.view'
   | 'user.create'
   | 'user.edit'
@@ -20,6 +22,11 @@ export type Permission =
   | 'reports.view'
   | 'audit.view'
   | 'announcement.send'
+  | 'support.manage'
+  | 'notifications.view'
+  | 'subtask.toggle'
+  | 'mention.create'
+  | 'effort.view_all'
 
 export type User = {
   id: string
@@ -48,6 +55,8 @@ export type Task = {
   dueDate: string | null
   estHours: number | null
   project?: string
+  parentTaskId?: string
+  kanbanOrder?: number
   createdAt: string
   updatedAt: string
 }
@@ -62,16 +71,50 @@ export type Comment = {
   deleted: boolean
 }
 
+export type NotificationType =
+  | 'announcement'
+  | 'mention'
+  | 'assignment'
+  | 'task_assigned'
+  | 'task_modification'
+  | 'task_status'
+  | 'comment'
+  | 'deadline'
+  | 'deadline_tomorrow'
+  | 'overdue'
+  | 'digest'
+  | 'weekly_digest'
+  | 'security'
+  | 'security_alert'
+  | 'qa_review'
+  | 'registration'
+  | 'approval'
+  | 'support_ticket'
+  | 'support_status_update'
+
 export type Notification = {
   id: string
   userId: string
-  type: string
+  type: NotificationType
   title: string
   message: string
   read: boolean
   taskId?: string
   dedupKey?: string
   createdAt: string
+}
+
+export type TimeEntryKind = 'focus' | 'break'
+
+export type TimeEntry = {
+  id: string
+  taskId: string
+  userId: string
+  startedAt: string
+  endedAt: string | null
+  durationMinutes: number
+  kind: TimeEntryKind
+  notes?: string
 }
 
 export type ReportMetrics = {
@@ -117,6 +160,10 @@ export type AppSettings = {
   enableDigest: boolean
   quietHoursStart: string
   quietHoursEnd: string
+  workDurationMin: number
+  shortBreakMin: number
+  longBreakMin: number
+  longBreakInterval: number
 }
 
 export type Session = {
@@ -157,6 +204,8 @@ export type SupportTicket = {
   description: string
   image?: string
   reminderDate?: string
+  deviceInfo?: string
+  systemLog?: string
   status: SupportTicketStatus
   assigneeId: string | null
   createdAt: string

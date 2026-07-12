@@ -9,7 +9,9 @@ import { useSupportStore } from '@/stores/supportStore'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { getDepartmentConfig } from '@/lib/constants'
+import { hasPermission } from '@/lib/utils'
 import type { SupportTicketCategory, SupportTicketStatus } from '@/lib/types'
+import { EmptyState } from '@/components/ui/EmptyState'
 
 const CATEGORIES: SupportTicketCategory[] = ['network', 'software', 'hardware', 'email_account', 'other']
 
@@ -21,7 +23,6 @@ export default function Support() {
   const [category, setCategory] = useState<SupportTicketCategory>('network')
   const [description, setDescription] = useState('')
   const [image, setImage] = useState('')
-  const [reminderDate, setReminderDate] = useState('')
   
   const [activeTab, setActiveTab] = useState<'submit' | 'my_tickets' | 'queue'>('submit')
   const [filterStatus, setFilterStatus] = useState<'all' | SupportTicketStatus>('all')
@@ -32,7 +33,7 @@ export default function Support() {
   const [submitting, setSubmitting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const isIT = user?.department === 'it'
+  const isIT = hasPermission(user, 'support.manage')
 
   useEffect(() => {
     fetchUsers()
@@ -89,17 +90,33 @@ export default function Support() {
 
     setSubmitting(true)
     try {
+      // Auto-collect system info
+      let deviceInfo: string | undefined
+      let systemLog: string | undefined
+      try {
+        if (window.electronAPI) {
+          const info = await window.electronAPI.getSystemInfo()
+          if (info && !info.error) {
+            deviceInfo = `${info.cpuModel} | ${info.osType} ${info.osRelease} (${info.osArch}) | RAM: ${info.totalMem} (Free: ${info.freeMem})`
+            systemLog = JSON.stringify(info, null, 2)
+          }
+        } else {
+          // Fallback for browser: use navigator
+          deviceInfo = `${navigator.platform} | ${navigator.userAgent}`
+        }
+      } catch (_) { /* ignore system info errors */ }
+
       await createTicket({
         creatorId: user.id,
         category,
         description: description.trim(),
         image: image || undefined,
-        reminderDate: reminderDate || undefined,
+        deviceInfo,
+        systemLog,
       })
       setSuccess(true)
       setDescription('')
       setImage('')
-      setReminderDate('')
       if (fileInputRef.current) fileInputRef.current.value = ''
       
       // Auto redirect to My Tickets tab after success
@@ -238,7 +255,7 @@ export default function Support() {
                   </div>
                 )}
                 {success && (
-                  <div className="animate-rise flex items-center gap-2 text-emerald-600 bg-emerald-500/10 p-3.5 rounded-xl text-caption">
+                  <div className="animate-rise flex items-center gap-2 text-success bg-success/10 p-3.5 rounded-xl text-caption">
                     <CheckCircle2 className="h-4 w-4 shrink-0" />
                     <span>{i18n.t('support.form.success')}</span>
                   </div>
@@ -313,19 +330,17 @@ export default function Support() {
                   )}
                 </div>
 
-                {/* Reminder Date */}
-                <div className="space-y-2">
-                  <label className="text-caption font-bold text-foreground flex items-center gap-1.5">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    {i18n.t('support.form.reminder')}
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={reminderDate}
-                    onChange={(e) => setReminderDate(e.target.value)}
-                    className="w-full max-w-xs bg-background border border-border/10 hover:border-border/20 focus:border-primary/50 outline-none rounded-xl px-3.5 py-2.5 text-sm transition-all"
-                  />
+                {/* Submission Date (auto) */}
+                <div className="flex items-center gap-2 rounded-xl bg-muted/20 border border-border/5 px-3.5 py-2.5 w-fit">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">
+                    {i18n.lang === 'ar' ? 'تاريخ الإرسال:' : 'Submission date:'}{' '}
+                    <span className="font-bold text-foreground">{new Date().toLocaleDateString(i18n.lang === 'ar' ? 'ar-SA' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                  </span>
                 </div>
+                <p className="text-[10px] text-muted-foreground/60 mt-1">
+                  {i18n.lang === 'ar' ? '⚙️ سيتم إرفاق بيانات الجهاز وسجل النظام تلقائياً مع التذكرة.' : '⚙️ Device info & system log will be attached automatically.'}
+                </p>
 
                 <div className="pt-2">
                   <Button type="submit" disabled={submitting} className="rounded-xl px-6 py-2.5 font-bold shadow-md shadow-primary/10 transition-all duration-150 active:scale-[0.97]">
@@ -349,10 +364,11 @@ export default function Support() {
                   <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
                 </div>
               ) : myTickets.length === 0 ? (
-                <div className="flex flex-col items-center justify-center border border-dashed border-border/10 rounded-2xl p-12 text-center bg-background/5">
-                  <LifeBuoy className="h-10 w-10 text-muted-foreground/40 mb-3" />
-                  <p className="text-sm font-semibold text-muted-foreground">{i18n.t('support.ticket.no_tickets')}</p>
-                </div>
+                <EmptyState
+                  title={i18n.t('support.ticket.no_tickets')}
+                  description={i18n.lang === 'ar' ? 'لم تقم بإنشاء أي تذاكر دعم فني بعد.' : 'You have not created any support tickets yet.'}
+                  icon={<LifeBuoy className="h-8 w-8" />}
+                />
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {myTickets.map((ticket, index) => (
@@ -371,9 +387,9 @@ export default function Support() {
                       </div>
 
                       <div>
-                        <h4 className="text-sm font-bold text-foreground">
-                          {i18n.t(`support.ticket.category.${ticket.category}`)}
-                        </h4>
+                          <h3 className="text-sm font-bold text-foreground">
+                            {i18n.t(`support.ticket.category.${ticket.category}`)}
+                          </h3>
                         <p className="text-caption text-muted-foreground mt-1 line-clamp-3 leading-relaxed">
                           {ticket.description}
                         </p>
@@ -403,10 +419,9 @@ export default function Support() {
                           <span className="italic">{i18n.lang === 'ar' ? 'بانتظار مستلم فني' : 'Awaiting assignment'}</span>
                         )}
 
-                        {ticket.reminderDate && (
-                          <span className="flex items-center gap-1 text-amber-500 font-medium">
-                            <Clock className="h-3.5 w-3.5" />
-                            {i18n.t('support.ticket.reminder').replace('{date}', new Date(ticket.reminderDate).toLocaleString())}
+                        {ticket.deviceInfo && (
+                          <span className="flex items-center gap-1 text-primary/70 font-medium" title={ticket.systemLog || ''}>
+                            ⚙️ {ticket.deviceInfo.length > 60 ? ticket.deviceInfo.slice(0, 60) + '…' : ticket.deviceInfo}
                           </span>
                         )}
                       </div>
@@ -455,10 +470,11 @@ export default function Support() {
                   <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
                 </div>
               ) : filteredQueue.length === 0 ? (
-                <div className="flex flex-col items-center justify-center border border-dashed border-border/10 rounded-2xl p-12 text-center bg-background/5">
-                  <LifeBuoy className="h-10 w-10 text-muted-foreground/40 mb-3" />
-                  <p className="text-sm font-semibold text-muted-foreground">{i18n.t('support.ticket.no_tickets')}</p>
-                </div>
+                <EmptyState
+                  title={i18n.t('support.ticket.no_tickets')}
+                  description={i18n.lang === 'ar' ? 'لا توجد تذاكر دعم فني تطابق الفلتر المحدد.' : 'No support tickets match the selected filter.'}
+                  icon={<LifeBuoy className="h-8 w-8" />}
+                />
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {filteredQueue.map((ticket, index) => {
@@ -484,9 +500,9 @@ export default function Support() {
                         {/* Ticket Content */}
                         <div>
                           <div className="flex items-center justify-between gap-3">
-                            <h4 className="text-base font-black text-foreground">
-                              {i18n.t(`support.ticket.category.${ticket.category}`)}
-                            </h4>
+                          <h3 className="text-base font-black text-foreground">
+                            {i18n.t(`support.ticket.category.${ticket.category}`)}
+                            </h3>
                           </div>
                           
                           {/* Submitter User Profile Card */}
@@ -521,10 +537,21 @@ export default function Support() {
                         )}
 
                         {/* Reminder Metadata */}
-                        {ticket.reminderDate && (
-                          <div className="flex items-center gap-1.5 text-xs text-amber-500 font-bold bg-amber-500/5 border border-amber-500/10 p-2.5 rounded-xl w-fit">
-                            <Clock className="h-4 w-4" />
-                            {i18n.t('support.ticket.reminder').replace('{date}', new Date(ticket.reminderDate).toLocaleString())}
+                        {/* Device Info */}
+                        {ticket.deviceInfo && (
+                          <div className="flex items-start gap-1.5 text-xs text-primary/80 font-semibold bg-primary/5 border border-primary/10 p-2.5 rounded-xl w-fit">
+                            <span>⚙️</span>
+                            <div className="flex flex-col gap-0.5">
+                              <span>{ticket.deviceInfo}</span>
+                              {ticket.systemLog && (
+                                <details className="mt-1">
+                                  <summary className="cursor-pointer text-[10px] text-muted-foreground hover:text-foreground transition-colors">
+                                    {i18n.lang === 'ar' ? 'عرض سجل النظام' : 'View system log'}
+                                  </summary>
+                                  <pre className="mt-1 text-[10px] text-muted-foreground bg-background/50 rounded-lg p-2 max-h-32 overflow-auto whitespace-pre-wrap font-mono">{ticket.systemLog}</pre>
+                                </details>
+                              )}
+                            </div>
                           </div>
                         )}
 
@@ -551,7 +578,7 @@ export default function Support() {
                                     <Button 
                                       onClick={() => handleStatusChange(ticket.id, 'in_progress')}
                                       size="sm" 
-                                      className="rounded-xl font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm text-xs px-4 py-1.5 active:scale-[0.96] transition-transform duration-150 ease-out"
+                                      className="rounded-xl font-bold bg-primary hover:bg-primary/95 text-primary-foreground shadow-sm text-xs px-4 py-1.5 active:scale-[0.96] transition-transform duration-150 ease-out"
                                     >
                                       {i18n.t('support.action.start')}
                                     </Button>
@@ -560,7 +587,7 @@ export default function Support() {
                                     <Button 
                                       onClick={() => handleStatusChange(ticket.id, 'completed')}
                                       size="sm" 
-                                      className="rounded-xl font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm text-xs px-4 py-1.5 active:scale-[0.96] transition-transform duration-150 ease-out"
+                                      className="rounded-xl font-bold bg-success hover:bg-success/95 text-success-foreground shadow-sm text-xs px-4 py-1.5 active:scale-[0.96] transition-transform duration-150 ease-out"
                                     >
                                       {i18n.t('support.action.resolve')}
                                     </Button>

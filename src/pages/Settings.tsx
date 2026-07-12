@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { cn } from '@/lib/utils'
+import { cn, hasPermission } from '@/lib/utils'
 import { db } from '@/lib/db'
 import { i18n } from '@/lib/i18n'
 
@@ -48,13 +48,20 @@ export default function Settings() {
     setForm(prev => ({ ...prev, [key]: value }))
   }
 
-  async function handleSave() { await updateSettings(form) }
+  const user = useAuthStore((s) => s.user)
+  // View/read-only mode applies on every input in the page so a user with
+  // settings.view but not settings.edit cannot mutate state from the UI. The
+  // AppShell route guard already blocks users without settings.view entirely.
+  const canEdit = hasPermission(user, 'settings.edit')
+
+  async function handleSave() {
+    if (!canEdit) return
+    await updateSettings(form)
+  }
 
   async function handleCheckUpdates() { await checkUpdates() }
   async function handleDownloadUpdate() { await downloadUpdate() }
   function handleInstallUpdate() { installUpdate() }
-
-  const user = useAuthStore((s) => s.user)
 
   function showToast(message: string) {
     const id = ++toastId.current
@@ -74,6 +81,15 @@ export default function Settings() {
     <div className="space-y-5 page-bg relative min-h-[calc(100vh-8rem)]">
       <div aria-hidden="true" className="absolute inset-0 dotted-bg pointer-events-none" />
       <h1 className="text-lg font-bold tracking-tight text-foreground animate-rise stagger-1">{i18n.t('settings.title')}</h1>
+
+      {!canEdit && (
+        <div className="glass-panel animate-rise stagger-1 border-warning/30">
+          <div className="glass-panel-inner flex items-center gap-2 text-xs text-warning">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span>{i18n.t('settings.readonly_notice')}</span>
+          </div>
+        </div>
+      )}
 
       {toasts.length > 0 && (
         <div className="fixed top-4 right-4 z-50 space-y-2 animate-rise stagger-1">
@@ -115,7 +131,7 @@ export default function Settings() {
                   <Input id="srvAppUrl" value={form.appUrl || ''} onChange={(e) => update('appUrl', e.target.value)} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
                   <p className="text-caption text-muted-foreground/80 mt-1 leading-normal">{i18n.t('settings.appUrl.help')}</p>
                 </div>
-                <Button onClick={handleSave} className="h-10 rounded-full spring-transition font-semibold px-5"><Save className="h-4 w-4" />{i18n.t('settings.save')}</Button>
+                <Button onClick={handleSave} disabled={!canEdit} className="h-10 rounded-full spring-transition font-semibold px-5"><Save className="h-4 w-4" />{i18n.t('settings.save')}</Button>
               </div>
             </div>
           )}
@@ -180,7 +196,7 @@ export default function Settings() {
                     <p className="text-caption text-muted-foreground/80 mt-1 leading-normal">{i18n.t('settings.lockDuration.help')}</p>
                   </div>
                 </div>
-                <Button onClick={handleSave} className="h-10 rounded-full spring-transition font-semibold px-5"><Save className="h-4 w-4" />{i18n.t('settings.save')}</Button>
+                <Button onClick={handleSave} disabled={!canEdit} className="h-10 rounded-full spring-transition font-semibold px-5"><Save className="h-4 w-4" />{i18n.t('settings.save')}</Button>
               </div>
             </div>
           )}
@@ -213,7 +229,7 @@ export default function Settings() {
                     <p className="text-caption text-muted-foreground/80 mt-1 leading-normal">{i18n.t('settings.maxConcurrentSessions.help')}</p>
                   </div>
                 </div>
-                <Button onClick={handleSave} className="h-10 rounded-full spring-transition font-semibold px-5"><Save className="h-4 w-4" />{i18n.t('settings.save')}</Button>
+                <Button onClick={handleSave} disabled={!canEdit} className="h-10 rounded-full spring-transition font-semibold px-5"><Save className="h-4 w-4" />{i18n.t('settings.save')}</Button>
               </div>
             </div>
           )}
@@ -248,7 +264,7 @@ export default function Settings() {
                     <p className="text-caption text-muted-foreground/80 mt-1 leading-normal">{i18n.t('settings.quietHoursEnd.help')}</p>
                   </div>
                 </div>
-                <Button onClick={handleSave} className="h-10 rounded-full spring-transition font-semibold px-5"><Save className="h-4 w-4" />{i18n.t('settings.save')}</Button>
+                <Button onClick={handleSave} disabled={!canEdit} className="h-10 rounded-full spring-transition font-semibold px-5"><Save className="h-4 w-4" />{i18n.t('settings.save')}</Button>
               </div>
             </div>
           )}
@@ -295,7 +311,7 @@ export default function Settings() {
                     <p className="text-caption text-muted-foreground/80 mt-1 leading-normal">{i18n.t('settings.backupPath.help')}</p>
                   </div>
                 </div>
-                <Button onClick={handleSave} className="h-10 rounded-full spring-transition font-semibold px-5"><Save className="h-4 w-4" />{i18n.t('settings.save')}</Button>
+                <Button onClick={handleSave} disabled={!canEdit} className="h-10 rounded-full spring-transition font-semibold px-5"><Save className="h-4 w-4" />{i18n.t('settings.save')}</Button>
 
               </div>
             </div>
@@ -317,7 +333,7 @@ export default function Settings() {
                     <p className="text-caption text-muted-foreground/80 mt-1 leading-normal">{i18n.t('settings.apiRateLimit.help')}</p>
                   </div>
                 </div>
-                <Button onClick={handleSave} className="h-10 rounded-full spring-transition font-semibold px-5"><Save className="h-4 w-4" />{i18n.t('settings.save')}</Button>
+                <Button onClick={handleSave} disabled={!canEdit} className="h-10 rounded-full spring-transition font-semibold px-5"><Save className="h-4 w-4" />{i18n.t('settings.save')}</Button>
               </div>
             </div>
           )}
@@ -437,28 +453,31 @@ export default function Settings() {
             </div>
           )}
 
-          <div className="glass-panel border-destructive/30 animate-rise stagger-3">
-            <div className="glass-panel-inner space-y-4">
-              <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-destructive mb-1">
-                <AlertTriangle className="h-4 w-4" />
-                {i18n.t('settings.danger_zone')}
-              </h2>
-              <p className="text-sm text-muted-foreground/90 leading-relaxed mb-4">{i18n.t('settings.danger_desc')}</p>
-              <div className="flex flex-wrap gap-3">
-                <Button variant="danger" onClick={async () => { await resetSettings(); showToast(i18n.t('settings.reset_toast')) }} className="h-9 rounded-full spring-transition text-xs font-semibold px-4">
-                  <RotateCcw className="h-3.5 w-3.5" />{i18n.t('settings.reset_defaults')}
-                </Button>
-                <Button variant="danger" onClick={() => { localStorage.removeItem('ttm_data'); showToast(i18n.t('settings.data_cleared_toast')) }} className="h-9 rounded-full spring-transition text-xs font-semibold px-4">
-                  <AlertTriangle className="h-3.5 w-3.5" />{i18n.t('settings.clear_data')}
-                </Button>
-                <Button variant="danger" onClick={() => { db.clearAuditLog(user?.id, user?.username); showToast(i18n.t('settings.audit_cleared_toast')) }} className="h-9 rounded-full spring-transition text-xs font-bold px-4">
-                  {i18n.t('settings.clear_audit')}
-                </Button>
+          {canEdit && (
+            <div className="glass-panel border-destructive/30 animate-rise stagger-3">
+              <div className="glass-panel-inner space-y-4">
+                <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-destructive mb-1">
+                  <AlertTriangle className="h-4 w-4" />
+                  {i18n.t('settings.danger_zone')}
+                </h2>
+                <p className="text-sm text-muted-foreground/90 leading-relaxed mb-4">{i18n.t('settings.danger_desc')}</p>
+                <div className="flex flex-wrap gap-3">
+                  <Button variant="danger" onClick={async () => { await resetSettings(); showToast(i18n.t('settings.reset_toast')) }} className="h-9 rounded-full spring-transition text-xs font-semibold px-4">
+                    <RotateCcw className="h-3.5 w-3.5" />{i18n.t('settings.reset_defaults')}
+                  </Button>
+                  <Button variant="danger" onClick={() => { localStorage.removeItem('ttm_data'); showToast(i18n.t('settings.data_cleared_toast')) }} className="h-9 rounded-full spring-transition text-xs font-semibold px-4">
+                    <AlertTriangle className="h-3.5 w-3.5" />{i18n.t('settings.clear_data')}
+                  </Button>
+                  <Button variant="danger" onClick={() => { db.clearAuditLog(user?.id, user?.username); showToast(i18n.t('settings.audit_cleared_toast')) }} className="h-9 rounded-full spring-transition text-xs font-bold px-4">
+                    {i18n.t('settings.clear_audit')}
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
   )
 }
+

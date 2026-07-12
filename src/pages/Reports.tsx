@@ -1,36 +1,72 @@
 import { useEffect, useState } from 'react'
-import { Download, CheckCircle2, TrendingUp, Clock, AlertTriangle } from 'lucide-react'
+import { Download, CheckCircle2, TrendingUp, Clock, AlertTriangle, Hourglass } from 'lucide-react'
 import { useReportStore } from '@/stores/reportStore'
 import { useUserStore } from '@/stores/userStore'
 import { Button } from '@/components/ui/button'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import { i18n } from '@/lib/i18n'
+import { durationLabel } from '@/lib/time'
+import { Badge } from '@/components/ui/badge'
+import { roleBadge } from '@/lib/constants'
 import type { TaskStatus } from '@/lib/types'
 
 const periodKeys = ['reports.period_7d', 'reports.period_30d', 'reports.period_quarter', 'reports.period_all'] as const
 
 const statusColors: Record<TaskStatus, string> = {
-  todo: 'bg-slate-400', in_progress: 'bg-blue-500', done: 'bg-green-500', cancelled: 'bg-red-400',
+  todo: 'bg-slate-400',
+  in_progress: 'bg-blue-500',
+  under_review: 'bg-amber-500',
+  done: 'bg-green-500',
+  cancelled: 'bg-red-400',
 }
 
 export default function Reports() {
   const [periodIdx, setPeriodIdx] = useState(1)
-  const { metrics, isLoading, fetchMetrics } = useReportStore()
+  const { metrics, effortByUser, isLoading, fetchMetrics, fetchEffortByUser } = useReportStore()
   const { fetchUsers } = useUserStore()
 
   useEffect(() => {
     try {
       fetchMetrics(i18n.t(periodKeys[periodIdx]))
+      const since = new Date()
+      since.setDate(since.getDate() - 7)
+      fetchEffortByUser(since.toISOString())
     } catch (e) {
       console.error('fetchMetrics failed', e)
     }
     fetchUsers()
-  }, [periodIdx, fetchMetrics, fetchUsers])
+  }, [periodIdx, fetchMetrics, fetchEffortByUser, fetchUsers])
+
+  const { users } = useUserStore()
 
   const m = metrics || {
     totalTasks: 0, completedTasks: 0, completionRate: 0, avgResolutionDays: 0, overdueTasks: 0,
     byStatus: [], byPriority: [], topPerformers: [], trend: [],
+  }
+
+  const [summaryText, setSummaryText] = useState('')
+
+  const handleGenerateSummary = () => {
+    const total = m.totalTasks
+    const completed = m.completedTasks
+    const rate = m.completionRate
+    const topLabel = i18n.lang === 'ar' ? 'مهام مكتملة' : 'tasks completed'
+    const top = m.topPerformers.map(p => `${p.name} (${p.completed} ${topLabel})`).join(', ')
+
+    if (total === 0) {
+      setSummaryText(i18n.t('reports.summary_no_data'))
+      return
+    }
+
+    const noneLabel = i18n.lang === 'ar' ? 'لا توجد مساهمات حتى الآن' : 'No contributions registered yet'
+    const summary = i18n.t('reports.summary_content')
+      .replace('{completed}', String(completed))
+      .replace('{total}', String(total))
+      .replace('{rate}', String(rate))
+      .replace('{top}', top || noneLabel)
+    
+    setSummaryText(summary)
   }
 
   const maxTrend = Math.max(...m.trend.map(d => d.completed), 1)
@@ -191,6 +227,58 @@ export default function Reports() {
                   ))}
                 </TableBody>
               </Table>
+            </div>
+          </div>
+
+          <div className="glass-panel animate-rise stagger-5">
+            <div className="glass-panel-inner space-y-4">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 flex items-center gap-2">
+                <Hourglass className="h-3.5 w-3.5" /> {i18n.t('reports.hours_per_assignee')}
+              </h2>
+              {m.topPerformers.length === 0 ? (
+                <p className="text-sm text-muted-foreground/60">—</p>
+              ) : (
+                <ul className="space-y-2">
+                  {m.topPerformers.map((p) => {
+                    const u = users.find(x => x.id === p.userId)
+                    const minutes = effortByUser.get(p.userId) ?? 0
+                    return (
+                      <li key={p.userId} className="flex items-center justify-between gap-3 rounded-xl border border-border/10 px-3 py-2.5 hover:border-border/30 spring-fast bg-muted/10">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-sm font-bold text-foreground truncate">{p.name}</span>
+                          {u && <Badge variant={roleBadge[u.role]} className="rounded-full text-micro px-1.5 py-0">{i18n.t(`user.${u.role}`)}</Badge>}
+                        </div>
+                        <span className="text-sm font-mono tabular-nums text-muted-foreground shrink-0">{durationLabel(minutes)}</span>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </div>
+          </div>
+
+          <div className="glass-panel animate-rise stagger-5">
+            <div className="glass-panel-inner space-y-4">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 flex items-center gap-2">
+                <span>🤖</span> {i18n.t('task.weekly_summary')}
+              </h2>
+              
+              {summaryText ? (
+                <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 text-sm space-y-3 whitespace-pre-line animate-rise">
+                  <p className="font-bold text-primary">{i18n.t('reports.summary_title')}</p>
+                  <p className="text-muted-foreground/90 font-medium leading-relaxed">{summaryText}</p>
+                  <Button variant="ghost" size="sm" onClick={() => setSummaryText('')} className="h-7 text-micro rounded-lg mt-2 hover:bg-primary/10 spring-transition">
+                    {i18n.t('reports.summary_clear')}
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center py-6 text-center border border-dashed border-border/20 rounded-xl">
+                  <p className="text-xs text-muted-foreground mb-3">{i18n.t('reports.summary_generate_desc')}</p>
+                  <Button size="sm" onClick={handleGenerateSummary} className="h-9 rounded-xl text-xs font-semibold bg-primary hover:bg-primary/90 text-primary-foreground spring-transition shadow-lg shadow-primary/10">
+                    {i18n.t('task.generate_summary')}
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </>

@@ -1,4 +1,4 @@
-import type { User, Task, Comment, Notification, ReportMetrics, AppSettings, AuditEntry, AuditAction, Permission, Role, SupportTicket } from './types'
+import type { User, Task, Comment, Notification, ReportMetrics, AppSettings, AuditEntry, AuditAction, Permission, Role, SupportTicket, TimeEntry, TaskStatus } from './types'
 import { i18n } from './i18n'
 
 const STORE_KEY = 'ttm_data'
@@ -8,6 +8,7 @@ interface StoreSchema {
   tasks: Task[]
   comments: Comment[]
   notifications: Notification[]
+  timeEntries: TimeEntry[]
   settings: AppSettings
   sessions: { userId: string; token: string }[]
   passwords: Record<string, string>
@@ -66,7 +67,7 @@ function getDefaultSettings(): AppSettings {
     appUrl: 'https://ttm.internal.company.com:443',
     pwMinLength: 8, pwMaxLength: 128,
     requireUppercase: true, requireDigit: true,
-    pwHistory: 10, pwMaxAge: 90, pwHashAlgo: 'Argon2id',
+    pwHistory: 10, pwMaxAge: 90, pwHashAlgo: 'PBKDF2-SHA256',
     lockMaxAttempts: 5, lockDuration: 15,
     accessTokenExpiry: 15, refreshTokenExpiry: 7,
     inactivityTimeout: 15, maxConcurrentSessions: 5,
@@ -75,30 +76,40 @@ function getDefaultSettings(): AppSettings {
     authRateLimit: 10, apiRateLimit: 1000,
     enableEmailNotif: true, enablePushNotif: true, enableSlackNotif: false, enableDigest: false,
     quietHoursStart: '22:00', quietHoursEnd: '07:00',
+    workDurationMin: 25, shortBreakMin: 5, longBreakMin: 15, longBreakInterval: 4,
   }
 }
 
 export const ALL_PERMISSIONS: Permission[] = [
-  'task.create', 'task.edit', 'task.edit.own', 'task.delete', 'task.assign', 'task.view_all',
+  'task.create', 'task.edit', 'task.edit.own', 'task.delete', 'task.assign', 'task.view_all', 'task.reorder', 'task.verify',
   'user.view', 'user.create', 'user.edit', 'user.delete', 'user.approve',
   'settings.view', 'settings.edit',
   'reports.view', 'audit.view',
-  'announcement.send',
+  'announcement.send', 'support.manage',
+  'notifications.view', 'subtask.toggle', 'mention.create', 'effort.view_all',
 ]
 
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   admin: [...ALL_PERMISSIONS],
-  manager: ['task.create', 'task.edit', 'task.delete', 'task.assign', 'task.view_all', 'user.view', 'reports.view'],
-  developer: ['task.create', 'task.edit.own', 'task.view_all'],
-  viewer: ['task.view_all'],
+  manager: [
+    'task.create', 'task.edit', 'task.delete', 'task.assign', 'task.view_all', 'task.reorder', 'task.verify',
+    'user.view', 'reports.view',
+    'notifications.view', 'effort.view_all',
+  ],
+  developer: [
+    'task.create', 'task.edit.own', 'task.view_all',
+    'notifications.view', 'subtask.toggle', 'mention.create',
+  ],
+  viewer: ['task.view_all', 'notifications.view'],
 }
 
 const DEFAULT_HASHES: Record<string, string> = {
-  admin: '240BE518FABD2724DDB6F04EEB1DA5967448D7E831C08C8FA822809F74C720A9',
-  jane: '27545B395A8E5915B48557D0E26EF3E05E368D0F65AE786A806DF38F9F4E3BC5',
-  alex: 'D9508122CD143D69DF229BF3624B7BCB2B8AC81ED210A0C926455EF119C12ABD',
-  raj: '1D622460EBCE57C35328B3DBF11BF20A82D45E314A09C83EF0BC5C37A1169880',
-  maya: '3688058A6965C4C8E143D7002AFB557FE910657AD819714ABB0356C7551C84B7',
+  // PBKDF2-SHA256, 600k iterations, 16-byte salt — upgrade from the old unsalted SHA-256 seeds
+  admin: 'cd72c84240d185d55197677c3fc36c93:d99f4a0a8a011116aa11eff599747a41d94b7349c4104d892e6fff5d9c35a187',
+  jane:  '14d03c9808cfc76f0ad4269b7862894a:006b9f34a78c7d3d9eba6592b2c895c7fddfa66b3018c8efaaf2f1285b30566e',
+  alex:  'ce1d8e9a032d3675cc03820a6e27adf9:d7bac78a7201eaa4374532d6819bbdc3826118e6b1f2fefe528024f67edd9369',
+  raj:   'cbf09e029d459acc971a24589d33f6b8:91bb6cc8b93ee4a57b3d2dc6d5568b347fa00744d41dbc793655ee59768910da',
+  maya:  '6d1943783a0a9aa344952f86208523d3:004755845432bda75d2b7d2d9dd848e75511fc69ab1ffe3c9d5e0e9b78b759fd',
 }
 
 function getDefaultStore(): StoreSchema {
@@ -121,12 +132,12 @@ function getDefaultStore(): StoreSchema {
   const maya = makeUser({ id: 'user_5', username: 'maya', name: 'Maya Kapoor', email: 'maya@teamtask.local', role: 'developer', title: 'UI/UX Designer', department: 'design' })
 
   const tasks: Task[] = [
-    { id: 'task_1', code: 'TASK-0001', title: 'Implement dark mode toggle across dashboard', description: 'Add a dark mode toggle to the main dashboard interface. The toggle should persist the user\'s preference and apply system-wide CSS variable overrides.', status: 'in_progress', priority: 'high', assigneeId: 'user_3', creatorId: 'user_2', dueDate: new Date(Date.now() + 86400000 * 3).toISOString(), estHours: 8, project: 'Frontend', createdAt: new Date(Date.now() - 86400000 * 5).toISOString(), updatedAt: new Date(Date.now() - 86400000).toISOString() },
-    { id: 'task_2', code: 'TASK-0002', title: 'Review API rate limiting PR', description: 'Review the pull request for API rate limiting middleware.', status: 'todo', priority: 'medium', assigneeId: 'user_3', creatorId: 'user_2', dueDate: new Date(Date.now() + 86400000).toISOString(), estHours: 3, project: 'Backend', createdAt: new Date(Date.now() - 86400000 * 3).toISOString(), updatedAt: new Date(Date.now() - 86400000 * 2).toISOString() },
-    { id: 'task_3', code: 'TASK-0003', title: 'Write unit tests for auth module', description: 'Write comprehensive unit tests for the authentication module including login, logout, and token refresh flows.', status: 'todo', priority: 'medium', assigneeId: 'user_3', creatorId: 'user_2', dueDate: new Date(Date.now() + 86400000 * 5).toISOString(), estHours: 5, project: 'Backend', createdAt: new Date(Date.now() - 86400000 * 4).toISOString(), updatedAt: new Date(Date.now() - 86400000 * 4).toISOString() },
-    { id: 'task_4', code: 'TASK-0004', title: 'Update API documentation', description: 'Update the OpenAPI documentation with the new rate limiting and notification endpoints.', status: 'todo', priority: 'low', assigneeId: 'user_3', creatorId: 'user_2', dueDate: new Date(Date.now() - 86400000).toISOString(), estHours: 2, project: 'Backend', createdAt: new Date(Date.now() - 86400000 * 7).toISOString(), updatedAt: new Date(Date.now() - 86400000 * 6).toISOString() },
-    { id: 'task_5', code: 'TASK-0005', title: 'Set up staging environment', description: 'Configure the staging environment with monitoring and logging.', status: 'done', priority: 'high', assigneeId: 'user_4', creatorId: 'user_2', dueDate: new Date(Date.now() - 86400000 * 2).toISOString(), estHours: 6, project: 'DevOps', createdAt: new Date(Date.now() - 86400000 * 10).toISOString(), updatedAt: new Date(Date.now() - 86400000 * 2).toISOString() },
-    { id: 'task_6', code: 'TASK-0006', title: 'Design new dashboard layout', description: 'Create wireframes and mockups for the new manager dashboard.', status: 'done', priority: 'medium', assigneeId: 'user_5', creatorId: 'user_2', dueDate: new Date(Date.now() - 86400000 * 4).toISOString(), estHours: 12, project: 'Frontend', createdAt: new Date(Date.now() - 86400000 * 14).toISOString(), updatedAt: new Date(Date.now() - 86400000 * 4).toISOString() },
+    { id: 'task_1', code: 'TASK-0001', title: 'Implement dark mode toggle across dashboard', description: 'Add a dark mode toggle to the main dashboard interface. The toggle should persist the user\'s preference and apply system-wide CSS variable overrides.', status: 'in_progress', priority: 'high', assigneeId: 'user_3', creatorId: 'user_2', dueDate: new Date(Date.now() + 86400000 * 3).toISOString(), estHours: 8, project: 'Frontend', kanbanOrder: 0, createdAt: new Date(Date.now() - 86400000 * 5).toISOString(), updatedAt: new Date(Date.now() - 86400000).toISOString() },
+    { id: 'task_2', code: 'TASK-0002', title: 'Review API rate limiting PR', description: 'Review the pull request for API rate limiting middleware.', status: 'todo', priority: 'medium', assigneeId: 'user_3', creatorId: 'user_2', dueDate: new Date(Date.now() + 86400000).toISOString(), estHours: 3, project: 'Backend', kanbanOrder: 0, createdAt: new Date(Date.now() - 86400000 * 3).toISOString(), updatedAt: new Date(Date.now() - 86400000 * 2).toISOString() },
+    { id: 'task_3', code: 'TASK-0003', title: 'Write unit tests for auth module', description: 'Write comprehensive unit tests for the authentication module including login, logout, and token refresh flows.', status: 'todo', priority: 'medium', assigneeId: 'user_3', creatorId: 'user_2', dueDate: new Date(Date.now() + 86400000 * 5).toISOString(), estHours: 5, project: 'Backend', kanbanOrder: 1, createdAt: new Date(Date.now() - 86400000 * 4).toISOString(), updatedAt: new Date(Date.now() - 86400000 * 4).toISOString() },
+    { id: 'task_4', code: 'TASK-0004', title: 'Update API documentation', description: 'Update the OpenAPI documentation with the new rate limiting and notification endpoints.', status: 'todo', priority: 'low', assigneeId: 'user_3', creatorId: 'user_2', dueDate: new Date(Date.now() - 86400000).toISOString(), estHours: 2, project: 'Backend', kanbanOrder: 2, createdAt: new Date(Date.now() - 86400000 * 7).toISOString(), updatedAt: new Date(Date.now() - 86400000 * 6).toISOString() },
+    { id: 'task_5', code: 'TASK-0005', title: 'Set up staging environment', description: 'Configure the staging environment with monitoring and logging.', status: 'done', priority: 'high', assigneeId: 'user_4', creatorId: 'user_2', dueDate: new Date(Date.now() - 86400000 * 2).toISOString(), estHours: 6, project: 'DevOps', kanbanOrder: 0, createdAt: new Date(Date.now() - 86400000 * 10).toISOString(), updatedAt: new Date(Date.now() - 86400000 * 2).toISOString() },
+    { id: 'task_6', code: 'TASK-0006', title: 'Design new dashboard layout', description: 'Create wireframes and mockups for the new manager dashboard.', status: 'done', priority: 'medium', assigneeId: 'user_5', creatorId: 'user_2', dueDate: new Date(Date.now() - 86400000 * 4).toISOString(), estHours: 12, project: 'Frontend', kanbanOrder: 1, createdAt: new Date(Date.now() - 86400000 * 14).toISOString(), updatedAt: new Date(Date.now() - 86400000 * 4).toISOString() },
   ]
 
   const comments: Comment[] = [
@@ -146,6 +157,7 @@ function getDefaultStore(): StoreSchema {
     tasks,
     comments,
     notifications,
+    timeEntries: [],
     settings: getDefaultSettings(),
     sessions: [{ userId: 'user_1', token: 'tok_' + crypto.randomUUID() }],
     passwords: { ...DEFAULT_HASHES },
@@ -164,24 +176,58 @@ class Database {
       try {
         const parsed = JSON.parse(stored)
         const defaults = getDefaultStore()
+        const loadedTasks = parsed.tasks || defaults.tasks
+        const tasksByStatus: Record<string, number> = {}
+        let needsMigration = false
+        const migratedTasks = loadedTasks.map((t: Task) => {
+          if (t.kanbanOrder === undefined) {
+            needsMigration = true
+            const count = tasksByStatus[t.status] || 0
+            tasksByStatus[t.status] = count + 1
+            return { ...t, kanbanOrder: count }
+          }
+          return t
+        })
+
         this.data = {
           users: (parsed.users || defaults.users).map((u: User) => ({
             ...u,
             permissions: u.permissions || ROLE_PERMISSIONS[u.role] || ROLE_PERMISSIONS.developer,
           })),
-          tasks: parsed.tasks || defaults.tasks,
+          tasks: migratedTasks,
           comments: parsed.comments || defaults.comments,
           notifications: parsed.notifications || defaults.notifications,
+          timeEntries: parsed.timeEntries || [],
           settings: { ...defaults.settings, ...parsed.settings },
           sessions: parsed.sessions || defaults.sessions,
           passwords: { ...defaults.passwords, ...parsed.passwords },
           auditEntries: parsed.auditEntries || [],
           supportTickets: parsed.supportTickets || [],
         }
+        if (needsMigration) {
+          this.persist()
+        }
         const adminUser = this.data.users.find(u => u.username === 'admin')
         const adminHashed = this.data.passwords['admin']
         if (!adminUser || !adminHashed || !adminUser.active || adminUser.approved === false) {
           console.warn('Admin user misconfigured — fix admin account manually. Data preserved.')
+        }
+        // One-time migration: ensure admins have the new 'support.manage' permission.
+        // Existing installs persisted before this permission existed would otherwise
+        // see the Support IT-queue silently disappear from admins.
+        for (const u of this.data.users) {
+          if (u.role === 'admin' && !u.permissions.includes('support.manage')) {
+            u.permissions = [...u.permissions, 'support.manage']
+          }
+          // Migrate baseline permissions added later: notifications.view, subtask.toggle,
+          // task.reorder, mention.create, effort.view_all. Without this, managers
+          // and developers on long-lived installs would silently lose access to
+          // features built on these permissions.
+          const expected = ROLE_PERMISSIONS[u.role] || []
+          const missing = expected.filter(p => !u.permissions.includes(p))
+          if (missing.length > 0) {
+            u.permissions = [...u.permissions, ...missing]
+          }
         }
         this.persist()
         return
@@ -196,7 +242,12 @@ class Database {
   }
 
   private persist() {
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(this.data)) } catch (e) { console.error('db persist failed:', e) }
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify(this.data))
+    } catch (e) {
+      console.error('db persist failed:', e)
+      window.dispatchEvent(new CustomEvent('ttm_persist_error', { detail: e }))
+    }
   }
 
   get users() { return this.data.users }
@@ -274,6 +325,15 @@ class Database {
     }
   }
 
+  private async validatePassword(password: string): Promise<{ valid: boolean; reason?: string }> {
+    const s = this.data.settings
+    if (password.length < s.pwMinLength) return { valid: false, reason: `Password must be at least ${s.pwMinLength} characters` }
+    if (password.length > s.pwMaxLength) return { valid: false, reason: `Password must be no more than ${s.pwMaxLength} characters` }
+    if (s.requireUppercase && !/[A-Z]/.test(password)) return { valid: false, reason: 'Password must contain at least one uppercase letter' }
+    if (s.requireDigit && !/[0-9]/.test(password)) return { valid: false, reason: 'Password must contain at least one digit' }
+    return { valid: true }
+  }
+
   validateSession(token: string) {
     const session = this.data.sessions.find(s => s.token === token)
     if (!session) return null
@@ -295,6 +355,9 @@ class Database {
   getUsers(): User[] { return this.data.users }
 
   async createUser(u: Omit<User, 'id' | 'createdAt' | 'approved' | 'permissions'> & { approved?: boolean; permissions?: Permission[] }, password = 'changeme'): Promise<User> {
+    const pwCheck = await this.validatePassword(password)
+    if (!pwCheck.valid) throw new Error(pwCheck.reason)
+
     if (this.data.users.some(ex => ex.username === u.username)) {
       throw new Error('Username already exists')
     }
@@ -327,6 +390,8 @@ class Database {
   }
 
   async updatePassword(username: string, newPassword: string) {
+    const pwCheck = await this.validatePassword(newPassword)
+    if (!pwCheck.valid) throw new Error(pwCheck.reason)
     if (this.data.passwords[username]) {
       this.data.passwords[username] = await hashPassword(newPassword)
       this.persist()
@@ -385,14 +450,27 @@ class Database {
     if (changes.length > 0) this.addAuditEntry('user_updated', updated.id, updated.username, i18n.t('db.user_updated').replace('{username}', updated.username).replace('{details}', changes.join(' | ')))
   }
 
+  // Returns null if no user matches `id`, or if `updates.username` is already
+  // taken by a different user. On success returns the merged User.
   updateUser(id: string, updates: Partial<User>) {
     const idx = this.data.users.findIndex(u => u.id === id)
     if (idx === -1) return null
     const oldUser = this.data.users[idx]
+
+    // Reject username change if the target name is taken by a different user.
+    if (updates.username && updates.username !== oldUser.username) {
+      const taken = this.data.users.some(u => u.username === updates.username && u.id !== id)
+      if (taken) return null
+    }
+
     const updated = { ...oldUser, ...updates }
     this.data.users[idx] = updated
     this.persist()
-    this.migratePasswordUsername(oldUser, updates)
+
+    // migratePasswordUsername must run after the uniqueness check so the
+    // password entry is never blindly moved to a slot that belongs to another user.
+    if (updates.username) this.migratePasswordUsername(oldUser, updates)
+
     if (updates.approved !== undefined) this.handleApproval(updated, updates.approved)
     this.alertProfileChange(id, oldUser, updates)
     this.auditUpdateUser(oldUser, updated, updates)
@@ -427,15 +505,28 @@ class Database {
     return result
   }
   getTask(id: string) { return this.data.tasks.find(t => t.id === id) || null }
+
+  getSubtasks(parentId: string): Task[] {
+    return this.data.tasks
+      .filter(t => t.parentTaskId === parentId)
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+  }
+
   createTask(t: Omit<Task, 'id' | 'code' | 'createdAt' | 'updatedAt'>): Task {
     const maxIdx = this.data.tasks.reduce((max, t) => {
       const n = parseInt(t.code.replace('TASK-', ''), 10)
       return n > max ? n : max
     }, 0)
+    const statusTasks = this.data.tasks.filter(tk => tk.status === t.status)
+    const maxOrder = statusTasks.reduce((max, tk) => {
+      const o = tk.kanbanOrder ?? 0
+      return o > max ? o : max
+    }, -1)
     const task: Task = {
       ...t,
       id: generateId(),
       code: generateTaskCode(maxIdx + 1),
+      kanbanOrder: maxOrder + 1,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
@@ -530,7 +621,16 @@ class Database {
     const idx = this.data.tasks.findIndex(t => t.id === id)
     if (idx === -1) return null
     const oldTask = this.data.tasks[idx]
-    const updatedTask = { ...oldTask, ...updates, updatedAt: new Date().toISOString() }
+    let kanbanOrder = oldTask.kanbanOrder
+    if (updates.status && updates.status !== oldTask.status) {
+      const destTasks = this.data.tasks.filter(t => t.status === updates.status)
+      const maxOrder = destTasks.reduce((max, t) => {
+        const o = t.kanbanOrder ?? 0
+        return o > max ? o : max
+      }, -1)
+      kanbanOrder = maxOrder + 1
+    }
+    const updatedTask = { ...oldTask, ...updates, kanbanOrder, updatedAt: new Date().toISOString() }
     this.data.tasks[idx] = updatedTask
     this.persist()
     this.notifyAssigneeChange(oldTask, updatedTask, updates)
@@ -539,10 +639,34 @@ class Database {
     this.auditUpdateTask(oldTask, updates)
     return updatedTask
   }
+
+  reorderTasks(status: TaskStatus, taskIds: string[]): Task[] {
+    const idSet = new Set(taskIds)
+    taskIds.forEach((id, index) => {
+      const task = this.data.tasks.find(t => t.id === id)
+      if (task) {
+        task.kanbanOrder = index
+        task.status = status
+        task.updatedAt = new Date().toISOString()
+      }
+    })
+    let orderIndex = taskIds.length
+    this.data.tasks.forEach(t => {
+      if (t.status === status && !idSet.has(t.id)) {
+        t.kanbanOrder = orderIndex++
+        t.updatedAt = new Date().toISOString()
+      }
+    })
+    this.persist()
+    return this.data.tasks
+  }
   deleteTask(id: string) {
     const task = this.data.tasks.find(t => t.id === id)
-    this.data.tasks = this.data.tasks.filter(t => t.id !== id)
-    this.data.comments = this.data.comments.filter(c => c.taskId !== id)
+    const subtaskIds = this.data.tasks.filter(t => t.parentTaskId === id).map(t => t.id)
+    this.data.tasks = this.data.tasks.filter(t => t.id !== id && t.parentTaskId !== id)
+    this.data.comments = this.data.comments.filter(
+      c => c.taskId !== id && !subtaskIds.includes(c.taskId)
+    )
     this.persist()
     if (task) {
       const user = this.data.users.find(u => u.id === task.creatorId)
@@ -593,9 +717,10 @@ class Database {
             userId: mentionedUser.id,
             type: 'mention',
             title: i18n.t('db.notif.mention.title'),
-            message: i18n.t('db.mention.msg').replace('{commenter}', commenterName).replace('{title}', task.title),
+            message: i18n.t('db.notif.mention.msg').replace('{author}', commenterName).replace('{title}', task.title),
             taskId: task.id,
-            read: false
+            read: false,
+            dedupKey: `mention:${comment.id}:${mentionedUser.id}`,
           })
         }
       }
@@ -731,10 +856,53 @@ class Database {
     this.persist()
   }
   addNotification(n: Omit<Notification, 'id' | 'createdAt'>): Notification {
+    if (n.dedupKey) {
+      const collision = this.data.notifications.find(
+        x => x.userId === n.userId && x.dedupKey === n.dedupKey
+      )
+      if (collision) return collision
+    }
     const notif: Notification = { ...n, id: generateId(), createdAt: new Date().toISOString() }
     this.data.notifications.push(notif)
     this.persist()
     return notif
+  }
+
+  getTimeEntries(opts: { userId?: string; taskId?: string; sinceISO?: string } = {}): TimeEntry[] {
+    let result = [...this.data.timeEntries]
+    if (opts.userId) result = result.filter(e => e.userId === opts.userId)
+    if (opts.taskId) result = result.filter(e => e.taskId === opts.taskId)
+    if (opts.sinceISO) result = result.filter(e => new Date(e.startedAt).getTime() >= new Date(opts.sinceISO!).getTime())
+    return result.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
+  }
+
+  addTimeEntry(e: Omit<TimeEntry, 'id'>): TimeEntry {
+    const entry: TimeEntry = { ...e, id: generateId() }
+    this.data.timeEntries.push(entry)
+    this.persist()
+    return entry
+  }
+
+  updateTimeEntry(id: string, updates: Partial<TimeEntry>): TimeEntry | null {
+    const idx = this.data.timeEntries.findIndex(e => e.id === id)
+    if (idx === -1) return null
+    const updated = { ...this.data.timeEntries[idx], ...updates }
+    this.data.timeEntries[idx] = updated
+    this.persist()
+    return updated
+  }
+
+  deleteTimeEntry(id: string): void {
+    this.data.timeEntries = this.data.timeEntries.filter(e => e.id !== id)
+    this.persist()
+  }
+
+  totalMinutesByAssignee(opts: { userId?: string; sinceISO?: string } = {}): Map<string, number> {
+    const totals = new Map<string, number>()
+    for (const e of this.getTimeEntries(opts)) {
+      totals.set(e.userId, (totals.get(e.userId) ?? 0) + e.durationMinutes)
+    }
+    return totals
   }
 
   getSettings(): AppSettings { return { ...this.data.settings } }
@@ -801,10 +969,10 @@ class Database {
   }
 
   clearAuditLog(userId?: string, username?: string) {
+    this.data.auditEntries = []
     if (userId) {
       this.addAuditEntry('audit_log_cleared', userId, username || '', i18n.t('db.audit.audit_log_cleared').replace('{user}', username || userId))
     }
-    this.data.auditEntries = []
     this.persist()
   }
 

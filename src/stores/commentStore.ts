@@ -26,6 +26,8 @@ export const useCommentStore = create<CommentState>((set) => ({
   addComment: async (taskId, authorId, content) => {
     set({ isLoading: true })
     await yieldToUI()
+    // db.addComment handles graceful creation + fan-out of @mention notifications
+    // (with dedupKey) so callers don't have to repeat that logic.
     const comment = db.addComment({ taskId, authorId, content, editedAt: null, deleted: false })
     set(state => ({ comments: [...state.comments, comment], isLoading: false }))
     return comment

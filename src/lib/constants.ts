@@ -10,6 +10,7 @@ export const priorityBadge: Record<Priority, { label: string; variant: 'primary'
 export const statusBadge: Record<TaskStatus, { label: string; variant: 'primary' | 'success' | 'warning' | 'danger' | 'default' }> = {
   todo: { label: 'task.status.todo', variant: 'default' },
   in_progress: { label: 'task.status.in_progress', variant: 'primary' },
+  under_review: { label: 'task.status.under_review', variant: 'warning' },
   done: { label: 'task.status.done', variant: 'success' },
   cancelled: { label: 'task.status.cancelled', variant: 'danger' },
 }

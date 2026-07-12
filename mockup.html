@@ -1,1022 +1,756 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TeamTask — Premium Showcase Mockup</title>
-  <!-- Plus Jakarta Sans & Tajawal Fonts -->
+  <title>خطة ترقية وإعداد خادم Windows Server 2022 - TeamTask</title>
+  
+  <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Tajawal:wght@300;400;500;700&display=swap" rel="stylesheet">
-  <!-- Phosphor Icons Light -->
-  <script src="https://unpkg.com/@phosphor-icons/web"></script>
-  <!-- Tailwind CSS CDN (v3 for easy utility prototyping) -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
-            arabic: ['Tajawal', 'sans-serif'],
-          },
-          colors: {
-            oled: '#050505',
-            cardbg: '#0c0c0e',
-            cardbglight: '#f9f9fb',
-            accentcyan: '#06b6d4',
-            accentpurple: '#a855f7',
-          },
-          animation: {
-            'fade-up': 'fadeUp 0.8s cubic-bezier(0.32, 0.72, 0, 1) forwards',
-            'slide-in': 'slideIn 0.5s cubic-bezier(0.32, 0.72, 0, 1) forwards',
-          }
-        }
-      }
-    }
-  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Tajawal:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+  
   <style>
-    /* Custom spring transitions */
-    .spring-transition {
-      transition: all 0.7s cubic-bezier(0.32, 0.72, 0, 1);
-    }
-    
-    /* Mesh Gradients */
-    .mesh-glow {
-      position: absolute;
-      top: -10%;
-      left: 10%;
-      width: 50vw;
-      height: 50vw;
-      background: radial-gradient(circle, rgba(168, 85, 247, 0.08) 0%, rgba(6, 182, 212, 0.04) 50%, rgba(0,0,0,0) 70%);
-      filter: blur(80px);
-      pointer-events: none;
-      z-index: 0;
-    }
-    .mesh-glow-right {
-      position: absolute;
-      bottom: -10%;
-      right: -5%;
-      width: 40vw;
-      height: 40vw;
-      background: radial-gradient(circle, rgba(6, 182, 212, 0.07) 0%, rgba(168, 85, 247, 0.03) 60%, rgba(0,0,0,0) 80%);
-      filter: blur(80px);
-      pointer-events: none;
-      z-index: 0;
+    :root {
+      --bg-main: #0b0f19;
+      --bg-card: rgba(17, 24, 39, 0.7);
+      --border-color: rgba(99, 102, 241, 0.15);
+      --primary: #6366f1;
+      --primary-glow: rgba(99, 102, 241, 0.4);
+      --secondary: #a855f7;
+      --accent: #10b981;
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --font-arabic: 'Tajawal', sans-serif;
+      --font-english: 'Outfit', sans-serif;
+      --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
     }
 
-    /* Double Bezel Card */
-    .double-bezel-outer {
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 2rem;
-      padding: 0.375rem;
-      box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.3);
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body {
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      font-family: var(--font-arabic);
+      overflow-x: hidden;
+      line-height: 1.6;
+    }
+
+    /* Background Gradients */
+    .bg-glow-1 {
+      position: fixed;
+      top: -200px;
+      right: -200px;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: -1;
+    }
+    .bg-glow-2 {
+      position: fixed;
+      bottom: -200px;
+      left: -200px;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(168,85,247,0.15) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    /* Container */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 20px;
+    }
+
+    /* Header */
+    header {
+      text-align: center;
+      margin-bottom: 60px;
+      position: relative;
+    }
+
+    header h1 {
+      font-size: 2.8rem;
+      font-weight: 900;
+      background: linear-gradient(135deg, #fff 30%, #a855f7 70%, #6366f1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 15px;
+      letter-spacing: -0.5px;
+    }
+
+    header p {
+      color: var(--text-muted);
+      font-size: 1.2rem;
+      max-width: 800px;
+      margin: 0 auto;
+      font-weight: 300;
+    }
+
+    .badge-corporate {
+      display: inline-block;
+      padding: 6px 16px;
+      background: rgba(99, 102, 241, 0.1);
+      border: 1px solid var(--primary);
+      border-radius: 9999px;
+      color: var(--primary);
+      font-weight: 700;
+      font-size: 0.85rem;
+      margin-bottom: 20px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* Tabs Navigation */
+    .tabs {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      margin-bottom: 40px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding-bottom: 20px;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-family: var(--font-arabic);
+      font-size: 1.1rem;
+      font-weight: 700;
+      padding: 12px 24px;
+      cursor: pointer;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tab-btn:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .tab-btn.active {
+      color: #fff;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
+    }
+
+    /* Tab Contents */
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+      animation: fadeIn 0.5s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Grid of 10 Suggestions */
+    .suggestions-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 25px;
+    }
+
+    .suggestion-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 30px;
       position: relative;
       overflow: hidden;
-    }
-    .dark .double-bezel-outer {
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.06);
-    }
-    .light .double-bezel-outer {
-      background: rgba(0, 0, 0, 0.02);
-      border: 1px solid rgba(0, 0, 0, 0.06);
-      box-shadow: 0 10px 35px -12px rgba(0, 0, 0, 0.08);
+      backdrop-filter: blur(10px);
+      box-shadow: var(--glass-shadow);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
     }
 
-    .double-bezel-inner {
-      border-radius: calc(2rem - 0.375rem);
-      padding: 1.5rem;
-      height: 100%;
+    .suggestion-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background: linear-gradient(90deg, var(--primary), var(--secondary));
+      opacity: 0;
+    }
+
+    .suggestion-card:hover {
+      transform: translateY(-8px);
+      border-color: rgba(99, 102, 241, 0.4);
+      box-shadow: 0 12px 30px rgba(99, 102, 241, 0.15);
+    }
+
+    .suggestion-card:hover::before {
+      opacity: 1;
+    }
+
+    .card-num {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      font-size: 2.5rem;
+      font-family: var(--font-english);
+      font-weight: 800;
+      color: rgba(255,255,255,0.03);
+      line-height: 1;
+    }
+
+    .card-icon {
+      font-size: 2rem;
+      margin-bottom: 20px;
+      background: rgba(99, 102, 241, 0.1);
+      width: 60px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 16px;
+      border: 1px solid rgba(99, 102, 241, 0.2);
+    }
+
+    .suggestion-card h3 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: #fff;
+    }
+
+    .suggestion-card p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      flex-grow: 1;
+      margin-bottom: 15px;
+    }
+
+    .use-case-badge {
+      font-size: 0.8rem;
+      background: rgba(168, 85, 247, 0.08);
+      border: 1px solid rgba(168, 85, 247, 0.2);
+      color: #d8b4fe;
+      padding: 6px 12px;
+      border-radius: 8px;
+      align-self: flex-start;
+      font-weight: 500;
+    }
+
+    /* Architecture / Migration View styling */
+    .migration-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
+      padding: 40px;
+      backdrop-filter: blur(10px);
+      box-shadow: var(--glass-shadow);
+    }
+
+    .architecture-visual {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 16px;
+      padding: 30px;
+      border: 1px solid rgba(255,255,255,0.05);
+      margin-bottom: 40px;
+      overflow-x: auto;
+    }
+
+    .arch-diagram-flow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 30px;
+      min-width: 600px;
+    }
+
+    .arch-row {
+      display: flex;
+      justify-content: space-around;
+      width: 100%;
+    }
+
+    .arch-node {
+      background: rgba(17, 24, 39, 0.9);
+      border: 1px solid var(--primary);
+      border-radius: 16px;
+      padding: 15px 25px;
+      text-align: center;
+      min-width: 180px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    }
+
+    .arch-node.server {
+      border-color: var(--secondary);
+      background: linear-gradient(135deg, rgba(168,85,247,0.1), rgba(17, 24, 39, 0.9));
+    }
+
+    .arch-node h4 {
+      font-size: 1.05rem;
+      margin-bottom: 5px;
+      color: #fff;
+    }
+
+    .arch-node span {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-family: var(--font-english);
+    }
+
+    .arch-connector {
+      width: 2px;
+      height: 30px;
+      background: linear-gradient(180deg, var(--primary), var(--secondary));
       position: relative;
     }
-    .dark .double-bezel-inner {
-      background: #0d0d10;
-      border: 1px solid rgba(255, 255, 255, 0.04);
-      box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.06);
-    }
-    .light .double-bezel-inner {
-      background: #ffffff;
-      border: 1px solid rgba(0, 0, 0, 0.03);
-      box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.9);
+
+    .arch-connector::after {
+      content: '▲';
+      font-size: 0.6rem;
+      color: var(--secondary);
+      position: absolute;
+      bottom: -6px;
+      left: -3px;
     }
 
-    /* Fixed ambient noise overlay */
-    .noise-overlay {
-      position: fixed;
-      inset: 0;
-      width: 100vw;
-      height: 100vh;
-      opacity: 0.015;
-      z-index: 50;
-      pointer-events: none;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+    /* Steps List */
+    .steps-list {
+      list-style-type: none;
     }
 
-    /* Custom Scrollbar */
-    ::-webkit-scrollbar {
-      width: 5px;
-      height: 5px;
-    }
-    ::-webkit-scrollbar-track {
-      background: transparent;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 99px;
-    }
-    .light ::-webkit-scrollbar-thumb {
-      background: rgba(0, 0, 0, 0.1);
+    .step-item {
+      position: relative;
+      padding-right: 50px;
+      margin-bottom: 40px;
     }
 
-    /* Keyframes */
-    @keyframes fadeUp {
-      from {
-        opacity: 0;
-        transform: translateY(20px);
-        filter: blur(4px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-        filter: blur(0);
-      }
-    }
-    @keyframes slideIn {
-      from {
-        transform: translateX(100%);
-      }
-      to {
-        transform: translateX(0);
-      }
-    }
-    html.rtl @keyframes slideIn {
-      from {
-        transform: translateX(-100%);
-      }
-      to {
-        transform: translateX(0);
-      }
+    .step-item:last-child {
+      margin-bottom: 0;
     }
 
-    /* RTL adaptations */
-    html.rtl {
-      font-family: 'Tajawal', sans-serif;
+    .step-number {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-english);
+      font-weight: 700;
+      color: #fff;
+      box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3);
+    }
+
+    .step-item::after {
+      content: '';
+      position: absolute;
+      top: 36px;
+      right: 17px;
+      bottom: -40px;
+      width: 2px;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .step-item:last-child::after {
+      display: none;
+    }
+
+    .step-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 10px;
+    }
+
+    .step-desc {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      margin-bottom: 15px;
+    }
+
+    /* Code Snippet Box */
+    .code-box {
+      background: #060913;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 20px;
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 0.85rem;
+      color: #34d399;
+      direction: ltr;
+      text-align: left;
+      overflow-x: auto;
+      margin-top: 10px;
+      box-shadow: inset 0 2px 8px rgba(0,0,0,0.8);
+    }
+
+    .code-comment {
+      color: #6b7280;
+    }
+    .code-keyword {
+      color: #f472b6;
+    }
+    .code-string {
+      color: #60a5fa;
+    }
+
+    /* Info Alerts */
+    .alert-box {
+      background: rgba(16, 185, 129, 0.05);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      border-radius: 12px;
+      padding: 15px 20px;
+      color: #a7f3d0;
+      display: flex;
+      gap: 15px;
+      margin-top: 15px;
+    }
+
+    .alert-box.warning {
+      background: rgba(239, 68, 68, 0.05);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      color: #fecaca;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      header h1 { font-size: 2.2rem; }
+      .tabs { flex-direction: column; align-items: stretch; }
+      .suggestions-grid { grid-template-columns: 1fr; }
+      .migration-panel { padding: 25px; }
+      .arch-row { flex-direction: column; align-items: center; gap: 15px; }
+      .arch-connector { height: 20px; }
     }
   </style>
 </head>
-<body class="bg-oled text-gray-200 dark:bg-oled dark:text-gray-200 light:bg-[#f6f6f9] light:text-slate-800 antialiased font-sans min-h-screen overflow-x-hidden relative spring-transition">
-  
-  <!-- Ambient Gradients & Texture -->
-  <div class="mesh-glow"></div>
-  <div class="mesh-glow-right"></div>
-  <div class="noise-overlay"></div>
+<body>
 
-  <!-- Main Container -->
-  <div class="flex min-h-screen relative z-10">
+  <div class="bg-glow-1"></div>
+  <div class="bg-glow-2"></div>
 
-    <!-- SIDEBAR -->
-    <aside id="sidebar" class="w-64 border-r border-gray-800/60 bg-[#070709]/80 backdrop-blur-2xl p-6 flex flex-col justify-between fixed h-screen z-30 transition-transform duration-500 lg:translate-x-0 rtl:border-l rtl:border-r-0 rtl:translate-x-0">
-      <div>
-        <!-- Logo Section -->
-        <div class="flex items-center gap-3.5 mb-10 pb-4 border-b border-gray-800/40">
-          <div class="w-9 h-9 rounded-xl flex items-center justify-center bg-gradient-to-tr from-accentpurple to-accentcyan p-[1.5px] shadow-lg shadow-purple-500/10">
-            <div class="w-full h-full bg-oled rounded-[calc(0.75rem-1.5px)] flex items-center justify-center">
-              <svg class="w-5 h-5" viewBox="0 0 64 64" fill="none">
-                <defs>
-                  <linearGradient id="sb-grad-1" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stop-color="#a855f7" />
-                    <stop offset="100%" stop-color="#06b6d4" />
-                  </linearGradient>
-                </defs>
-                <path d="M20 22H44" stroke="url(#sb-grad-1)" stroke-width="4.5" stroke-linecap="round" />
-                <path d="M32 22V36C32 40 29 43 25 43" stroke="url(#sb-grad-1)" stroke-width="4.5" stroke-linecap="round" />
-                <path d="M30 38L35 43L46 26" stroke="url(#sb-grad-1)" stroke-width="4.5" stroke-linecap="round" />
-              </svg>
-            </div>
-          </div>
-          <div>
-            <h2 class="text-lg font-bold tracking-tight text-white" id="txt-appname">TeamTask</h2>
-            <p class="text-[9px] uppercase tracking-[0.2em] text-gray-500 font-medium" id="txt-appsub">Workspace</p>
-          </div>
-        </div>
+  <div class="container">
+    
+    <!-- Top Header -->
+    <header>
+      <span class="badge-corporate">دليل ترقية البنية التحتية والمقترحات</span>
+      <h1>إدارة مهام الموظفين والمدراء (TeamTask)</h1>
+      <p>منصة متكاملة لتنظيم وتوزيع المهام المؤسسية بشكل مباشر وبناء هيكل اتصال قوي وآمن ومستقل عبر خادم الشركة.</p>
+    </header>
 
-        <!-- Navigation Links -->
-        <nav class="space-y-1.5" id="nav-list">
-          <button class="w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 bg-gradient-to-r from-accentpurple/15 to-transparent text-white border-l-2 border-accentpurple rtl:border-l-0 rtl:border-r-2" onclick="switchTab('dashboard')">
-            <i class="ph-light ph-squares-four text-lg text-accentpurple"></i>
-            <span id="nav-dashboard">Dashboard</span>
-          </button>
-          <button class="w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 text-gray-400 hover:text-white hover:bg-white/5 border-l-2 border-transparent rtl:border-l-0" onclick="switchTab('tasks')">
-            <i class="ph-light ph-clipboard-text-slash text-lg"></i>
-            <span id="nav-tasks">Tasks</span>
-          </button>
-          <button class="w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 text-gray-400 hover:text-white hover:bg-white/5 border-l-2 border-transparent rtl:border-l-0" onclick="switchTab('reports')">
-            <i class="ph-light ph-chart-bar text-lg"></i>
-            <span id="nav-reports">Reports</span>
-          </button>
-          <button class="w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 text-gray-400 hover:text-white hover:bg-white/5 border-l-2 border-transparent rtl:border-l-0" onclick="switchTab('settings')">
-            <i class="ph-light ph-sliders text-lg"></i>
-            <span id="nav-settings">Settings</span>
-          </button>
-        </nav>
-      </div>
-
-      <!-- User Card Footer -->
-      <div class="pt-6 border-t border-gray-800/40">
-        <div class="flex items-center gap-3.5">
-          <div class="relative">
-            <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80" alt="User" class="w-10 h-10 rounded-full object-cover border border-white/10 ring-2 ring-accentpurple/20">
-            <div class="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-oled"></div>
-          </div>
-          <div class="flex-1 min-w-0">
-            <h4 class="text-xs font-semibold text-white truncate" id="txt-username">Sarah Connor</h4>
-            <p class="text-[10px] text-gray-500 truncate" id="txt-userrole">Project Manager</p>
-          </div>
-          <button class="text-gray-500 hover:text-white transition-colors">
-            <i class="ph-light ph-sign-out text-lg"></i>
-          </button>
-        </div>
-      </div>
-    </aside>
-
-    <!-- CONTENT WRAPPER -->
-    <main class="flex-1 lg:pl-64 rtl:lg:pl-0 rtl:lg:pr-64 min-h-screen flex flex-col transition-all duration-500">
-      
-      <!-- HEADER -->
-      <header class="h-20 border-b border-gray-800/40 bg-oled/50 backdrop-blur-md px-6 md:px-10 flex items-center justify-between sticky top-0 z-20">
-        <!-- Breadcrumb / Greeting -->
-        <div>
-          <h1 class="text-base font-semibold text-white tracking-tight" id="txt-greeting">Good morning, Sarah</h1>
-          <p class="text-[10px] text-gray-500" id="txt-subtitle">Here is what is happening today.</p>
-        </div>
-
-        <!-- Controls -->
-        <div class="flex items-center gap-4">
-          <!-- Language Toggle -->
-          <button onclick="toggleLanguage()" class="flex h-9 items-center justify-center rounded-full border border-gray-800 hover:border-accentpurple bg-cardbg/40 px-4 text-xs font-semibold text-gray-400 hover:text-white spring-transition" id="btn-lang">
-            AR
-          </button>
-
-          <!-- Theme Toggle -->
-          <button onclick="toggleTheme()" class="w-9 h-9 flex items-center justify-center rounded-full border border-gray-800 hover:border-accentcyan bg-cardbg/40 text-gray-400 hover:text-white spring-transition">
-            <i class="ph-light ph-sun text-lg" id="theme-icon"></i>
-          </button>
-
-          <!-- Primary CTA Button (Button in Button design) -->
-          <button onclick="openCreateTaskModal()" class="group flex items-center justify-between gap-4 bg-gradient-to-r from-accentpurple to-accentcyan hover:opacity-95 text-white font-semibold text-xs px-5 py-2.5 rounded-full shadow-lg shadow-purple-500/10 active:scale-[0.98] spring-transition">
-            <span id="btn-createtask">Create Task</span>
-            <div class="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center group-hover:rotate-45 spring-transition">
-              <i class="ph-light ph-plus text-[10px]"></i>
-            </div>
-          </button>
-        </div>
-      </header>
-
-      <!-- PAGE BODY -->
-      <div class="p-6 md:p-10 flex-1 space-y-10 animate-fade-up max-w-[1600px] w-full mx-auto" id="main-content-area">
-
-        <!-- TAB 1: DASHBOARD -->
-        <div id="tab-dashboard" class="space-y-10">
-          
-          <!-- EYES BADGE -->
-          <div>
-            <span class="rounded-full bg-accentpurple/15 text-accentpurple border border-accentpurple/25 px-3.5 py-1 text-[10px] uppercase tracking-[0.2em] font-bold" id="badge-overview">Performance Pulse</span>
-          </div>
-
-          <!-- ASYMMETRICAL BENTO GRID -->
-          <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
-            
-            <!-- Widget 1: Task Completion Progress (Span 8) -->
-            <div class="md:col-span-8 double-bezel-outer">
-              <div class="double-bezel-inner">
-                <div class="flex justify-between items-start mb-6">
-                  <div>
-                    <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-400" id="card-trend-title">Task Completion Trend</h3>
-                    <p class="text-2xl font-bold text-white mt-1" id="card-trend-sub">87% Completion Rate</p>
-                  </div>
-                  <div class="flex gap-2">
-                    <span class="text-xs bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded-full border border-emerald-500/20 font-semibold" id="card-trend-stat">+12% this week</span>
-                  </div>
-                </div>
-                <!-- Custom SVG Sparkline Graph representing high-end data representation -->
-                <div class="h-44 w-full mt-4 flex items-end">
-                  <svg class="w-full h-full" viewBox="0 0 500 150" preserveAspectRatio="none">
-                    <defs>
-                      <linearGradient id="chart-grad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stop-color="rgba(168, 85, 247, 0.25)"></stop>
-                        <stop offset="100%" stop-color="rgba(168, 85, 247, 0)"></stop>
-                      </linearGradient>
-                    </defs>
-                    <path d="M 0,100 Q 50,70 100,120 T 200,80 T 300,50 T 400,90 T 500,20 L 500,150 L 0,150 Z" fill="url(#chart-grad)"></path>
-                    <path d="M 0,100 Q 50,70 100,120 T 200,80 T 300,50 T 400,90 T 500,20" fill="none" stroke="#a855f7" stroke-width="3" stroke-linecap="round"></path>
-                    <!-- Grid Lines -->
-                    <line x1="0" y1="30" x2="500" y2="30" stroke="rgba(255,255,255,0.03)" stroke-width="1"></line>
-                    <line x1="0" y1="75" x2="500" y2="75" stroke="rgba(255,255,255,0.03)" stroke-width="1"></line>
-                    <line x1="0" y1="120" x2="500" y2="120" stroke="rgba(255,255,255,0.03)" stroke-width="1"></line>
-                  </svg>
-                </div>
-                <!-- Graph Labels -->
-                <div class="flex justify-between text-[10px] text-gray-500 font-medium mt-2">
-                  <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Widget 2: Completion Stats Breakdown (Span 4) -->
-            <div class="md:col-span-4 double-bezel-outer">
-              <div class="double-bezel-inner flex flex-col justify-between">
-                <div>
-                  <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-400 mb-4" id="card-stat-title">Quick Stats</h3>
-                  <div class="grid grid-cols-2 gap-4 mt-6">
-                    <div class="bg-white/5 dark:bg-white/5 light:bg-slate-100 p-4 rounded-2xl border border-white/5">
-                      <p class="text-[10px] uppercase text-gray-500 tracking-wider font-semibold" id="lbl-active-tasks">Active Tasks</p>
-                      <p class="text-2xl font-bold text-white mt-1">24</p>
-                    </div>
-                    <div class="bg-white/5 dark:bg-white/5 light:bg-slate-100 p-4 rounded-2xl border border-white/5">
-                      <p class="text-[10px] uppercase text-gray-500 tracking-wider font-semibold" id="lbl-completed">Completed</p>
-                      <p class="text-2xl font-bold text-accentcyan mt-1">142</p>
-                    </div>
-                    <div class="bg-white/5 dark:bg-white/5 light:bg-slate-100 p-4 rounded-2xl border border-white/5">
-                      <p class="text-[10px] uppercase text-gray-500 tracking-wider font-semibold" id="lbl-hours">Est. Hours</p>
-                      <p class="text-2xl font-bold text-white mt-1">36.5</p>
-                    </div>
-                    <div class="bg-white/5 dark:bg-white/5 light:bg-slate-100 p-4 rounded-2xl border border-white/5">
-                      <p class="text-[10px] uppercase text-gray-500 tracking-wider font-semibold" id="lbl-overdue">Overdue</p>
-                      <p class="text-2xl font-bold text-rose-500 mt-1">3</p>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Nested small banner -->
-                <div class="mt-6 p-3 rounded-xl bg-accentcyan/10 border border-accentcyan/20 flex items-center gap-3">
-                  <i class="ph-light ph-lightbulb text-accentcyan text-lg"></i>
-                  <p class="text-[10px] text-accentcyan font-medium leading-normal" id="tip-text">You are completing tasks 15% faster than average this sprint!</p>
-                </div>
-              </div>
-            </div>
-
-            <!-- Widget 3: Live Tasks List (Span 7) -->
-            <div class="md:col-span-7 double-bezel-outer">
-              <div class="double-bezel-inner">
-                <div class="flex justify-between items-center mb-6">
-                  <div>
-                    <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-400" id="card-tasks-title">Recent Tasks</h3>
-                    <p class="text-xs text-gray-500 mt-1" id="card-tasks-desc">Active tasks currently assigned to you.</p>
-                  </div>
-                  <div class="flex gap-2">
-                    <button class="text-xs bg-white/5 dark:bg-white/5 light:bg-slate-100 px-3 py-1.5 rounded-lg border border-white/5 hover:border-white/10 hover:text-white" id="btn-view-all">View All</button>
-                  </div>
-                </div>
-
-                <!-- Tasks Stack -->
-                <div class="space-y-3" id="mock-tasks-list">
-                  <!-- Task 1 -->
-                  <div class="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-white/10 spring-transition cursor-pointer" onclick="openTaskDetail('Task-01')">
-                    <div class="flex items-center gap-3.5">
-                      <button onclick="event.stopPropagation(); toggleTaskCheck(this)" class="w-5 h-5 rounded-md border border-gray-600 flex items-center justify-center hover:border-accentpurple spring-transition">
-                        <i class="ph-light ph-check text-[10px] text-white opacity-0 transition-opacity"></i>
-                      </button>
-                      <div>
-                        <h4 class="text-xs font-semibold text-white" id="task-title-1">Upgrade Electron build configurations</h4>
-                        <div class="flex items-center gap-2 mt-1.5">
-                          <span class="text-[9px] uppercase tracking-wider font-semibold text-accentpurple bg-accentpurple/10 px-2 py-0.5 rounded-full">High</span>
-                          <span class="text-[10px] text-gray-500">Due July 12</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="flex -space-x-1 rtl:space-x-reverse">
-                      <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=50&q=80" alt="Assignee" class="w-6 h-6 rounded-full object-cover border border-oled">
-                    </div>
-                  </div>
-
-                  <!-- Task 2 -->
-                  <div class="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-white/10 spring-transition cursor-pointer" onclick="openTaskDetail('Task-02')">
-                    <div class="flex items-center gap-3.5">
-                      <button onclick="event.stopPropagation(); toggleTaskCheck(this)" class="w-5 h-5 rounded-md border border-gray-600 flex items-center justify-center hover:border-accentpurple spring-transition">
-                        <i class="ph-light ph-check text-[10px] text-white opacity-0 transition-opacity"></i>
-                      </button>
-                      <div>
-                        <h4 class="text-xs font-semibold text-white" id="task-title-2">Create dark/light theme store settings</h4>
-                        <div class="flex items-center gap-2 mt-1.5">
-                          <span class="text-[9px] uppercase tracking-wider font-semibold text-accentcyan bg-accentcyan/10 px-2 py-0.5 rounded-full">Medium</span>
-                          <span class="text-[10px] text-gray-500">Due July 14</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="flex -space-x-1 rtl:space-x-reverse">
-                      <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=50&q=80" alt="Assignee" class="w-6 h-6 rounded-full object-cover border border-oled">
-                    </div>
-                  </div>
-
-                  <!-- Task 3 -->
-                  <div class="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-white/10 spring-transition cursor-pointer" onclick="openTaskDetail('Task-03')">
-                    <div class="flex items-center gap-3.5">
-                      <button onclick="event.stopPropagation(); toggleTaskCheck(this)" class="w-5 h-5 rounded-md border border-gray-600 flex items-center justify-center hover:border-accentpurple spring-transition">
-                        <i class="ph-light ph-check text-[10px] text-white opacity-0 transition-opacity"></i>
-                      </button>
-                      <div>
-                        <h4 class="text-xs font-semibold text-white" id="task-title-3">Optimize database queries for task logs</h4>
-                        <div class="flex items-center gap-2 mt-1.5">
-                          <span class="text-[9px] uppercase tracking-wider font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">Low</span>
-                          <span class="text-[10px] text-gray-500">Due July 18</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="flex -space-x-1 rtl:space-x-reverse">
-                      <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=50&q=80" alt="Assignee" class="w-6 h-6 rounded-full object-cover border border-oled">
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-            </div>
-
-            <!-- Widget 4: Recent Activity (Span 5) -->
-            <div class="md:col-span-5 double-bezel-outer">
-              <div class="double-bezel-inner">
-                <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-400 mb-6" id="card-activity-title">Recent Activity</h3>
-                <div class="space-y-4">
-                  
-                  <div class="flex gap-4">
-                    <div class="w-8 h-8 rounded-full bg-accentpurple/15 flex items-center justify-center text-accentpurple shrink-0 mt-0.5">
-                      <i class="ph-light ph-check-square"></i>
-                    </div>
-                    <div>
-                      <p class="text-xs font-medium text-white"><span class="font-bold text-gray-300">David</span> completed task <span class="font-semibold text-accentpurple">Configure multi-user permissions</span></p>
-                      <p class="text-[10px] text-gray-500 mt-1">10 minutes ago</p>
-                    </div>
-                  </div>
-
-                  <div class="flex gap-4">
-                    <div class="w-8 h-8 rounded-full bg-accentcyan/15 flex items-center justify-center text-accentcyan shrink-0 mt-0.5">
-                      <i class="ph-light ph-chat-centered-text"></i>
-                    </div>
-                    <div>
-                      <p class="text-xs font-medium text-white"><span class="font-bold text-gray-300">Elena</span> commented on <span class="font-semibold text-accentcyan">Refactor sidebar layout UI</span></p>
-                      <p class="text-[10px] text-gray-500 mt-1">2 hours ago</p>
-                    </div>
-                  </div>
-
-                  <div class="flex gap-4">
-                    <div class="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 shrink-0 mt-0.5">
-                      <i class="ph-light ph-warning"></i>
-                    </div>
-                    <div>
-                      <p class="text-xs font-medium text-white"><span class="font-bold text-gray-300">System</span> triggered critical alert: <span class="font-semibold text-amber-500">Overdue tasks threshold exceeded</span></p>
-                      <p class="text-[10px] text-gray-500 mt-1">Yesterday</p>
-                    </div>
-                  </div>
-
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-
-        <!-- TAB 2: TASKS -->
-        <div id="tab-tasks" class="space-y-10 hidden">
-          <div>
-            <span class="rounded-full bg-accentcyan/15 text-accentcyan border border-accentcyan/25 px-3.5 py-1 text-[10px] uppercase tracking-[0.2em] font-bold" id="badge-tasks">Workspace Tasks</span>
-          </div>
-
-          <div class="double-bezel-outer">
-            <div class="double-bezel-inner">
-              <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-400 mb-6">Task Manager</h3>
-              
-              <!-- Filter / Search Header -->
-              <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-6 border-b border-gray-800/40">
-                <div class="flex items-center gap-2">
-                  <button class="px-4 py-1.5 rounded-full text-xs font-semibold bg-accentpurple text-white">All</button>
-                  <button class="px-4 py-1.5 rounded-full text-xs font-semibold bg-white/5 border border-white/5 hover:border-white/10 text-gray-400 hover:text-white">Active</button>
-                  <button class="px-4 py-1.5 rounded-full text-xs font-semibold bg-white/5 border border-white/5 hover:border-white/10 text-gray-400 hover:text-white">Completed</button>
-                </div>
-                <div class="relative w-full md:w-64">
-                  <i class="ph-light ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm"></i>
-                  <input type="text" placeholder="Search tasks..." class="w-full h-9 rounded-full bg-white/5 border border-white/5 pl-9 pr-4 text-xs text-white outline-none focus:border-accentpurple focus:bg-cardbg spring-transition">
-                </div>
-              </div>
-
-              <!-- Task Grid / Rows -->
-              <div class="space-y-3">
-                <div class="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-white/10 cursor-pointer spring-transition" onclick="openTaskDetail('Task-01')">
-                  <div class="flex items-center gap-3">
-                    <div class="w-2.5 h-2.5 rounded-full bg-purple-500 shrink-0"></div>
-                    <div>
-                      <h4 class="text-xs font-semibold text-white">Upgrade Electron build configurations</h4>
-                      <p class="text-[10px] text-gray-500 mt-0.5">Assigned to Sarah Connor</p>
-                    </div>
-                  </div>
-                  <div class="flex items-center gap-6 mt-3 md:mt-0 text-[10px] text-gray-500 font-medium">
-                    <div>
-                      <span class="text-purple-400 font-bold uppercase">High</span>
-                    </div>
-                    <div>
-                      <span>Due July 12</span>
-                    </div>
-                    <div>
-                      <span class="bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded-full">In Progress</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-white/10 cursor-pointer spring-transition" onclick="openTaskDetail('Task-02')">
-                  <div class="flex items-center gap-3">
-                    <div class="w-2.5 h-2.5 rounded-full bg-cyan-500 shrink-0"></div>
-                    <div>
-                      <h4 class="text-xs font-semibold text-white">Create dark/light theme store settings</h4>
-                      <p class="text-[10px] text-gray-500 mt-0.5">Assigned to David Smith</p>
-                    </div>
-                  </div>
-                  <div class="flex items-center gap-6 mt-3 md:mt-0 text-[10px] text-gray-500 font-medium">
-                    <div>
-                      <span class="text-cyan-400 font-bold uppercase">Medium</span>
-                    </div>
-                    <div>
-                      <span>Due July 14</span>
-                    </div>
-                    <div>
-                      <span class="bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-2 py-0.5 rounded-full">Active</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-white/10 cursor-pointer spring-transition" onclick="openTaskDetail('Task-03')">
-                  <div class="flex items-center gap-3">
-                    <div class="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></div>
-                    <div>
-                      <h4 class="text-xs font-semibold text-white">Optimize database queries for task logs</h4>
-                      <p class="text-[10px] text-gray-500 mt-0.5">Assigned to Elena Rostova</p>
-                    </div>
-                  </div>
-                  <div class="flex items-center gap-6 mt-3 md:mt-0 text-[10px] text-gray-500 font-medium">
-                    <div>
-                      <span class="text-emerald-400 font-bold uppercase">Low</span>
-                    </div>
-                    <div>
-                      <span>Due July 18</span>
-                    </div>
-                    <div>
-                      <span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full">Active</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          </div>
-        </div>
-
-        <!-- TAB 3: REPORTS -->
-        <div id="tab-reports" class="space-y-10 hidden">
-          <div>
-            <span class="rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20 px-3.5 py-1 text-[10px] uppercase tracking-[0.2em] font-bold" id="badge-reports">Workspace Analytics</span>
-          </div>
-
-          <div class="double-bezel-outer">
-            <div class="double-bezel-inner">
-              <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-400 mb-6">Analytical Breakdown</h3>
-              <p class="text-xs text-gray-500 mb-6">Visual graph analysis of user productivity and resolution speed.</p>
-              <div class="h-64 bg-white/5 border border-white/5 rounded-2xl flex items-center justify-center">
-                <span class="text-xs text-gray-500">Interactive charts and analytics data load dynamically here in main app.</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- TAB 4: SETTINGS -->
-        <div id="tab-settings" class="space-y-10 hidden">
-          <div>
-            <span class="rounded-full bg-gray-500/10 text-gray-400 border border-gray-800 px-3.5 py-1 text-[10px] uppercase tracking-[0.2em] font-bold" id="badge-settings">System Configuration</span>
-          </div>
-
-          <div class="double-bezel-outer">
-            <div class="double-bezel-inner">
-              <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-400 mb-6">Workspace Settings</h3>
-              
-              <div class="space-y-6">
-                <div class="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5">
-                  <div>
-                    <h4 class="text-xs font-semibold text-white">Dark Mode</h4>
-                    <p class="text-[10px] text-gray-500 mt-0.5">Toggle interface dark and light settings.</p>
-                  </div>
-                  <button class="w-10 h-6 bg-accentpurple rounded-full p-0.5 flex justify-end items-center" onclick="toggleTheme()">
-                    <div class="w-5 h-5 rounded-full bg-white shadow-md"></div>
-                  </button>
-                </div>
-
-                <div class="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5">
-                  <div>
-                    <h4 class="text-xs font-semibold text-white">Multi-user Sync</h4>
-                    <p class="text-[10px] text-gray-500 mt-0.5">Enable real-time task sync between teams.</p>
-                  </div>
-                  <button class="w-10 h-6 bg-emerald-500 rounded-full p-0.5 flex justify-end items-center">
-                    <div class="w-5 h-5 rounded-full bg-white shadow-md"></div>
-                  </button>
-                </div>
-              </div>
-
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </main>
-  </div>
-
-  <!-- CREATE TASK MODAL -->
-  <div id="create-task-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md opacity-0 pointer-events-none transition-opacity duration-300">
-    <div class="w-full max-w-lg double-bezel-outer scale-95 transition-transform duration-300" id="create-task-modal-card">
-      <div class="double-bezel-inner">
-        <div class="flex justify-between items-center mb-6">
-          <h3 class="text-base font-bold text-white" id="modal-title">Create New Task</h3>
-          <button onclick="closeCreateTaskModal()" class="text-gray-400 hover:text-white"><i class="ph-light ph-x text-lg"></i></button>
-        </div>
-
-        <form class="space-y-4" onsubmit="event.preventDefault(); submitCreateTask()">
-          <div class="space-y-2">
-            <label class="text-xs font-semibold text-gray-400" id="lbl-task-title">Task Title</label>
-            <input type="text" id="inp-task-title" required class="w-full h-10 rounded-xl bg-white/5 border border-white/5 px-4 text-xs text-white outline-none focus:border-accentpurple focus:bg-cardbg spring-transition" placeholder="Enter task name...">
-          </div>
-
-          <div class="grid grid-cols-2 gap-4">
-            <div class="space-y-2">
-              <label class="text-xs font-semibold text-gray-400" id="lbl-task-priority">Priority</label>
-              <select id="inp-task-priority" class="w-full h-10 rounded-xl bg-white/5 border border-white/5 px-4 text-xs text-gray-400 outline-none focus:border-accentpurple focus:bg-cardbg spring-transition">
-                <option value="High">High</option>
-                <option value="Medium">Medium</option>
-                <option value="Low">Low</option>
-              </select>
-            </div>
-            <div class="space-y-2">
-              <label class="text-xs font-semibold text-gray-400" id="lbl-task-due">Due Date</label>
-              <input type="date" id="inp-task-due" required class="w-full h-10 rounded-xl bg-white/5 border border-white/5 px-4 text-xs text-gray-400 outline-none focus:border-accentpurple focus:bg-cardbg spring-transition">
-            </div>
-          </div>
-
-          <div class="space-y-2">
-            <label class="text-xs font-semibold text-gray-400" id="lbl-task-desc">Description</label>
-            <textarea id="inp-task-desc" class="w-full h-24 rounded-xl bg-white/5 border border-white/5 p-4 text-xs text-white outline-none focus:border-accentpurple focus:bg-cardbg spring-transition" placeholder="Describe the task..."></textarea>
-          </div>
-
-          <div class="flex justify-end gap-3 pt-4 border-t border-gray-800/40">
-            <button type="button" onclick="closeCreateTaskModal()" class="px-5 py-2.5 rounded-full text-xs font-semibold bg-white/5 border border-white/5 text-gray-400 hover:text-white" id="btn-cancel">Cancel</button>
-            <button type="submit" class="bg-gradient-to-r from-accentpurple to-accentcyan hover:opacity-95 text-white font-semibold text-xs px-6 py-2.5 rounded-full" id="btn-submit">Submit</button>
-          </div>
-        </form>
-      </div>
+    <!-- Navigation Tabs -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('suggestions')">
+        <span>💡</span> 10 مقترحات ترقية للمنظومة
+      </button>
+      <button class="tab-btn" onclick="switchTab('migration')">
+        <span>⚙️</span> خطة الترحيل لخادم Windows Server 2022
+      </button>
+      <button class="tab-btn" onclick="switchTab('online-routing')">
+        <span>🌐</span> تهيئة الاتصال عبر الإنترنت والأمان
+      </button>
     </div>
-  </div>
 
-  <!-- TASK DETAIL DRAWER -->
-  <div id="task-detail-drawer" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-300">
-    <div class="absolute top-0 right-0 h-full w-full max-w-md bg-[#070709] border-l border-gray-800/60 p-6 flex flex-col justify-between translate-x-full transition-transform duration-300 spring-transition" id="task-detail-card">
-      <div>
-        <div class="flex justify-between items-center mb-6">
-          <span class="rounded-full bg-accentpurple/15 text-accentpurple border border-accentpurple/25 px-2.5 py-0.5 text-[9px] uppercase tracking-[0.1em] font-bold" id="detail-tag">Task Properties</span>
-          <button onclick="closeTaskDetail()" class="text-gray-400 hover:text-white"><i class="ph-light ph-x text-lg"></i></button>
-        </div>
-
-        <h3 class="text-lg font-bold text-white" id="detail-title">Upgrade Electron build configurations</h3>
+    <!-- TAB 1: 10 Suggestions -->
+    <div id="suggestions" class="tab-content active">
+      <div class="suggestions-grid">
         
-        <div class="space-y-4 mt-6">
-          <div class="flex justify-between items-center py-2.5 border-b border-gray-800/40">
-            <span class="text-xs text-gray-500" id="detail-lbl-status">Status</span>
-            <span class="text-xs text-accentpurple bg-accentpurple/10 px-2.5 py-0.5 rounded-full font-semibold">In Progress</span>
-          </div>
-          <div class="flex justify-between items-center py-2.5 border-b border-gray-800/40">
-            <span class="text-xs text-gray-500" id="detail-lbl-assignee">Assignee</span>
-            <span class="text-xs text-white font-semibold">Sarah Connor</span>
-          </div>
-          <div class="flex justify-between items-center py-2.5 border-b border-gray-800/40">
-            <span class="text-xs text-gray-500" id="detail-lbl-due">Due Date</span>
-            <span class="text-xs text-white font-semibold">July 12, 2026</span>
-          </div>
+        <!-- Suggestion 1 -->
+        <div class="suggestion-card">
+          <div class="card-num">01</div>
+          <div class="card-icon">🔄</div>
+          <h3>التزامن اللحظي للمهام (Real-time Sync)</h3>
+          <p>ربط تحديثات المهام والترتيب تلقائياً بين شاشات المدراء والمطورين بمجرد النقر أو السحب والإسقاط دون حاجة لإعادة تحميل الصفحة.</p>
+          <span class="use-case-badge">تحسين الإنتاجية والتنسيق الفوري</span>
         </div>
 
-        <div class="mt-8">
-          <h4 class="text-xs font-semibold text-gray-400 mb-3" id="detail-lbl-desc">Description</h4>
-          <p class="text-xs text-gray-400 leading-relaxed" id="detail-desc">Configure target configurations for Electron setups and configure installer files to correctly compile. Verify with installer testing suites.</p>
+        <!-- Suggestion 2 -->
+        <div class="suggestion-card">
+          <div class="card-num">02</div>
+          <div class="card-icon">📊</div>
+          <h3>مخطط توزيع أعباء العمل (Workload Heatmap)</h3>
+          <p>لوحة تفاعلية للمدير توضح حجم المهام الموزعة على الموظفين ونسبة الضغط لدى كل موظف لتوزيع أعباء العمل بعدالة ومنع الاحتراق الوظيفي.</p>
+          <span class="use-case-badge">تخطيط وتوزيع الموارد للمدراء</span>
         </div>
-      </div>
 
-      <div class="pt-6 border-t border-gray-800/40">
-        <button onclick="event.stopPropagation(); markTaskAsCompleted()" class="w-full py-3 bg-gradient-to-r from-accentpurple to-accentcyan text-white text-xs font-semibold rounded-full shadow-lg hover:opacity-95" id="btn-mark-complete">Mark as Completed</button>
+        <!-- Suggestion 3 -->
+        <div class="suggestion-card">
+          <div class="card-num">03</div>
+          <div class="card-icon">🛡️</div>
+          <h3>نظام الاعتماد والتدقيق (Approval Workflow)</h3>
+          <p>إجبار الموظفين على إرسال المهمة المكتملة إلى قائمة "تحت المراجعة" بحيث لا تتحول إلى "مكتملة" إلا بعد مراجعة واعتماد المدير المباشر.</p>
+          <span class="use-case-badge">ضبط جودة العمل والمخرجات</span>
+        </div>
+
+        <!-- Suggestion 4 -->
+        <div class="suggestion-card">
+          <div class="card-num">04</div>
+          <div class="card-icon">⏱️</div>
+          <h3>تتبع ساعات العمل الفعلي (Smart Time-Tracking)</h3>
+          <p>تفعيل عداد وقت ذكي ومدمج مع مهام محددة وتلقين النظام بوضع الخمول التلقائي في حال ترك الحاسب لحساب الساعات الفعلية بدقة.</p>
+          <span class="use-case-badge">تقارير الرواتب والمجهود الفعلي</span>
+        </div>
+
+        <!-- Suggestion 5 -->
+        <div class="suggestion-card">
+          <div class="card-num">05</div>
+          <div class="card-icon">🎯</div>
+          <h3>تقسيم المشاريع والأقسام (Projects & Departments)</h3>
+          <p>فصل مهام قسم تقنية المعلومات عن الموارد البشرية أو المحاسبة وتعيين مدراء مسؤولين عن كل قسم لضبط الصلاحيات والرؤية الجغرافية.</p>
+          <span class="use-case-badge">مؤسسات متوسطة وكبيرة</span>
+        </div>
+
+        <!-- Suggestion 6 -->
+        <div class="suggestion-card">
+          <div class="card-num">06</div>
+          <div class="card-icon">🚨</div>
+          <h3>التنبيهات الذكية لتجاوز الوقت (SLA Alerts)</h3>
+          <p>توليد إشعارات تلقائية وإرسال رسائل بريدية إدارية للمدير والموظف عند اقتراب موعد تسليم المهمة أو تجاوز تاريخ الاستحقاق الفعلي.</p>
+          <span class="use-case-badge">الالتزام بمواعيد التسليم المؤسسية</span>
+        </div>
+
+        <!-- Suggestion 7 -->
+        <div class="suggestion-card">
+          <div class="card-num">07</div>
+          <div class="card-icon">🤖</div>
+          <h3>الملخص الأسبوعي التلقائي (Weekly AI Digest)</h3>
+          <p>توليد تقارير أداء ملخصة بنهاية كل أسبوع توضح أهم إنجازات كل موظف، الساعات المستهلكة، وأبرز المشاكل التي تسببت في تأخير المهام.</p>
+          <span class="use-case-badge">تقييم الأداء الدوري للموظفين</span>
+        </div>
+
+        <!-- Suggestion 8 -->
+        <div class="suggestion-card">
+          <div class="card-num">08</div>
+          <div class="card-icon">🔑</div>
+          <h3>الربط بنظام الدليل النشط (Active Directory SSO)</h3>
+          <p>ربط نظام الدخول والتحقق بالحسابات الموحدة للشركة (Windows Active Directory) لتسهيل إدارة صلاحيات الموظفين ومنع التسريبات الأمنية.</p>
+          <span class="use-case-badge">الأمان المؤسسي والتحكم المركزي</span>
+        </div>
+
+        <!-- Suggestion 9 -->
+        <div class="suggestion-card">
+          <div class="card-num">09</div>
+          <div class="card-icon">💬</div>
+          <h3>قنوات النقاش والمرفقات السياقية (Task Chat)</h3>
+          <p>دمج شات خاص ومحمي تحت كل مهمة لتبادل الملفات، والتسجيلات الصوتية، والتعليمات وتوثيق كافة التحديثات والتبادلات الفنية للمستقبل.</p>
+          <span class="use-case-badge">الحد من تشتت قنوات التواصل الخارجية</span>
+        </div>
+
+        <!-- Suggestion 10 -->
+        <div class="suggestion-card">
+          <div class="card-num">10</div>
+          <div class="card-icon">💾</div>
+          <h3>قاعدة بيانات SQLite محلية ومزامنة دورية (Offline Sync)</h3>
+          <p>تخزين كافة البيانات محلياً على أجهزة الموظفين لتوفير استجابة فورية فائقة السرعة، مع مزامنة دورية تلقائية مع خادم الشركة الرئيسي عند توفر الشبكة.</p>
+          <span class="use-case-badge">الإنتاجية القصوى وحماية العمل غير المحفوظ</span>
+        </div>
+
       </div>
     </div>
-  </div>
 
-  <!-- JAVASCRIPT FOR MOCKUP INTERACTIONS -->
-  <script>
-    // Translation dictionary for bilingual demonstration
-    const translations = {
-      en: {
-        appname: "TeamTask",
-        appsub: "Workspace",
-        dashboard: "Dashboard",
-        tasks: "Tasks",
-        reports: "Reports",
-        settings: "Settings",
-        greeting: "Good morning, Sarah",
-        subtitle: "Here is what is happening today.",
-        overview: "Performance Pulse",
-        trendtitle: "Task Completion Trend",
-        trendsub: "87% Completion Rate",
-        trendstat: "+12% this week",
-        quickstats: "Quick Stats",
-        activetasks: "Active Tasks",
-        completed: "Completed",
-        hours: "Est. Hours",
-        overdue: "Overdue",
-        tip: "You are completing tasks 15% faster than average this sprint!",
-        recenttasks: "Recent Tasks",
-        tasksdesc: "Active tasks currently assigned to you.",
-        viewall: "View All",
-        recentactivity: "Recent Activity",
-        systemconfig: "System Configuration",
-        createtask: "Create Task",
-        lang: "AR",
-        task1: "Upgrade Electron build configurations",
-        task2: "Create dark/light theme store settings",
-        task3: "Optimize database queries for task logs",
-        detailtag: "Task Properties",
-        detailtitle: "Upgrade Electron build configurations",
-        detailstatus: "Status",
-        detailassignee: "Assignee",
-        detaildue: "Due Date",
-        detaildesc: "Description",
-        detailcontent: "Configure target configurations for Electron setups and configure installer files to correctly compile. Verify with installer testing suites.",
-        btncomplete: "Mark as Completed",
-        modaltitle: "Create New Task",
-        modallbltitle: "Task Title",
-        modallblpriority: "Priority",
-        modallbldue: "Due Date",
-        modallbldesc: "Description",
-        btncancel: "Cancel",
-        btnsubmit: "Submit"
-      },
-      ar: {
-        appname: "تيم-تاسك",
-        appsub: "مساحة العمل",
-        dashboard: "لوحة القيادة",
-        tasks: "المهام",
-        reports: "التقارير",
-        settings: "الإعدادات",
-        greeting: "صباح الخير، سارة",
-        subtitle: "إليك ما يحدث اليوم في مساحة عملك.",
-        overview: "نبض الأداء",
-        trendtitle: "اتجاه إنجاز المهام",
-        trendsub: "معدل إنجاز ٨٧٪",
-        trendstat: "+١٢٪ هذا الأسبوع",
-        quickstats: "إحصاءات سريعة",
-        activetasks: "مهام نشطة",
-        completed: "مكتملة",
-        hours: "ساعات تقديرية",
-        overdue: "متأخرة",
-        tip: "أنت تنجز المهام أسرع بنسبة ١٥٪ من المتوسط هذا الأسبوع!",
-        recenttasks: "المهام الأخيرة",
-        tasksdesc: "المهام النشطة المعينة إليك حالياً.",
-        viewall: "عرض الكل",
-        recentactivity: "آخر النشاطات",
-        systemconfig: "إعداد النظام",
-        createtask: "إنشاء مهمة",
-        lang: "EN",
-        task1: "ترقية تكوينات بناء Electron للمشروع",
-        task2: "إنشاء إعدادات مخزن السمات (فاتح/داكن)",
-        task3: "تحسين استعلامات قاعدة البيانات لسجلات المهام",
-        detailtag: "خصائص المهمة",
-        detailtitle: "ترقية تكوينات بناء Electron للمشروع",
-        detailstatus: "الحالة",
-        detailassignee: "المسؤول",
-        detaildue: "تاريخ التسليم",
-        detaildesc: "الوصف",
-        detailcontent: "تكوين إعدادات البناء المستهدفة لـ Electron وإعداد ملفات التثبيت لتجميعها بشكل صحيح. التحقق بواسطة مجموعات اختبار التثبيت.",
-        btncomplete: "تحديد كمكتملة",
-        modaltitle: "إنشاء مهمة جديدة",
-        modallbltitle: "عنوان المهمة",
-        modallblpriority: "الأولوية",
-        modallbldue: "تاريخ الاستحقاق",
-        modallbldesc: "الوصف",
-        btncancel: "إلغاء",
-        btnsubmit: "إرسال"
-      }
-    };
-
-    let currentLang = 'en';
-
-    // Switch Tab function
-    function switchTab(tabId) {
-      // Hide all tabs
-      document.querySelectorAll('#main-content-area > div').forEach(div => {
-        div.classList.add('hidden');
-      });
-      // Show requested tab
-      const selectedTab = document.getElementById(`tab-${tabId}`);
-      if (selectedTab) selectedTab.classList.remove('hidden');
-
-      // Update sidebar active state
-      document.querySelectorAll('#nav-list > button').forEach((btn, idx) => {
-        btn.className = "w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 text-gray-400 hover:text-white hover:bg-white/5 border-l-2 border-transparent rtl:border-l-0";
-      });
-
-      // Highlight target button
-      event.currentTarget.className = "w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 bg-gradient-to-r from-accentpurple/15 to-transparent text-white border-l-2 border-accentpurple rtl:border-l-0 rtl:border-r-2";
-    }
-
-    // Toggle Language between English and Arabic
-    function toggleLanguage() {
-      currentLang = currentLang === 'en' ? 'ar' : 'en';
-      const isArabic = currentLang === 'ar';
-      
-      // Update HTML attributes
-      document.documentElement.lang = currentLang;
-      document.documentElement.dir = isArabic ? 'rtl' : 'ltr';
-      
-      if (isArabic) {
-        document.documentElement.classList.add('rtl');
-        document.body.classList.add('font-arabic');
-        document.body.classList.remove('font-sans');
-      } else {
-        document.documentElement.classList.remove('rtl');
-        document.body.classList.remove('font-arabic');
-        document.body.classList.add('font-sans');
-      }
-
-      // Translate DOM Texts
-      const d = translations[currentLang];
-      
-      document.getElementById('txt-appname').innerText = d.appname;
-      document.getElementById('txt-appsub').innerText = d.appsub;
-      document.getElementById('nav-dashboard').innerText = d.dashboard;
-      document.getElementById('nav-tasks').innerText = d.tasks;
-      document.getElementById('nav-reports').innerText = d.reports;
-      document.getElementById('nav-settings').innerText = d.settings;
-      document.getElementById('txt-greeting').innerText = d.greeting;
-      document.getElementById('txt-subtitle').innerText = d.subtitle;
-      document.getElementById('badge-overview').innerText = d.overview;
-      document.getElementById('card-trend-title').innerText = d.trendtitle;
-      document.getElementById('card-trend-sub').innerText = d.trendsub;
-      document.getElementById('card-trend-stat').innerText = d.trendstat;
-      document.getElementById('card-stat-title').innerText = d.quickstats;
-      document.getElementById('lbl-active-tasks').innerText = d.activetasks;
-      document.getElementById('lbl-completed').innerText = d.completed;
-      document.getElementById('lbl-hours').innerText = d.hours;
-      document.getElementById('lbl-overdue').innerText = d.overdue;
-      document.getElementById('tip-text').innerText = d.tip;
-      document.getElementById('card-tasks-title').innerText = d.recenttasks;
-      document.getElementById('card-tasks-desc').innerText = d.tasksdesc;
-      document.getElementById('btn-view-all').innerText = d.viewall;
-      document.getElementById('card-activity-title').innerText = d.recentactivity;
-      document.getElementById('badge-tasks').innerText = d.tasks;
-      document.getElementById('badge-reports').innerText = d.reports;
-      document.getElementById('badge-settings').innerText = d.settings;
-      document.getElementById('btn-createtask').innerText = d.createtask;
-      document.getElementById('btn-lang').innerText = d.lang;
-
-      // Tasks titles
-      document.getElementById('task-title-1').innerText = d.task1;
-      document.getElementById('task-title-2').innerText = d.task2;
-      document.getElementById('task-title-3').innerText = d.task3;
-
-      // Drawer
-      document.getElementById('detail-tag').innerText = d.detailtag;
-      document.getElementById('detail-title').innerText = d.detailtitle;
-      document.getElementById('detail-lbl-status').innerText = d.detailstatus;
-      document.getElementById('detail-lbl-assignee').innerText = d.detailassignee;
-      document.getElementById('detail-lbl-due').innerText = d.detaildue;
-      document.getElementById('detail-lbl-desc').innerText = d.detaildesc;
-      document.getElementById('detail-desc').innerText = d.detailcontent;
-      document.getElementById('btn-mark-complete').innerText = d.btncomplete;
-
-      // Create modal
-      document.getElementById('modal-title').innerText = d.modaltitle;
-      document.getElementById('lbl-task-title').innerText = d.modallbltitle;
-      document.getElementById('lbl-task-priority').innerText = d.modallblpriority;
-      document.getElementById('lbl-task-due').innerText = d.modallbldue;
-      document.getElementById('lbl-task-desc').innerText = d.modallbldesc;
-      document.getElementById('btn-cancel').innerText = d.btncancel;
-      document.getElementById('btn-submit').innerText = d.btnsubmit;
-    }
-
-    // Toggle Light and Dark theme
-    function toggleTheme() {
-      const isLight = document.documentElement.classList.contains('light');
-      const themeIcon = document.getElementById('theme-icon');
-      if (isLight) {
-        document.documentElement.classList.remove('light');
-        document.documentElement.classList.add('dark');
-        themeIcon.className = "ph-light ph-sun text-lg";
-      } else {
-        document.documentElement.classList.remove('dark');
-        document.documentElement.classList.add('light');
-        themeIcon.className = "ph-light ph-moon text-lg";
-      }
-    }
-
-    // Interactive Checkboxes
-    function toggleTaskCheck(button) {
-      const icon = button.querySelector('i');
-      if (icon.classList.contains('opacity-0')) {
-        icon.classList.remove('opacity-0');
-        icon.classList.add('opacity-100');
-        button.classList.add('bg-accentpurple', 'border-accentpurple');
-        button.closest('.flex').querySelector('h4').classList.add('line-through', 'opacity-50');
-      } else {
-        icon.classList.remove('opacity-100');
-        icon.classList.add('opacity-0');
-        button.classList.remove('bg-accentpurple', 'border-accentpurple');
-        button.closest('.flex').querySelector('h4').classList.remove('line-through', 'opacity-50');
-      }
-    }
-
-    // Modal Control
-    function openCreateTaskModal() {
-      const modal = document.getElementById('create-task-modal');
-      const card = document.getElementById('create-task-modal-card');
-      modal.classList.remove('opacity-0', 'pointer-events-none');
-      card.classList.remove('scale-95');
-      card.classList.add('scale-100');
-    }
-
-    function closeCreateTaskModal() {
-      const modal = document.getElementById('create-task-modal');
-      const card = document.getElementById('create-task-modal-card');
-      modal.classList.add('opacity-0', 'pointer-events-none');
-      card.classList.remove('scale-100');
-      card.classList.add('scale-95');
-    }
-
-    function submitCreateTask() {
-      const title = document.getElementById('inp-task-title').value;
-      const priority = document.getElementById('inp-task-priority').value;
-      const due = document.getElementById('inp-task-due').value;
-      
-      // Dynamic addition to task list
-      const list = document.getElementById('mock-tasks-list');
-      const taskDiv = document.createElement('div');
-      taskDiv.className = "flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-white/10 spring-transition cursor-pointer";
-      taskDiv.onclick = function() { openTaskDetail(title) };
-      taskDiv.innerHTML = `
-        <div class="flex items-center gap-3.5">
-          <button onclick="event.stopPropagation(); toggleTaskCheck(this)" class="w-5 h-5 rounded-md border border-gray-600 flex items-center justify-center hover:border-accentpurple spring-transition">
-            <i class="ph-light ph-check text-[10px] text-white opacity-0 transition-opacity"></i>
-          </button>
-          <div>
-            <h4 class="text-xs font-semibold text-white">${title}</h4>
-            <div class="flex items-center gap-2 mt-1.5">
-              <span class="text-[9px] uppercase tracking-wider font-semibold ${priority === 'High' ? 'text-accentpurple bg-accentpurple/10' : 'text-accentcyan bg-accentcyan/10'} px-2 py-0.5 rounded-full">${priority}</span>
-              <span class="text-[10px] text-gray-500">Due ${due}</span>
+    <!-- TAB 2: Migration Plan -->
+    <div id="migration" class="tab-content">
+      <div class="migration-panel">
+        
+        <h2 style="margin-bottom: 25px; color: #fff;">بنية تحويل التطبيق من محلي (Local Client) إلى مركزي (Central Server)</h2>
+        
+        <!-- Architecture flow chart -->
+        <div class="architecture-visual">
+          <div class="arch-diagram-flow">
+            <div class="arch-row">
+              <div class="arch-node">
+                <h4>واجهة الموظف 1</h4>
+                <span>Desktop (Electron)</span>
+              </div>
+              <div class="arch-node">
+                <h4>واجهة الموظف 2</h4>
+                <span>Desktop (Electron)</span>
+              </div>
+              <div class="arch-node">
+                <h4>واجهة المدير</h4>
+                <span>Web Browser</span>
+              </div>
+            </div>
+            
+            <div class="arch-connector"></div>
+            
+            <div class="arch-node server">
+              <h4>خادم الويب والاتصال (Windows Server 2022)</h4>
+              <span>Node.js / Express Backend + IIS Reverse Proxy</span>
+            </div>
+            
+            <div class="arch-connector"></div>
+            
+            <div class="arch-node">
+              <h4>قاعدة البيانات المركزية</h4>
+              <span>PostgreSQL / SQLite Database</span>
             </div>
           </div>
         </div>
-        <div class="flex -space-x-1">
-          <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=50&q=80" alt="Assignee" class="w-6 h-6 rounded-full object-cover border border-oled">
+
+        <ul class="steps-list">
+          
+          <li class="step-item">
+            <div class="step-number">1</div>
+            <div class="step-title">تطوير واجهة برمجية خلفية (REST API / Express Backend)</div>
+            <div class="step-desc">
+              بدلاً من التعامل المباشر مع <code>localStorage</code> في المتصفح، نقوم بإنشاء خادم صغير بلغة Node.js/Express يستقبل الطلبات ويسجلها في قاعدة بيانات مشتركة.
+            </div>
+            <div class="code-box">
+              <span class="code-comment">// مثال على نقطة النهاية (Endpoint) لاستقبال وإرجاع المهام</span><br>
+              <span class="code-keyword">const</span> express = require(<span class="code-string">'express'</span>);<br>
+              <span class="code-keyword">const</span> app = express();<br>
+              app.use(express.json());<br><br>
+              app.get(<span class="code-string">'/api/tasks'</span>, <span class="code-keyword">async</span> (req, res) => {<br>
+              &nbsp;&nbsp;<span class="code-keyword">const</span> tasks = <span class="code-keyword">await</span> db.all(<span class="code-string">'SELECT * FROM tasks'</span>);<br>
+              &nbsp;&nbsp;res.json(tasks);<br>
+              });
+            </div>
+          </li>
+
+          <li class="step-item">
+            <div class="step-number">2</div>
+            <div class="step-title">تثبيت وتكوين بيئة Node.js على خادم Windows Server 2022</div>
+            <div class="step-desc">
+              1. قم بتحميل وتثبيت <span class="code-string">Node.js LTS</span> على الخادم.<br>
+              2. قم بنسخ مجلد الـ API إلى مسار محدد على الخادم (مثال: <code>C:\inetpub\team-task-api</code>).<br>
+              3. قم بتثبيت مدير العمليات <strong>PM2</strong> لتشغيل التطبيق في الخلفية وحمايته من التوقف المفاجئ:
+            </div>
+            <div class="code-box">
+              npm install pm2 -g<br>
+              pm2 start server.js --name "team-task-api"<br>
+              pm2 startup<br>
+              pm2 save
+            </div>
+          </li>
+
+          <li class="step-item">
+            <div class="step-number">3</div>
+            <div class="step-title">تهيئة خادم IIS (Internet Information Services) كبروكسي عكسي (Reverse Proxy)</div>
+            <div class="step-desc">
+              للإشراف على اتصالات المنفذ 80 و 443 وتحويلها للتطبيق الداخلي (منفذ 3000):<br>
+              1. قم بتثبيت دور <strong>Web Server (IIS)</strong> من الـ <i>Server Manager</i>.<br>
+              2. قم بتثبيت إضافات IIS التالية: <strong>URL Rewrite</strong> و <strong>Application Request Routing (ARR)</strong>.<br>
+              3. قم بتمكين الـ Proxy في إعدادات Application Request Routing.<br>
+              4. أنشئ ملف <code>web.config</code> في مجلد خادم IIS لتوجيه الطلبات تلقائياً:
+            </div>
+            <div class="code-box">
+              <span class="code-comment">&lt;!-- توجيه الطلبات إلى المنفذ الداخلي 3000 --&gt;</span><br>
+              &lt;configuration&gt;<br>
+              &nbsp;&nbsp;&lt;system.webServer&gt;<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;&lt;rewrite&gt;<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;rules&gt;<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;rule name="NodeProxy" stopProcessing="true"&gt;<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;match url="(.*)" /&gt;<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;action type="Rewrite" url="http://localhost:3000/{R:1}" /&gt;<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;/rule&gt;<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;/rules&gt;<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;&lt;/rewrite&gt;<br>
+              &nbsp;&nbsp;&lt;/system.webServer&gt;<br>
+              &lt;/configuration&gt;
+            </div>
+          </li>
+
+        </ul>
+
+      </div>
+    </div>
+
+    <!-- TAB 3: Online Routing & Security -->
+    <div id="online-routing" class="tab-content">
+      <div class="migration-panel">
+        <h2 style="margin-bottom: 25px; color: #fff;">كيفية جعل التطبيق يعمل أونلاين ويربط الموظفين عبر الإنترنت</h2>
+        
+        <ul class="steps-list">
+          
+          <li class="step-item">
+            <div class="step-number">1</div>
+            <div class="step-title">تهيئة عنوان IP خارجي ثابت واستضافة النطاق (Public Static IP & DNS)</div>
+            <div class="step-desc">
+              لكي يتمكن تطبيق الموظف الخارجي من الوصول إلى الخادم في مقر الشركة عبر الإنترنت:<br>
+              1. اطلب من مزود الإنترنت (ISP) الخاص بالشركة حجز <strong>Public Static IP</strong>.<br>
+              2. قم بربط هذا الـ IP بنطاق فرعي رسمي للشركة (مثال: <code>tasks.mycompany.com</code>) من لوحة تحكم نطاق الشركة.
+            </div>
+          </li>
+
+          <li class="step-item">
+            <div class="step-number">2</div>
+            <div class="step-title">توجيه المنفذ في جدار حماية الشركة (Port Forwarding & Firewall)</div>
+            <div class="step-desc">
+              في راوتر الشركة الرئيسي أو جدار الحماية (Sophos, Fortinet, Cisco):<br>
+              1. قم بتوجيه منفذ الويب الآمن <strong>Port 443 (HTTPS)</strong> الخارجي إلى الـ IP الداخلي لخادم Windows Server 2022 (مثال: <code>192.168.1.10</code>).<br>
+              2. في خادم Windows Server، افتح أداة <i>Windows Defender Firewall with Advanced Security</i> وأنشئ <strong>Inbound Rule</strong> للسماح باتصالات المنفذ 443.
+            </div>
+          </li>
+
+          <li class="step-item">
+            <div class="step-number">3</div>
+            <div class="step-title">تشفير الاتصال بشهادة SSL مجانية (Let's Encrypt SSL)</div>
+            <div class="step-desc">
+              الاتصال بدون تشفير عبر الإنترنت خطير جداً لبيانات الشركة. سنقوم بتثبيت شهادة تشفير متكاملة:<br>
+              1. قم بتحميل أداة <strong>Certify The Web</strong> أو <strong>Win-ACME</strong> المجانية المخصصة لخوادم Windows.<br>
+              2. قم بطلب شهادة لنطاقك (<code>tasks.mycompany.com</code>)، وسيقوم البرنامج بتثبيتها وتجديدها تلقائياً على خادم IIS.
+            </div>
+          </li>
+
+          <li class="step-item">
+            <div class="step-number">4</div>
+            <div class="step-title">تحديث عنوان الخادم في تطبيق الموظفين (Client API Integration)</div>
+            <div class="step-desc">
+              في كود تطبيق Electron الخاص بالموظفين والمدرين، نقوم بتغيير عنوان الوصول ليكون النطاق الآمن بدلاً من الرابط الداخلي:
+            </div>
+            <div class="code-box">
+              <span class="code-keyword">const</span> API_BASE_URL = <span class="code-string">'https://tasks.mycompany.com/api'</span>;<br><br>
+              <span class="code-comment">// مثال على جلب المهام أونلاين</span><br>
+              <span class="code-keyword">async</span> <span class="code-keyword">function</span> fetchTasksFromServer() {<br>
+              &nbsp;&nbsp;<span class="code-keyword">const</span> response = <span class="code-keyword">await</span> fetch(<span class="code-string">`</span>${API_BASE_URL}<span class="code-string">/tasks`</span>, {<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;headers: { <span class="code-string">'Authorization'</span>: <span class="code-string">`Bearer </span>${userToken}<span class="code-string">`</span> }<br>
+              &nbsp;&nbsp;});<br>
+              &nbsp;&nbsp;<span class="code-keyword">return</span> <span class="code-keyword">await</span> response.json();<br>
+              }
+            </div>
+          </li>
+
+        </ul>
+
+        <div class="alert-box">
+          <span style="font-size: 1.5rem;">🔒</span>
+          <div>
+            <strong>نصيحة أمنية هامة جداً:</strong> لتأمين البيانات بنسبة 100% وتفادي فتح خادم الشركة للإنترنت العام مباشرة، يُفضل استخدام شبكة افتراضية خاصة بالشركة <strong>(Corporate VPN - WireGuard أو OpenVPN)</strong>، بحيث يُلزم الموظف بفتح تطبيق الـ VPN الخاص بالشركة أولاً ليتمكن من تشغيل تطبيق المهام.
+          </div>
         </div>
-      `;
-      list.insertBefore(taskDiv, list.firstChild);
-      
-      closeCreateTaskModal();
-      // Reset form
-      document.getElementById('inp-task-title').value = '';
-      document.getElementById('inp-task-due').value = '';
-      document.getElementById('inp-task-desc').value = '';
-    }
 
-    // Detail Drawer Controls
-    let currentDrawerTask = null;
-    function openTaskDetail(taskId) {
-      const drawer = document.getElementById('task-detail-drawer');
-      const card = document.getElementById('task-detail-card');
-      
-      // Update drawer content based on task
-      if (taskId === 'Task-01') {
-        document.getElementById('detail-title').innerText = translations[currentLang].task1;
-      } else if (taskId === 'Task-02') {
-        document.getElementById('detail-title').innerText = translations[currentLang].task2;
-      } else if (taskId === 'Task-03') {
-        document.getElementById('detail-title').innerText = translations[currentLang].task3;
-      } else {
-        document.getElementById('detail-title').innerText = taskId;
-      }
-      
-      drawer.classList.remove('opacity-0', 'pointer-events-none');
-      card.classList.remove('translate-x-full');
-      card.classList.add('translate-y-0');
-    }
+      </div>
+    </div>
 
-    function closeTaskDetail() {
-      const drawer = document.getElementById('task-detail-drawer');
-      const card = document.getElementById('task-detail-card');
-      drawer.classList.add('opacity-0', 'pointer-events-none');
-      card.classList.add('translate-x-full');
-    }
+  </div>
 
-    function markTaskAsCompleted() {
-      alert(currentLang === 'en' ? "Task successfully marked as completed!" : "تم تمييز المهمة كمكتملة بنجاح!");
-      closeTaskDetail();
+  <script>
+    function switchTab(tabId) {
+      // Deactivate all tabs
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+      
+      // Activate target tab
+      event.currentTarget.classList.add('active');
+      document.getElementById(tabId).classList.add('active');
     }
   </script>
 </body>

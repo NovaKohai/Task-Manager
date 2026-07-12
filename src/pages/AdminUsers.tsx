@@ -14,6 +14,7 @@ import { i18n } from '@/lib/i18n'
 import { db, ALL_PERMISSIONS, ROLE_PERMISSIONS } from '@/lib/db'
 import type { Permission, Role, Department, User } from '@/lib/types'
 import { roleBadge, getDepartmentConfig } from '@/lib/constants'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 
 export default function AdminUsers() {
   const { users, isLoading, fetchUsers, createUser, updateUser, updateUserPassword, deleteUser } = useUserStore()
@@ -22,6 +23,8 @@ export default function AdminUsers() {
   const [activeTab, setActiveTab] = useState<'active' | 'pending'>('active')
   const [modalOpen, setModalOpen] = useState(false)
   const [editUser, setEditUser] = useState<User | null>(null)
+  const [deleteConfirmUser, setDeleteConfirmUser] = useState<User | null>(null)
+  const [rejectConfirmUser, setRejectConfirmUser] = useState<User | null>(null)
   
   const [name, setName] = useState('')
   const [username, setUsername] = useState('')
@@ -144,11 +147,17 @@ export default function AdminUsers() {
       alert(i18n.lang === 'ar' ? 'لا يمكنك حذف حسابك الخاص!' : 'You cannot delete your own account!')
       return
     }
-    if (window.confirm(i18n.t('admin_users.confirm_delete').replace('{name}', u.name))) {
+    setDeleteConfirmUser(u)
+  }
+
+  async function executeDeleteUser() {
+    if (deleteConfirmUser) {
       try {
-        await deleteUser(u.id)
+        await deleteUser(deleteConfirmUser.id)
       } catch (e) {
         console.error('handleDelete failed', e)
+      } finally {
+        setDeleteConfirmUser(null)
       }
     }
   }
@@ -162,11 +171,17 @@ export default function AdminUsers() {
   }
 
   async function handleReject(u: User) {
-    if (window.confirm(i18n.t('admin_users.confirm_reject').replace('{name}', u.name))) {
+    setRejectConfirmUser(u)
+  }
+
+  async function executeRejectUser() {
+    if (rejectConfirmUser) {
       try {
-        await deleteUser(u.id)
+        await deleteUser(rejectConfirmUser.id)
       } catch (e) {
         console.error('handleReject failed', e)
+      } finally {
+        setRejectConfirmUser(null)
       }
     }
   }
@@ -512,6 +527,24 @@ export default function AdminUsers() {
           </div>
         </div>
       </div>
+      <ConfirmDialog
+        isOpen={deleteConfirmUser !== null}
+        title={i18n.lang === 'ar' ? 'حذف المستخدم' : 'Delete User'}
+        description={i18n.t('admin_users.confirm_delete').replace('{name}', deleteConfirmUser?.name || '')}
+        confirmText={i18n.lang === 'ar' ? 'حذف' : 'Delete'}
+        cancelText={i18n.t('cancel')}
+        onConfirm={executeDeleteUser}
+        onCancel={() => setDeleteConfirmUser(null)}
+      />
+      <ConfirmDialog
+        isOpen={rejectConfirmUser !== null}
+        title={i18n.lang === 'ar' ? 'رفض المستخدم' : 'Reject User'}
+        description={i18n.t('admin_users.confirm_reject').replace('{name}', rejectConfirmUser?.name || '')}
+        confirmText={i18n.lang === 'ar' ? 'رفض' : 'Reject'}
+        cancelText={i18n.t('cancel')}
+        onConfirm={executeRejectUser}
+        onCancel={() => setRejectConfirmUser(null)}
+      />
     </div>
   )
 }

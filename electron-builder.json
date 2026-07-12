@@ -14,7 +14,7 @@
   "win": {
     "target": ["nsis"],
     "icon": "build/icon.ico",
-    "artifactName": "${productName}-Setup-${version}.${ext}"
+    "artifactName": "Team-Task-Manager-Setup-${version}.${ext}"
   },
   "nsis": {
     "oneClick": false,

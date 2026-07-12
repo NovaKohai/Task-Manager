@@ -1,9 +1,8 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
-import type { ReportMetrics, Task } from './types'
+import type { ReportMetrics, Task, User } from './types'
 import { i18n } from './i18n'
-import { db } from './db'
 
 export function exportReportPDF(metrics: ReportMetrics, period: string) {
   const doc = new jsPDF()
@@ -72,7 +71,7 @@ export function exportReportXLSX(metrics: ReportMetrics, period: string) {
   XLSX.writeFile(wb, `report-${period.toLowerCase().replace(/\s+/g, '-')}.xlsx`)
 }
 
-export function exportTaskPDF(task: Task) {
+export function exportTaskPDF(task: Task, users: User[]) {
   const doc = new jsPDF()
   doc.setFontSize(16)
   doc.text(task.code, 14, 20)
@@ -86,7 +85,7 @@ export function exportTaskPDF(task: Task) {
   const lines = doc.splitTextToSize(task.description || i18n.t('export.no_description'), 180)
   doc.text(lines, 14, 44)
 
-  const assignee = task.assigneeId ? db.users.find(u => u.id === task.assigneeId) : null
+  const assignee = task.assigneeId ? users.find(u => u.id === task.assigneeId) : null
   const assigneeName = assignee ? assignee.name : i18n.t('export.unassigned')
 
   autoTable(doc, {

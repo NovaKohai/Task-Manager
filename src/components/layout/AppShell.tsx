@@ -7,8 +7,27 @@ import Header from '@/components/layout/Header'
 import { ErrorBoundary } from '@/components/ui/error-boundary'
 import { i18n } from '@/lib/i18n'
 import { useOsNotifications } from '@/hooks/useOsNotifications'
+import { hasPermission } from '@/lib/utils'
+import { useLocaleStore } from '@/stores/localeStore'
+import { toast } from '@/hooks/use-toast'
 
 export default function AppShell() {
+  // Subscribe so this component re-renders on locale flips — without a reload.
+  useLocaleStore((s) => s.lang)
+
+  useEffect(() => {
+    const handlePersistError = () => {
+      toast({
+        title: i18n.lang === 'ar' ? 'خطأ في حفظ البيانات' : 'Data Persistence Error',
+        description: i18n.lang === 'ar'
+          ? 'المساحة التخزينية ممتلئة. قد لا يتم حفظ التعديلات.'
+          : 'Storage quota exceeded. Your changes might not be saved.',
+        variant: 'destructive',
+      })
+    }
+    window.addEventListener('ttm_persist_error', handlePersistError)
+    return () => window.removeEventListener('ttm_persist_error', handlePersistError)
+  }, [])
   const user = useAuthStore(s => s.user)
   const isLoading = useAuthStore(s => s.isLoading)
   const logout = useAuthStore(s => s.logout)
@@ -25,6 +44,18 @@ export default function AppShell() {
   }, [user, isLoading, navigate])
 
   useEffect(() => {
+    // /settings requires the settings.view permission. Users without it
+    // are redirected to the dashboard (or their default landing page).
+    if (
+      !isLoading && user &&
+      location.pathname.startsWith('/settings') &&
+      !hasPermission(user, 'settings.view')
+    ) {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [user, isLoading, location.pathname, navigate])
+
+  useEffect(() => {
     if (user && !localStorage.getItem('ttm_onboarding_done') && location.pathname !== '/onboarding') {
       navigate('/onboarding', { replace: true })
     }
@@ -32,6 +63,11 @@ export default function AppShell() {
 
   useEffect(() => {
     if (user) refreshNotifications(user.id)
+    const handleRealtimeUpdate = () => {
+      if (user) refreshNotifications(user.id)
+    }
+    window.addEventListener('ttm_realtime_update', handleRealtimeUpdate)
+    return () => window.removeEventListener('ttm_realtime_update', handleRealtimeUpdate)
   }, [user, refreshNotifications])
 
   if (isLoading || !user) {
@@ -56,7 +92,7 @@ export default function AppShell() {
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-xl focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-primary-foreground">
         {i18n.t('skip_to_content')}
       </a>
-      <Sidebar user={user} onLogout={handleLogout} />
+      <Sidebar user={user} onLogout={handleLogout} unreadCount={unreadCount} />
       <div className="flex flex-1 flex-col ms-60">
         <Header user={user} unreadCount={unreadCount} />
         <main id="main" role="main" className="flex-1 p-4 md:p-6 lg:p-8 relative">
@@ -69,7 +105,9 @@ export default function AppShell() {
                 </div>
               </div>
             }>
-              <Outlet />
+              <div key={location.pathname} className="animate-fade">
+                <Outlet />
+              </div>
             </Suspense>
           </ErrorBoundary>
         </main>
