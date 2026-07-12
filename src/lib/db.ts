@@ -1,5 +1,7 @@
 import type { User, Task, Comment, Notification, ReportMetrics, AppSettings, AuditEntry, AuditAction, Permission, Role, SupportTicket, TimeEntry, TaskStatus, ChatRequest, ChatMessage } from './types'
 import { i18n } from './i18n'
+import { getSupportTickets as getSupportTicketsImpl, createSupportTicket as createSupportTicketImpl, updateSupportTicket as updateSupportTicketImpl } from './db/support'
+import { getChatRequests as getChatRequestsImpl, sendChatRequest as sendChatRequestImpl, respondToChatRequest as respondToChatRequestImpl, getChatMessages as getChatMessagesImpl, sendChatMessage as sendChatMessageImpl } from './db/chat'
 
 const STORE_KEY = 'ttm_data'
 
@@ -1051,129 +1053,35 @@ class Database {
   }
 
   getSupportTickets(): SupportTicket[] {
-    return this.data.supportTickets || []
+    return getSupportTicketsImpl(this.data)
   }
 
   createSupportTicket(t: Omit<SupportTicket, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'assigneeId'>): SupportTicket {
-    const ticket: SupportTicket = {
-      ...t,
-      id: generateId(),
-      status: 'pending',
-      assigneeId: null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }
-    if (!this.data.supportTickets) {
-      this.data.supportTickets = []
-    }
-    this.data.supportTickets.push(ticket)
-    this.persist()
-
-    const itUsers = this.data.users.filter(u => u.department === 'it' && u.id !== t.creatorId)
-    const creatorUser = this.data.users.find(u => u.id === t.creatorId)
-    const creatorName = creatorUser ? creatorUser.name : i18n.t('support.employee')
-    const categoryLabel = i18n.t(`support.ticket.category.${t.category}`)
-    
-    itUsers.forEach(it => {
-      this.addNotification({
-        userId: it.id,
-        type: 'support_ticket',
-        title: i18n.t('support.notif.new_ticket.title'),
-        message: i18n.t('support.notif.new_ticket.msg')
-          .replace('{name}', creatorName)
-          .replace('{category}', categoryLabel),
-        read: false
-      })
-    })
-
-    return ticket
+    return createSupportTicketImpl(this.data, () => this.persist(), generateId, (n) => this.addNotification(n), t)
   }
 
   updateSupportTicket(id: string, updates: Partial<SupportTicket>): SupportTicket | null {
-    if (!this.data.supportTickets) return null
-    const idx = this.data.supportTickets.findIndex(t => t.id === id)
-    if (idx === -1) return null
-    const old = this.data.supportTickets[idx]
-    const updated = {
-      ...old,
-      ...updates,
-      updatedAt: new Date().toISOString()
-    }
-    this.data.supportTickets[idx] = updated
-    this.persist()
-
-    if (updates.status && updates.status !== old.status) {
-      const creatorId = old.creatorId
-      const statusLabel = i18n.t(`support.status.${updates.status}`)
-      this.addNotification({
-        userId: creatorId,
-        type: 'support_status_update',
-        title: i18n.t('support.notif.status_update.title'),
-        message: i18n.t('support.notif.status_update.msg')
-          .replace('{status}', statusLabel),
-        read: false
-      })
-    }
-
-    return updated
+    return updateSupportTicketImpl(this.data, () => this.persist(), (n) => this.addNotification(n), id, updates)
   }
 
   getChatRequests(userId: string): ChatRequest[] {
-    return (this.data.chatRequests || []).filter(r => r.senderId === userId || r.receiverId === userId)
+    return getChatRequestsImpl(this.data, userId)
   }
 
   sendChatRequest(senderId: string, receiverId: string): ChatRequest {
-    if (!this.data.chatRequests) this.data.chatRequests = []
-    const exists = this.data.chatRequests.find(r => 
-      (r.senderId === senderId && r.receiverId === receiverId && r.status !== 'rejected') ||
-      (r.senderId === receiverId && r.receiverId === senderId && r.status !== 'rejected')
-    )
-    if (exists) return exists
-
-    const req: ChatRequest = {
-      id: generateId(),
-      senderId,
-      receiverId,
-      status: 'pending',
-      createdAt: new Date().toISOString()
-    }
-    this.data.chatRequests.push(req)
-    this.persist()
-    window.dispatchEvent(new CustomEvent('ttm_realtime_update'))
-    return req
+    return sendChatRequestImpl(this.data, () => this.persist(), generateId, senderId, receiverId)
   }
 
   respondToChatRequest(requestId: string, status: 'accepted' | 'rejected'): ChatRequest | null {
-    if (!this.data.chatRequests) return null
-    const idx = this.data.chatRequests.findIndex(r => r.id === requestId)
-    if (idx === -1) return null
-    const req = this.data.chatRequests[idx]
-    req.status = status
-    this.persist()
-    window.dispatchEvent(new CustomEvent('ttm_realtime_update'))
-    return req
+    return respondToChatRequestImpl(this.data, () => this.persist(), requestId, status)
   }
 
   getChatMessages(userA: string, userB: string): ChatMessage[] {
-    return (this.data.chatMessages || []).filter(m => 
-      (m.senderId === userA && m.receiverId === userB) ||
-      (m.senderId === userB && m.receiverId === userA)
-    )
+    return getChatMessagesImpl(this.data, userA, userB)
   }
 
   sendChatMessage(senderId: string, receiverId: string, text: string): ChatMessage {
-    if (!this.data.chatMessages) this.data.chatMessages = []
-    const msg: ChatMessage = {
-      id: generateId(),
-      senderId,
-      receiverId,
-      text,
-      createdAt: new Date().toISOString()
-    }
-    this.data.chatMessages.push(msg)
-    this.persist()
-    window.dispatchEvent(new CustomEvent('ttm_realtime_update'))
-    return msg
+    return sendChatMessageImpl(this.data, () => this.persist(), generateId, senderId, receiverId, text)
   }
 }
 

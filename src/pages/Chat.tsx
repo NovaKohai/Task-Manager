@@ -1,19 +1,11 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import {
-  MessageSquare, UserPlus, Check, X, Phone, Video, Send, Search,
-  PhoneOff, Mic, MicOff, VideoOff, AlertCircle
-} from 'lucide-react'
-import { i18n } from '@/lib/i18n'
 import { useAuthStore } from '@/stores/authStore'
 import { useUserStore } from '@/stores/userStore'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
-import { EmptyState } from '@/components/ui/EmptyState'
-import { getInitials, getDepartmentConfig } from '@/lib/constants'
 import { db } from '@/lib/db'
 import type { User, ChatRequest, ChatMessage } from '@/lib/types'
+import { ChatSidebar } from '@/components/chat/ChatSidebar'
+import { ChatWindow } from '@/components/chat/ChatWindow'
+import { VoipCallOverlay } from '@/components/chat/VoipCallOverlay'
 
 // Web Audio API Ringtone Synthesizer
 let audioCtx: AudioContext | null = null
@@ -292,7 +284,6 @@ export default function Chat() {
   const initiateCall = (type: 'voice' | 'video') => {
     if (!currentUser || !selectedContact) return
     
-    // Play calling ringtone
     playRingtone()
     
     setActiveCall({
@@ -302,7 +293,6 @@ export default function Chat() {
       calleeId: selectedContact.id
     })
 
-    // Simulate sending network events
     setTimeout(() => {
       window.dispatchEvent(new CustomEvent('ttm_simulated_voip_call', {
         detail: { senderId: currentUser.id, receiverId: selectedContact.id, type }
@@ -348,474 +338,63 @@ export default function Chat() {
     }
   }
 
-  // Format call timer
   const formatTime = (secs: number) => {
     const mins = Math.floor(secs / 60)
     const s = secs % 60
     return `${mins.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
   }
 
-  // Get user details lookup
   const getColleague = (userId: string) => {
     return users.find((u) => u.id === userId)
   }
 
   return (
     <div className="flex h-[calc(100vh-140px)] gap-6 animate-rise">
-      {/* 1. Left Sidebar: Contacts and Requests */}
-      <div className="w-80 bg-surface/30 backdrop-blur-xl border border-border/10 rounded-2xl p-4 flex flex-col gap-4 shadow-sm">
-        <h2 className="text-base font-black text-foreground font-outfit uppercase tracking-wider">{i18n.t('chat.contacts')}</h2>
-        
-        {/* Tab Headers */}
-        <div className="flex bg-muted/30 rounded-xl p-1 gap-1 border border-border/5">
-          {(['active', 'all', 'requests'] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`flex-1 text-center py-2 text-micro font-bold rounded-lg transition-all duration-150 active:scale-[0.96] ${
-                activeTab === tab
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-background/20'
-              }`}
-            >
-              {i18n.t(`chat.tab.${tab}`)}
-            </button>
-          ))}
-        </div>
+      <ChatSidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        activeContacts={activeContacts}
+        selectedContact={selectedContact}
+        setSelectedContact={setSelectedContact}
+        relations={relations}
+        filteredUsers={filteredUsers}
+        chatRequests={chatRequests}
+        currentUser={currentUser}
+        getColleague={getColleague}
+        handleSendRequest={handleSendRequest}
+        handleAcceptRequest={handleAcceptRequest}
+        handleDeclineRequest={handleDeclineRequest}
+      />
 
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground/60 rtl:left-auto rtl:right-3" />
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={i18n.t('chat.search')}
-            className="pl-9 h-9 rounded-xl bg-background/50 border-border/10 hover:border-border/20 rtl:pl-3 rtl:pr-9 text-xs"
-          />
-        </div>
-
-        {/* Tab Lists */}
-        <div className="flex-1 overflow-y-auto space-y-2 pr-1.5 scrollbar-thin">
-          {activeTab === 'active' && (
-            activeContacts.length === 0 ? (
-              <div className="text-center py-10 text-caption text-muted-foreground">
-                {i18n.lang === 'ar' ? 'لا توجد محادثات نشطة بعد' : 'No active chats yet'}
-              </div>
-            ) : (
-              activeContacts
-                .filter((u) => u.name.toLowerCase().includes(searchQuery.toLowerCase()))
-                .map((contact, index) => {
-                  const isSelected = selectedContact?.id === contact.id
-                  return (
-                    <button
-                      key={contact.id}
-                      style={{ animationDelay: `${index * 40}ms` }}
-                      onClick={() => setSelectedContact(contact)}
-                      className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left rtl:text-right cursor-pointer transition-all duration-200 active:scale-[0.98] ${
-                        isSelected 
-                          ? 'border-primary bg-primary/5 text-foreground' 
-                          : 'border-transparent hover:bg-background/20 text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      <Avatar className="h-9 w-9">
-                        {contact.avatar && <AvatarImage src={contact.avatar} />}
-                        <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold font-outfit">
-                          {getInitials(contact.name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-foreground truncate">{contact.name}</p>
-                        <p className="text-[10px] text-muted-foreground truncate">
-                          @{contact.username} • {contact.department ? i18n.t(getDepartmentConfig(contact.department).label) : ''}
-                        </p>
-                      </div>
-                    </button>
-                  )
-                })
-            )
-          )}
-
-          {activeTab === 'all' && (
-            filteredUsers.length === 0 ? (
-              <div className="text-center py-10 text-caption text-muted-foreground">
-                {i18n.lang === 'ar' ? 'لا يوجد موظفون يطابقون البحث' : 'No colleagues match search'}
-              </div>
-            ) : (
-              filteredUsers.map((colleague) => {
-                const relation = relations[colleague.id]
-                return (
-                  <div
-                    key={colleague.id}
-                    className="flex items-center justify-between p-3 rounded-xl border border-border/5 bg-background/10 hover:bg-background/20 transition-colors"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <Avatar className="h-8 w-8">
-                        {colleague.avatar && <AvatarImage src={colleague.avatar} />}
-                        <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold font-outfit">
-                          {getInitials(colleague.name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0">
-                        <p className="text-xs font-bold text-foreground truncate">{colleague.name}</p>
-                        <p className="text-[9px] text-muted-foreground truncate">@{colleague.username}</p>
-                      </div>
-                    </div>
-
-                    <div>
-                      {!relation ? (
-                        <Button
-                          size="sm"
-                          onClick={() => handleSendRequest(colleague.id)}
-                          className="h-7 rounded-lg text-[10px] font-bold px-3 py-1 cursor-pointer bg-primary hover:bg-primary/95 active:scale-[0.96] transition-transform duration-100 ease-out"
-                        >
-                          <UserPlus className="h-3.5 w-3.5" />
-                          {i18n.t('chat.request.send')}
-                        </Button>
-                      ) : relation.status === 'pending' ? (
-                        <Badge variant="outline" className="text-[9px] px-2 py-0.5 animate-pulse bg-muted/20 border-border/20">
-                          {i18n.t('chat.request.pending')}
-                        </Badge>
-                      ) : relation.status === 'accepted' ? (
-                        <Badge variant="success" className="text-[9px] px-2 py-0.5">
-                          {i18n.t('chat.request.accepted')}
-                        </Badge>
-                      ) : (
-                        <Button
-                          size="sm"
-                          onClick={() => handleSendRequest(colleague.id)}
-                          className="h-7 rounded-lg text-[10px] font-bold px-3 py-1 cursor-pointer bg-primary hover:bg-primary/95 active:scale-[0.96] transition-transform duration-100 ease-out"
-                        >
-                          {i18n.t('chat.request.send')}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                )
-              })
-            )
-          )}
-
-          {activeTab === 'requests' && (
-            chatRequests.filter(r => r.status === 'pending').length === 0 ? (
-              <div className="text-center py-10 text-caption text-muted-foreground">
-                {i18n.lang === 'ar' ? 'لا توجد طلبات معلقة حالياً' : 'No pending requests'}
-              </div>
-            ) : (
-              chatRequests
-                .filter(r => r.status === 'pending')
-                .map((req) => {
-                  const isReceived = req.receiverId === currentUser?.id
-                  const targetUser = getColleague(isReceived ? req.senderId : req.receiverId)
-                  if (!targetUser) return null
-                  
-                  return (
-                    <div
-                      key={req.id}
-                      className="p-3 rounded-xl border border-border/5 bg-background/20 flex flex-col gap-2"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <Avatar className="h-8 w-8">
-                          {targetUser.avatar && <AvatarImage src={targetUser.avatar} />}
-                          <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold font-outfit">
-                            {getInitials(targetUser.name)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-bold text-foreground truncate">{targetUser.name}</p>
-                          <p className="text-[9px] text-muted-foreground truncate">
-                            {isReceived ? i18n.t('chat.request.incoming') : i18n.t('chat.request.pending')}
-                          </p>
-                        </div>
-                      </div>
-
-                      {isReceived && (
-                        <div className="flex gap-2 w-full mt-1">
-                          <Button
-                            size="sm"
-                            onClick={() => handleAcceptRequest(req.id)}
-                            className="flex-1 h-7 rounded-lg text-[10px] font-bold bg-success hover:bg-success/95 text-success-foreground active:scale-[0.96] transition-transform duration-100"
-                          >
-                            <Check className="h-3.5 w-3.5" />
-                            {i18n.t('chat.action.accept')}
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={() => handleDeclineRequest(req.id)}
-                            className="flex-1 h-7 rounded-lg text-[10px] font-bold bg-destructive hover:bg-destructive-hover text-destructive-foreground active:scale-[0.96] transition-transform duration-100"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                            {i18n.t('chat.action.decline')}
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })
-            )
-          )}
-        </div>
-      </div>
-
-      {/* 2. Main Area: Active Chat dialogue thread */}
       <div className="flex-1 bg-surface/30 backdrop-blur-xl border border-border/10 rounded-2xl flex flex-col overflow-hidden shadow-sm relative">
-        {selectedContact ? (
-          <>
-            {/* Header: user status + Call Controls */}
-            <div className="px-6 py-4 border-b border-border/10 bg-background/20 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Avatar className="h-10 w-10">
-                  {selectedContact.avatar && <AvatarImage src={selectedContact.avatar} />}
-                  <AvatarFallback className="bg-primary text-primary-foreground text-sm font-bold font-outfit">
-                    {getInitials(selectedContact.name)}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex flex-col text-left rtl:text-right">
-                  <span className="text-xs font-black text-foreground">{selectedContact.name}</span>
-                  <span className="text-[10px] text-muted-foreground">
-                    {selectedContact.title || (selectedContact.role === 'admin' ? 'System Administrator' : 'Staff')}
-                  </span>
-                </div>
-              </div>
+        <ChatWindow
+          selectedContact={selectedContact}
+          currentUser={currentUser}
+          messages={messages}
+          messageText={messageText}
+          setMessageText={setMessageText}
+          handleSendMessage={handleSendMessage}
+          initiateCall={initiateCall}
+          messagesEndRef={messagesEndRef}
+        />
 
-              {/* Call triggers */}
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => initiateCall('voice')}
-                  variant="secondary"
-                  size="sm"
-                  className="rounded-xl h-9 w-9 p-0 bg-background border-border/10 hover:border-border/20 text-foreground hover:bg-primary/5 hover:text-primary cursor-pointer active:scale-[0.95] transition-all duration-150 ease-out"
-                >
-                  <Phone className="h-4 w-4" />
-                </Button>
-                <Button
-                  onClick={() => initiateCall('video')}
-                  variant="secondary"
-                  size="sm"
-                  className="rounded-xl h-9 w-9 p-0 bg-background border-border/10 hover:border-border/20 text-foreground hover:bg-primary/5 hover:text-primary cursor-pointer active:scale-[0.95] transition-all duration-150 ease-out"
-                >
-                  <Video className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-
-            {/* Conversation Log */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              {messages.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-center text-caption text-muted-foreground p-6 leading-relaxed">
-                  {i18n.t('chat.no_messages')}
-                </div>
-              ) : (
-                messages.map((msg, index) => {
-                  const isOwn = msg.senderId === currentUser?.id
-                  return (
-                    <div
-                      key={msg.id}
-                      style={{ animationDelay: `${index * 30}ms` }}
-                      className={`flex ${isOwn ? 'justify-end' : 'justify-start'} animate-rise`}
-                    >
-                      <div
-                        className={`max-w-[70%] p-3.5 rounded-2xl text-xs leading-relaxed ${
-                          isOwn
-                            ? 'bg-primary text-primary-foreground rounded-tr-none shadow-sm shadow-primary/10'
-                            : 'bg-muted/40 border border-border/5 text-foreground rounded-tl-none'
-                        }`}
-                      >
-                        <p className="whitespace-pre-wrap font-outfit">{msg.text}</p>
-                        <span className="block text-[8px] text-right mt-1 opacity-70">
-                          {new Date(msg.createdAt).toLocaleTimeString(i18n.lang === 'ar' ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                    </div>
-                  )
-                })
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Message input */}
-            <form onSubmit={handleSendMessage} className="p-4 border-t border-border/10 bg-background/25 flex gap-2">
-              <Input
-                value={messageText}
-                onChange={(e) => setMessageText(e.target.value)}
-                placeholder={i18n.t('chat.placeholder')}
-                className="flex-1 h-10 rounded-xl bg-background border-border/10 focus:border-primary/50 text-xs"
-              />
-              <Button
-                type="submit"
-                disabled={!messageText.trim()}
-                className="h-10 px-4 rounded-xl cursor-pointer bg-primary text-primary-foreground font-bold active:scale-[0.96] transition-transform duration-100 ease-out"
-              >
-                <Send className="h-4 w-4" />
-                <span className="sr-only">{i18n.t('chat.action.send')}</span>
-              </Button>
-            </form>
-          </>
-        ) : (
-          <div className="h-full flex items-center justify-center">
-            <EmptyState
-              title={i18n.t('chat.title')}
-              description={i18n.t('chat.select_to_start')}
-              icon={<MessageSquare className="h-8 w-8 text-primary" />}
-            />
-          </div>
-        )}
-
-        {/* 3. VoIP Calling Screen overlay (DIALING, RINGING, CONNECTED) */}
-        {activeCall && activeCall.status !== 'idle' && (
-          <div className="absolute inset-0 bg-background/95 backdrop-blur-2xl z-40 flex flex-col items-center justify-center p-6 transition-all duration-300">
-            
-            {/* Caller metadata */}
-            <div className="flex flex-col items-center gap-4 text-center mt-auto animate-rise">
-              <div className="relative">
-                <Avatar className="h-24 w-24 ring-4 ring-primary/20 shadow-xl">
-                  {getColleague(activeCall.status === 'ringing' ? activeCall.callerId : activeCall.calleeId)?.avatar && (
-                    <AvatarImage src={getColleague(activeCall.status === 'ringing' ? activeCall.callerId : activeCall.calleeId)?.avatar} />
-                  )}
-                  <AvatarFallback className="bg-primary text-primary-foreground text-3xl font-bold font-outfit">
-                    {getInitials(getColleague(activeCall.status === 'ringing' ? activeCall.callerId : activeCall.calleeId)?.name || 'VOIP')}
-                  </AvatarFallback>
-                </Avatar>
-                
-                {/* Dialing/Ringing visual waves */}
-                {(activeCall.status === 'dialing' || activeCall.status === 'ringing') && (
-                  <span className="absolute inset-0 rounded-full border border-primary/40 animate-ping opacity-75" />
-                )}
-              </div>
-
-              <div>
-                <h3 className="text-lg font-black text-foreground">
-                  {getColleague(activeCall.status === 'ringing' ? activeCall.callerId : activeCall.calleeId)?.name}
-                </h3>
-                <p className="text-caption text-muted-foreground mt-1">
-                  {activeCall.status === 'dialing' && i18n.t('chat.call.calling').replace('{name}', '')}
-                  {activeCall.status === 'ringing' && i18n.t('chat.call.ringing').replace('{name}', '')}
-                  {activeCall.status === 'connected' && i18n.t('chat.call.connected')}
-                </p>
-              </div>
-
-              {/* Connected details */}
-              {activeCall.status === 'connected' && (
-                <span className="font-mono text-sm bg-primary/10 border border-primary/20 text-primary px-3.5 py-1.5 rounded-full mt-2 font-bold animate-pulse">
-                  {formatTime(callDuration)}
-                </span>
-              )}
-            </div>
-
-            {/* Video Streams Container (Framer/Emil Layout structure) */}
-            {activeCall.status === 'connected' && activeCall.type === 'video' && (
-              <div className="my-6 w-full max-w-md h-64 bg-black/40 border border-border/10 rounded-2xl overflow-hidden relative shadow-inner animate-rise">
-                
-                {/* Actual Camera Feed */}
-                {!isCamOff && !permissionError && (
-                  <video
-                    ref={localVideoRef}
-                    autoPlay
-                    playsInline
-                    muted={isMuted}
-                    className="w-full h-full object-cover transform -scale-x-100"
-                  />
-                )}
-                
-                {/* Fallback Waveform */}
-                {(isCamOff || permissionError) && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-surface to-background/90 text-center p-6">
-                    {permissionError ? (
-                      <>
-                        <AlertCircle className="h-8 w-8 text-destructive animate-pulse" />
-                        <span className="text-[10px] text-muted-foreground leading-normal max-w-[250px]">
-                          {i18n.t('chat.call.permission_denied')}
-                        </span>
-                      </>
-                    ) : (
-                      <div className="flex items-center gap-1.5 h-12">
-                        {Array.from({ length: 6 }).map((_, i) => (
-                          <span
-                            key={i}
-                            style={{ animationDelay: `${i * 120}ms` }}
-                            className="w-1.5 bg-primary rounded-full animate-bounce h-8"
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <span className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-[10px] text-white font-bold font-outfit uppercase">
-                  {currentUser?.name} ({i18n.t('chat.call.video')})
-                </span>
-              </div>
-            )}
-
-            {/* Voice call wave placeholder */}
-            {activeCall.status === 'connected' && activeCall.type === 'voice' && (
-              <div className="my-10 flex items-center justify-center gap-1 h-16 animate-rise">
-                {Array.from({ length: 12 }).map((_, i) => (
-                  <span
-                    key={i}
-                    style={{
-                      animationDelay: `${i * 80}ms`,
-                      animationDuration: '0.8s'
-                    }}
-                    className={`w-1.5 bg-primary/80 rounded-full animate-bounce h-12 ${isMuted ? 'paused' : ''}`}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Calling action buttons */}
-            <div className="mt-auto mb-10 flex items-center gap-6 animate-rise">
-              {activeCall.status === 'ringing' ? (
-                <>
-                  <button
-                    onClick={() => respondToIncomingCall(true)}
-                    className="h-14 w-14 rounded-full bg-success hover:bg-success/95 text-white flex items-center justify-center shadow-lg active:scale-95 transition-transform duration-100 cursor-pointer"
-                  >
-                    <Check className="h-6 w-6" />
-                  </button>
-                  <button
-                    onClick={() => respondToIncomingCall(false)}
-                    className="h-14 w-14 rounded-full bg-destructive hover:bg-destructive-hover text-white flex items-center justify-center shadow-lg active:scale-95 transition-transform duration-100 cursor-pointer"
-                  >
-                    <X className="h-6 w-6" />
-                  </button>
-                </>
-              ) : (
-                <>
-                  {activeCall.status === 'connected' && (
-                    <>
-                      <button
-                        onClick={() => setIsMuted(!isMuted)}
-                        className={`h-11 w-11 rounded-full border border-border/10 flex items-center justify-center transition-colors active:scale-95 cursor-pointer ${
-                          isMuted ? 'bg-amber-500 text-white' : 'bg-background hover:bg-muted text-foreground'
-                        }`}
-                      >
-                        {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-                      </button>
-
-                      {activeCall.type === 'video' && (
-                        <button
-                          onClick={() => setIsCamOff(!isCamOff)}
-                          className={`h-11 w-11 rounded-full border border-border/10 flex items-center justify-center transition-colors active:scale-95 cursor-pointer ${
-                            isCamOff ? 'bg-amber-500 text-white' : 'bg-background hover:bg-muted text-foreground'
-                          }`}
-                        >
-                          {isCamOff ? <VideoOff className="h-5 w-5" /> : <Video className="h-5 w-5" />}
-                        </button>
-                      )}
-                    </>
-                  )}
-
-                  <button
-                    onClick={hangupCall}
-                    className="h-14 w-14 rounded-full bg-destructive hover:bg-destructive-hover text-white flex items-center justify-center shadow-lg active:scale-95 transition-transform duration-100 cursor-pointer"
-                  >
-                    <PhoneOff className="h-6 w-6" />
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        )}
+        <VoipCallOverlay
+          activeCall={activeCall}
+          currentUser={currentUser}
+          getColleague={getColleague}
+          callDuration={callDuration}
+          formatTime={formatTime}
+          localVideoRef={localVideoRef}
+          isMuted={isMuted}
+          setIsMuted={setIsMuted}
+          isCamOff={isCamOff}
+          setIsCamOff={setIsCamOff}
+          permissionError={permissionError}
+          respondToIncomingCall={respondToIncomingCall}
+          hangupCall={hangupCall}
+        />
       </div>
     </div>
   )
