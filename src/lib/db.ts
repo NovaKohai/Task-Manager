@@ -1065,17 +1065,17 @@ class Database {
 
     const itUsers = this.data.users.filter(u => u.department === 'it' && u.id !== t.creatorId)
     const creatorUser = this.data.users.find(u => u.id === t.creatorId)
-    const creatorName = creatorUser ? creatorUser.name : (i18n.lang === 'ar' ? 'موظف' : 'Employee')
+    const creatorName = creatorUser ? creatorUser.name : i18n.t('support.employee')
     const categoryLabel = i18n.t(`support.ticket.category.${t.category}`)
     
     itUsers.forEach(it => {
       this.addNotification({
         userId: it.id,
         type: 'support_ticket',
-        title: i18n.lang === 'ar' ? 'طلب دعم فني جديد' : 'New Support Ticket',
-        message: i18n.lang === 'ar' 
-          ? `طلب دعم فني جديد من ${creatorName} بخصوص [${categoryLabel}]`
-          : `New support ticket from ${creatorName} regarding [${categoryLabel}]`,
+        title: i18n.t('support.notif.new_ticket.title'),
+        message: i18n.t('support.notif.new_ticket.msg')
+          .replace('{name}', creatorName)
+          .replace('{category}', categoryLabel),
         read: false
       })
     })
@@ -1102,10 +1102,9 @@ class Database {
       this.addNotification({
         userId: creatorId,
         type: 'support_status_update',
-        title: i18n.lang === 'ar' ? 'تحديث حالة طلب الدعم' : 'Support Ticket Status Update',
-        message: i18n.lang === 'ar'
-          ? `تم تحديث حالة طلبك إلى [${statusLabel}]`
-          : `Your support ticket status has been updated to [${statusLabel}]`,
+        title: i18n.t('support.notif.status_update.title'),
+        message: i18n.t('support.notif.status_update.msg')
+          .replace('{status}', statusLabel),
         read: false
       })
     }

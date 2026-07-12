@@ -63,7 +63,7 @@ export default function Support() {
     const file = e.target.files?.[0]
     if (file) {
       if (file.size > 2 * 1024 * 1024) {
-        setError(i18n.lang === 'ar' ? 'حجم الصورة يجب أن يكون أقل من 2 ميجابايت' : 'Image size must be less than 2MB')
+        setError(i18n.t('support.form.image_size_error'))
         return
       }
       const reader = new FileReader()
@@ -74,7 +74,7 @@ export default function Support() {
         }
       }
       reader.onerror = () => {
-        setError(i18n.lang === 'ar' ? 'فشل تحميل الصورة' : 'Failed to upload image')
+        setError(i18n.t('support.form.image_load_error'))
       }
       reader.readAsDataURL(file)
     }
@@ -92,7 +92,7 @@ export default function Support() {
     setSuccess(false)
 
     if (!description.trim()) {
-      setError(i18n.lang === 'ar' ? 'يرجى كتابة شرح للمشكلة' : 'Please provide a description')
+      setError(i18n.t('support.form.desc_required_error'))
       return
     }
 
@@ -380,12 +380,12 @@ export default function Support() {
                 <div className="flex items-center gap-2 rounded-xl bg-muted/20 border border-border/5 px-3.5 py-2.5 w-fit">
                   <Clock className="h-4 w-4 text-muted-foreground" />
                   <span className="text-xs text-muted-foreground">
-                    {i18n.lang === 'ar' ? 'تاريخ الإرسال:' : 'Submission date:'}{' '}
+                    {i18n.t('support.form.submission_date')}{' '}
                     <span className="font-bold text-foreground">{new Date().toLocaleDateString(i18n.lang === 'ar' ? 'ar-SA' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
                   </span>
                 </div>
                 <p className="text-[10px] text-muted-foreground/60 mt-1">
-                  {i18n.lang === 'ar' ? '⚙️ سيتم إرفاق بيانات الجهاز وسجل النظام تلقائياً مع التذكرة.' : '⚙️ Device info & system log will be attached automatically.'}
+                  {i18n.t('support.form.diagnostics_notice')}
                 </p>
 
                 <div className="pt-2">
@@ -412,7 +412,7 @@ export default function Support() {
               ) : myTickets.length === 0 ? (
                 <EmptyState
                   title={i18n.t('support.ticket.no_tickets')}
-                  description={i18n.lang === 'ar' ? 'لم تقم بإنشاء أي تذاكر دعم فني بعد.' : 'You have not created any support tickets yet.'}
+                  description={i18n.t('support.ticket.no_tickets_desc')}
                   icon={<LifeBuoy className="h-8 w-8" />}
                 />
               ) : (
@@ -469,7 +469,7 @@ export default function Support() {
                             {i18n.t('support.ticket.assigned_to').replace('{name}', getUserName(ticket.assigneeId))}
                           </span>
                         ) : (
-                          <span className="italic">{i18n.lang === 'ar' ? 'بانتظار مستلم فني' : 'Awaiting assignment'}</span>
+                          <span className="italic">{i18n.t('support.ticket.awaiting_assignment')}</span>
                         )}
 
                         {ticket.deviceInfo && settings.supportEnableDiagnostics && hasPermission(user, 'support.diagnostics') && (
@@ -587,7 +587,7 @@ export default function Support() {
                           : 'bg-surface/20 border-border/10 text-muted-foreground hover:text-foreground hover:bg-surface/40'
                       }`}
                     >
-                      {status === 'all' ? (i18n.lang === 'ar' ? 'الكل' : 'All') : i18n.t(`support.status.${status}`)}
+                      {status === 'all' ? i18n.t('support.ticket.all') : i18n.t(`support.status.${status}`)}
                       <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] ${
                         isActive ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted text-muted-foreground'
                       }`}>
@@ -606,7 +606,7 @@ export default function Support() {
               ) : filteredQueue.length === 0 ? (
                 <EmptyState
                   title={i18n.t('support.ticket.no_tickets')}
-                  description={i18n.lang === 'ar' ? 'لا توجد تذاكر دعم فني تطابق الفلتر المحدد.' : 'No support tickets match the selected filter.'}
+                  description={i18n.t('support.ticket.no_match_desc')}
                   icon={<LifeBuoy className="h-8 w-8" />}
                 />
               ) : (
@@ -687,7 +687,7 @@ export default function Support() {
                               {ticket.systemLog && (
                                 <details className="mt-1">
                                   <summary className="cursor-pointer text-[10px] text-muted-foreground hover:text-foreground transition-colors">
-                                    {i18n.lang === 'ar' ? 'عرض سجل النظام' : 'View system log'}
+                                    {i18n.t('support.diagnostics.view_log')}
                                   </summary>
                                   <pre className="mt-1 text-[10px] text-muted-foreground bg-background/50 rounded-lg p-2 max-h-32 overflow-auto whitespace-pre-wrap font-mono">{ticket.systemLog}</pre>
                                 </details>
