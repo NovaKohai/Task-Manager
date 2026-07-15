@@ -44,6 +44,10 @@ export type Permission =
   | 'effort.view_all'
   | 'it.apps.view'
   | 'it.apps.manage'
+  | 'documents.view'
+  | 'documents.manage'
+  | 'invoices.view'
+  | 'invoices.manage'
 
 export type User = {
   id: string
@@ -179,6 +183,8 @@ export type AppSettings = {
   supportEnableFeedback: boolean
 }
 
+export type FontSize = 'small' | 'medium' | 'large'
+
 export type UserPreferences = {
   enableEmailNotif: boolean
   enablePushNotif: boolean
@@ -193,6 +199,8 @@ export type UserPreferences = {
   enableSoundNotif: boolean
   soundNotifVolume: number
   soundNotifTheme: string
+  fontSize: FontSize
+  compactMode: boolean
 }
 
 export type Session = {
@@ -284,4 +292,72 @@ export type ChatMessage = {
   receiverId: string
   text: string
   createdAt: string
+}
+
+export type DocumentAction = 'created' | 'uploaded' | 'renamed' | 'moved' | 'copied' | 'deleted' | 'restored' | 'permanently_deleted'
+
+export type DocumentFile = {
+  id: string
+  name: string
+  folderId: string
+  department: Department
+  size: number
+  type: string
+  url: string
+  uploadedBy: string
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+}
+
+export type DocumentFolder = {
+  id: string
+  name: string
+  parentId: string | null
+  department: Department
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+}
+
+export type ActivityLog = {
+  id: string
+  action: DocumentAction
+  fileId: string
+  fileName: string
+  userId: string
+  username: string
+  details: string
+  timestamp: string
+}
+
+export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled'
+
+export type InvoiceItem = {
+  id: string
+  description: string
+  quantity: number
+  unitPrice: number
+  total: number
+}
+
+export type Invoice = {
+  id: string
+  number: string
+  clientName: string
+  clientEmail: string
+  clientAddress: string
+  items: InvoiceItem[]
+  subtotal: number
+  taxRate: number
+  taxAmount: number
+  total: number
+  notes: string
+  status: InvoiceStatus
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+  dueDate: string
+  paidAt: string | null
 }

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>أرشيف الملفات والفواتير</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap');
+        body { font-family: 'Tajawal', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 h-screen flex overflow-hidden">
+
+    <aside class="w-64 bg-slate-900 text-slate-300 flex flex-col hidden md:flex shrink-0">
+        <div class="p-4 border-b border-slate-700 bg-slate-950">
+            <h1 class="text-xl font-bold text-indigo-400"><i class="fa-solid fa-layer-group ml-2"></i>نظام الإدارة</h1>
+        </div>
+        <nav class="flex-1 p-4 space-y-1 overflow-y-auto">
+            <div class="text-xs font-semibold text-slate-500 mb-2 mt-4">الأقسام الرئيسية</div>
+            <a href="#" class="flex items-center p-3 bg-indigo-600 text-white rounded-lg font-medium">
+                <i class="fa-solid fa-folder-open ml-3 w-5"></i> أرشيف المهندسين
+            </a>
+            <a href="#" class="flex items-center p-3 hover:bg-slate-800 rounded-lg transition">
+                <i class="fa-solid fa-folder-open ml-3 w-5"></i> أرشيف السكرتارية
+            </a>
+            
+            <div class="text-xs font-semibold text-slate-500 mb-2 mt-6">المالية</div>
+            <a href="#" class="flex items-center p-3 hover:bg-slate-800 rounded-lg transition text-emerald-400">
+                <i class="fa-solid fa-file-invoice-dollar ml-3 w-5"></i> الفواتير الإلكترونية
+            </a>
+
+            <div class="text-xs font-semibold text-slate-500 mb-2 mt-6">الإدارة والرقابة</div>
+            <a href="#" class="flex items-center p-3 hover:bg-slate-800 rounded-lg transition">
+                <i class="fa-solid fa-clock-rotate-left ml-3 w-5"></i> سجل النشاطات (Log)
+            </a>
+            <a href="#" class="flex items-center p-3 hover:bg-slate-800 rounded-lg transition text-red-400">
+                <i class="fa-solid fa-trash-can ml-3 w-5"></i> سلة المهملات
+            </a>
+        </nav>
+    </aside>
+
+    <main class="flex-1 flex flex-col h-full relative border-l border-slate-200">
+        
+        <header class="bg-white border-b border-slate-200 p-4 flex justify-between items-center z-10 shadow-sm">
+            <div class="flex items-center text-sm text-slate-500 font-medium">
+                <span class="text-indigo-600">أرشيف المهندسين</span>
+                <i class="fa-solid fa-chevron-left text-xs mx-2"></i>
+                <span class="text-slate-800 bg-slate-100 px-2 py-1 rounded">مخططات العاصمة</span>
+            </div>
+            <button class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition shadow-sm">
+                <i class="fa-solid fa-cloud-arrow-up ml-1"></i> رفع ملفات
+            </button>
+        </header>
+
+        <div class="flex-1 overflow-auto p-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                <div class="bg-white border border-slate-200 rounded-xl p-4 flex flex-col justify-between hover:shadow-md transition cursor-pointer group h-32 relative">
+                    <div class="flex justify-between items-start">
+                        <i class="fa-solid fa-file-pdf text-3xl text-red-500"></i>
+                        <button class="text-slate-400 hover:text-slate-700"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                    </div>
+                    <div class="mt-auto">
+                        <h3 class="font-medium text-sm text-slate-800 truncate">مخطط_الدور_الأول.pdf</h3>
+                        <p class="text-xs text-slate-500 mt-1">مهندس أحمد • منذ ساعتين</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <aside class="w-72 bg-white flex flex-col hidden lg:flex shrink-0">
+        <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+            <h2 class="font-bold text-slate-700 text-sm"><i class="fa-solid fa-bolt text-amber-500 ml-2"></i>أحدث النشاطات</h2>
+        </div>
+        <div class="flex-1 overflow-y-auto p-4 space-y-4">
+            
+            <div class="flex gap-3 items-start">
+                <div class="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center shrink-0 text-sm">
+                    <i class="fa-solid fa-trash"></i>
+                </div>
+                <div>
+                    <p class="text-sm text-slate-700">قام <span class="font-bold">م. خالد</span> بمسح ملف <span class="font-bold text-slate-900">تقرير_تربة.docx</span></p>
+                    <p class="text-xs text-slate-400 mt-1">منذ 10 دقائق</p>
+                </div>
+            </div>
+
+            <div class="flex gap-3 items-start">
+                <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 text-sm">
+                    <i class="fa-solid fa-copy"></i>
+                </div>
+                <div>
+                    <p class="text-sm text-slate-700">قامت <span class="font-bold">سارة (سكرتارية)</span> بنسخ <span class="font-bold text-slate-900">عقد_صيانة.pdf</span> إلى <span class="text-indigo-600">الأرشيف العام</span></p>
+                    <p class="text-xs text-slate-400 mt-1">منذ 45 دقيقة</p>
+                </div>
+            </div>
+
+        </div>
+    </aside>
+</body>
+</html>

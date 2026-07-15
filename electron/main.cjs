@@ -1,6 +1,8 @@
-const { app, BrowserWindow, Menu, ipcMain, session } = require('electron')
+const { app, BrowserWindow, Menu, ipcMain, session, dialog, shell } = require('electron')
+const fs = require('fs/promises')
 const path = require('path')
 const os = require('os')
+const { randomUUID } = require('crypto')
 
 // electron-updater reads publish config from electron-builder.json automatically,
 // so update files are downloaded from your GitHub Releases (no code changes needed there).
@@ -15,6 +17,8 @@ const isDev = process.argv.includes('--dev')
 
 // ── Content Security Policy ─────────────────────────────────────────────────
 // Applied to every response via onHeadersReceived so it also covers file:// loads.
+const EGS_ORIGIN = 'https://*.invoicing.egypt.gov.eg'
+
 const CSP = [
   "default-src 'self'",
   "script-src 'self'",
@@ -25,6 +29,8 @@ const CSP = [
   "object-src 'none'",
   "base-uri 'self'",
   "frame-ancestors 'none'",
+  `frame-src ${EGS_ORIGIN}`,
+  `child-src ${EGS_ORIGIN}`,
 ].join('; ')
 
 function sendToRenderer(channel, data) {
@@ -77,6 +83,89 @@ ipcMain.handle('get-system-info', () => {
     return { error: e?.message ?? String(e) }
   }
 })
+
+function getManagedDocumentsDirectory() {
+  return path.join(app.getPath('userData'), 'documents')
+}
+
+function isManagedDocumentPath(filePath) {
+  if (typeof filePath !== 'string' || !filePath) return false
+  const root = path.resolve(getManagedDocumentsDirectory()).toLowerCase()
+  const target = path.resolve(filePath).toLowerCase()
+  return target.startsWith(`${root}${path.sep}`)
+}
+
+function getDocumentType(filePath) {
+  const extension = path.extname(filePath).slice(1)
+  return extension ? extension.toUpperCase() : 'FILE'
+}
+
+async function chooseDocumentFiles(event) {
+  const ownerWindow = BrowserWindow.fromWebContents(event.sender)
+  const pickerOptions = {
+    title: 'Add files to Documents',
+    defaultPath: app.getPath('documents'),
+    properties: ['openFile', 'multiSelections'],
+  }
+  return ownerWindow ? dialog.showOpenDialog(ownerWindow, pickerOptions) : dialog.showOpenDialog(pickerOptions)
+}
+
+async function copyDocumentToLibrary(sourcePath) {
+  const fileStats = await fs.stat(sourcePath)
+  const extension = path.extname(sourcePath)
+  const managedPath = path.join(getManagedDocumentsDirectory(), `${randomUUID()}${extension}`)
+  await fs.copyFile(sourcePath, managedPath)
+  return { name: path.basename(sourcePath), size: fileStats.size, type: getDocumentType(sourcePath), url: managedPath }
+}
+
+async function selectDocumentFiles(event) {
+  const selection = await chooseDocumentFiles(event)
+  if (selection.canceled) return { canceled: true, files: [] }
+
+  await fs.mkdir(getManagedDocumentsDirectory(), { recursive: true })
+  const importedFiles = []
+  for (const sourcePath of selection.filePaths) importedFiles.push(await copyDocumentToLibrary(sourcePath))
+  return { canceled: false, files: importedFiles }
+}
+
+async function chooseDocumentDestination(event, suggestedName) {
+  const ownerWindow = BrowserWindow.fromWebContents(event.sender)
+  const saveOptions = {
+    title: 'Save document',
+    defaultPath: path.join(app.getPath('documents'), path.basename(suggestedName)),
+  }
+  return ownerWindow ? dialog.showSaveDialog(ownerWindow, saveOptions) : dialog.showSaveDialog(saveOptions)
+}
+
+async function saveDocumentFile(event, sourcePath, suggestedName) {
+  if (!isManagedDocumentPath(sourcePath)) return { saved: false, error: 'Invalid document path' }
+  const selection = await chooseDocumentDestination(event, suggestedName || sourcePath)
+  if (selection.canceled || !selection.filePath) return { saved: false, canceled: true }
+
+  await fs.copyFile(sourcePath, selection.filePath)
+  return { saved: true, filePath: selection.filePath }
+}
+
+async function openDocumentFile(_event, filePath) {
+  if (!isManagedDocumentPath(filePath)) return { opened: false, error: 'Invalid document path' }
+  const openError = await shell.openPath(filePath)
+  return openError ? { opened: false, error: openError } : { opened: true }
+}
+
+async function deleteDocumentFile(_event, filePath) {
+  if (!isManagedDocumentPath(filePath)) return { deleted: false, error: 'Invalid document path' }
+  try {
+    await fs.unlink(filePath)
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error
+  }
+  return { deleted: true }
+}
+
+ipcMain.handle('select-document-files', selectDocumentFiles)
+ipcMain.handle('save-document-file', saveDocumentFile)
+ipcMain.handle('open-document-file', openDocumentFile)
+ipcMain.handle('delete-document-file', deleteDocumentFile)
 
 // check-for-updates → autoUpdater.checkForUpdates()
 ipcMain.handle('check-for-updates', async () => {
@@ -173,6 +262,7 @@ function createWindow(skipSplash) {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      webviewTag: true,
       preload: path.join(__dirname, 'preload.cjs'),
     },
   })

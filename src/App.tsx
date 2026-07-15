@@ -7,6 +7,7 @@ import { Toaster } from '@/components/ui/toaster'
 import { UpdateDialog } from '@/components/UpdateDialog'
 import AppShell from '@/components/layout/AppShell'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { db } from '@/lib/db'
 
 const LoginPage = lazy(() => import('@/pages/LoginPage'))
 const ManagerDashboard = lazy(() => import('@/pages/ManagerDashboard'))
@@ -26,6 +27,8 @@ const Onboarding = lazy(() => import('@/pages/Onboarding'))
 const SupportPage = lazy(() => import('@/pages/Support'))
 const ChatPage = lazy(() => import('@/pages/Chat'))
 const ITApps = lazy(() => import('@/pages/ITApps'))
+const DocumentsPage = lazy(() => import('@/pages/Documents'))
+const InvoicesPage = lazy(() => import('@/pages/Invoices'))
 
 function LoadingFallback() {
   return (
@@ -50,6 +53,17 @@ export default function App() {
   useEffect(() => {
     initUpdateCheck()
   }, [])
+
+  useEffect(() => {
+    const user = useAuthStore.getState().user
+    if (user) {
+      const prefs = db.getUserPreferences(user.id)
+      const root = document.documentElement
+      root.classList.remove('font-size-small', 'font-size-medium', 'font-size-large')
+      root.classList.add(`font-size-${prefs.fontSize}`)
+      root.classList.toggle('compact-mode', prefs.compactMode)
+    }
+  })
 
   return (
     <ErrorBoundary>
@@ -76,6 +90,8 @@ export default function App() {
             <Route path="/support" element={<SupportPage />} />
             <Route path="/chat" element={<ChatPage />} />
             <Route path="/it-apps" element={<ITApps />} />
+            <Route path="/documents" element={<DocumentsPage />} />
+            <Route path="/invoices" element={<InvoicesPage />} />
           </Route>
         </Routes>
         <Toaster />

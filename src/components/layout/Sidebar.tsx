@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, CheckSquare, Users, BarChart3,
   Settings, ScrollText, Bell, LogOut, LifeBuoy, MessageSquare, UserCircle, PackageOpen,
+  FolderOpen, ReceiptText,
 } from 'lucide-react'
 import { i18n } from '@/lib/i18n'
 import { useLocaleStore } from '@/stores/localeStore'
@@ -18,35 +19,117 @@ interface SidebarProps { user: User; onLogout: () => void; unreadCount?: number 
 
 type Link = { to: string; label: string; icon: typeof LayoutDashboard; badge?: boolean }
 
-const adminLinks: Link[] = [
-  { to: '/dashboard', label: 'nav.dashboard', icon: LayoutDashboard },
-  { to: '/tasks', label: 'nav.tasks', icon: CheckSquare },
-  { to: '/admin/users', label: 'nav.users', icon: Users },
-  { to: '/reports', label: 'nav.reports', icon: BarChart3 },
-  { to: '/support', label: 'nav.support', icon: LifeBuoy },
-  { to: '/chat', label: 'nav.chat', icon: MessageSquare },
-  { to: '/settings', label: 'nav.settings', icon: Settings },
-  { to: '/preferences', label: 'nav.preferences', icon: UserCircle },
-  { to: '/admin/audit-log', label: 'nav.audit_log', icon: ScrollText },
-  { to: '/it-apps', label: 'nav.it_apps', icon: PackageOpen },
+type LinkGroup = {
+  section?: string
+  links: Link[]
+}
+
+const adminGroups: LinkGroup[] = [
+  {
+    section: 'nav.main',
+    links: [
+      { to: '/dashboard', label: 'nav.dashboard', icon: LayoutDashboard },
+      { to: '/tasks', label: 'nav.tasks', icon: CheckSquare },
+      { to: '/notifications', label: 'nav.notifications', icon: Bell, badge: true },
+    ],
+  },
+  {
+    section: 'nav.finance',
+    links: [
+      { to: '/invoices', label: 'nav.invoices', icon: ReceiptText },
+      { to: '/reports', label: 'nav.reports', icon: BarChart3 },
+    ],
+  },
+  {
+    section: 'nav.management',
+    links: [
+      { to: '/admin/users', label: 'nav.users', icon: Users },
+      { to: '/documents', label: 'nav.documents', icon: FolderOpen },
+    ],
+  },
+  {
+    section: 'nav.communication',
+    links: [
+      { to: '/chat', label: 'nav.chat', icon: MessageSquare },
+      { to: '/support', label: 'nav.support', icon: LifeBuoy },
+    ],
+  },
+  {
+    section: 'nav.system',
+    links: [
+      { to: '/settings', label: 'nav.settings', icon: Settings },
+      { to: '/preferences', label: 'nav.preferences', icon: UserCircle },
+      { to: '/admin/audit-log', label: 'nav.audit_log', icon: ScrollText },
+      { to: '/it-apps', label: 'nav.it_apps', icon: PackageOpen },
+    ],
+  },
 ]
 
-const userLinks: Link[] = [
-  { to: '/my-dashboard', label: 'nav.my_dashboard', icon: LayoutDashboard },
-  { to: '/tasks', label: 'nav.my_tasks', icon: CheckSquare },
-  { to: '/notifications', label: 'nav.notifications', icon: Bell, badge: true },
-  { to: '/chat', label: 'nav.chat', icon: MessageSquare },
-  { to: '/support', label: 'nav.support', icon: LifeBuoy },
-  { to: '/preferences', label: 'nav.preferences', icon: UserCircle },
-  { to: '/it-apps', label: 'nav.it_apps', icon: PackageOpen },
+const userGroups: LinkGroup[] = [
+  {
+    section: 'nav.main',
+    links: [
+      { to: '/my-dashboard', label: 'nav.my_dashboard', icon: LayoutDashboard },
+      { to: '/tasks', label: 'nav.my_tasks', icon: CheckSquare },
+      { to: '/notifications', label: 'nav.notifications', icon: Bell, badge: true },
+    ],
+  },
+  {
+    section: 'nav.finance',
+    links: [
+      { to: '/invoices', label: 'nav.invoices', icon: ReceiptText },
+    ],
+  },
+  {
+    section: 'nav.workspace',
+    links: [
+      { to: '/documents', label: 'nav.documents', icon: FolderOpen },
+      { to: '/support', label: 'nav.support', icon: LifeBuoy },
+      { to: '/chat', label: 'nav.chat', icon: MessageSquare },
+    ],
+  },
+  {
+    section: 'nav.account',
+    links: [
+      { to: '/preferences', label: 'nav.preferences', icon: UserCircle },
+      { to: '/it-apps', label: 'nav.it_apps', icon: PackageOpen },
+    ],
+  },
 ]
+
+function SidebarLink({ link, unreadCount, isActive }: { link: Link; unreadCount: number; isActive: boolean }) {
+  const navigate = useNavigate()
+  const Icon = link.icon
+  const showBadge = link.badge && unreadCount > 0
+  return (
+    <button
+      onClick={() => navigate(link.to)}
+      className={cn(
+        'flex w-full items-center justify-between gap-3 px-3 py-2.5 text-xs font-semibold tracking-wide spring-fast pressable rtl:border-r-4 ltr:border-l-4',
+        isActive
+          ? 'text-primary bg-primary/5 rtl:border-r-primary ltr:border-l-primary'
+          : 'text-muted-foreground/90 border-transparent hover:bg-primary/10 hover:text-primary'
+      )}
+    >
+      <span className="flex items-center gap-3 min-w-0">
+        <Icon className={cn('h-4 w-4 shrink-0', isActive ? 'text-primary' : 'text-muted-foreground/80')} />
+        <span>{i18n.t(link.label)}</span>
+      </span>
+      {showBadge && (
+        <span className="shrink-0 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-micro font-bold bg-destructive text-destructive-foreground">
+          {unreadCount > 99 ? '99+' : unreadCount}
+        </span>
+      )}
+    </button>
+  )
+}
 
 export default memo(function Sidebar({ user, onLogout, unreadCount = 0 }: SidebarProps) {
   useLocaleStore(s => s.lang)
   const location = useLocation()
   const navigate = useNavigate()
   const isAdmin = user.role === 'admin'
-  const links = isAdmin ? adminLinks : userLinks
+  const groups = isAdmin ? adminGroups : userGroups
 
   return (
         <aside className="fixed inset-y-0 left-0 z-30 flex w-60 flex-col border-r bg-surface/40 backdrop-blur-xl rtl:left-auto rtl:right-0 rtl:border-l rtl:border-r-0 shadow-diffusion">
@@ -58,38 +141,18 @@ export default memo(function Sidebar({ user, onLogout, unreadCount = 0 }: Sideba
       </div>
 
       <nav aria-label={i18n.t('nav.main')} className="flex-1 space-y-0.5 overflow-y-auto px-2.5 py-3">
-        {isAdmin && (
-          <p className="px-3 pb-1 pt-3 text-caption font-semibold uppercase tracking-widest text-muted-foreground/60">
-            {i18n.t('nav.admin')}
-          </p>
-        )}
-        {links.map((link: Link) => {
-          const isActive = location.pathname === link.to
-          const Icon = link.icon
-          const showBadge = link.badge && unreadCount > 0
-          return (
-            <button
-              key={link.to}
-              onClick={() => navigate(link.to)}
-              className={cn(
-                'flex w-full items-center justify-between gap-3 px-3 py-2.5 text-xs font-semibold tracking-wide spring-fast pressable rtl:border-r-4 ltr:border-l-4',
-                isActive
-                  ? 'text-primary bg-primary/5 rtl:border-r-primary ltr:border-l-primary'
-                  : 'text-muted-foreground/90 border-transparent hover:bg-primary/10 hover:text-primary'
-              )}
-            >
-              <span className="flex items-center gap-3 min-w-0">
-                <Icon className={cn('h-4 w-4 shrink-0', isActive ? 'text-primary' : 'text-muted-foreground/80')} />
-                <span>{i18n.t(link.label)}</span>
-              </span>
-              {showBadge && (
-                <span className="shrink-0 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-micro font-bold bg-destructive text-destructive-foreground">
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </span>
-              )}
-            </button>
-          )
-        })}
+        {groups.map((group, gi) => (
+          <div key={gi} className="space-y-0.5">
+            {group.section && (
+              <p className="px-3 pb-1 pt-3 text-caption font-semibold uppercase tracking-widest text-muted-foreground/60">
+                {i18n.t(group.section)}
+              </p>
+            )}
+            {group.links.map((link) => (
+              <SidebarLink key={link.to} link={link} unreadCount={unreadCount} isActive={location.pathname === link.to} />
+            ))}
+          </div>
+        ))}
       </nav>
 
       <div className="border-t border-muted/30 p-3">

@@ -155,6 +155,33 @@ export default function Preferences() {
           </div>
         </div>
 
+        {/* Display Settings */}
+        <div className="glass-panel">
+          <div className="glass-panel-inner space-y-5">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{i18n.t('preferences.display')}</h2>
+            <div className="space-y-1">
+              <Label htmlFor="fontSize" className="text-sm font-bold">{i18n.t('preferences.font_size')}</Label>
+              <Select aria-label={i18n.t('preferences.font_size')} value={form.fontSize ?? 'medium'} onValueChange={(v) => update('fontSize', v as 'small' | 'medium' | 'large')}>
+                <SelectTrigger className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="small">{i18n.t('preferences.font_size.small')}</SelectItem>
+                  <SelectItem value="medium">{i18n.t('preferences.font_size.medium')}</SelectItem>
+                  <SelectItem value="large">{i18n.t('preferences.font_size.large')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-3">
+                <Switch id="compactMode" checked={form.compactMode ?? false} onCheckedChange={(v) => update('compactMode', v)} disabled={!canEdit} />
+                <Label htmlFor="compactMode" className="text-sm font-bold">{i18n.t('preferences.compact_mode')}</Label>
+              </div>
+              <p className="text-caption text-muted-foreground/90 leading-normal pl-11 rtl:pr-11 rtl:pl-0">{i18n.t('preferences.compact_mode.help')}</p>
+            </div>
+          </div>
+        </div>
+
         {/* Focus Timer */}
         <div className="glass-panel">
           <div className="glass-panel-inner space-y-5">

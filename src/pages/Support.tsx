@@ -73,11 +73,7 @@ export default function Support() {
   }, [fetchUsers, fetchTickets])
 
   useEffect(() => {
-    if (isIT) {
-      setActiveTab('queue')
-    } else {
-      setActiveTab('submit')
-    }
+    setActiveTab('submit')
   }, [isIT])
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -275,23 +271,6 @@ export default function Support() {
 
       <div className="flex flex-col gap-6">
         <div className="flex border-b border-border/10 pb-px gap-2">
-          {isIT && (
-            <button
-              onClick={() => setActiveTab('queue')}
-              className={`pb-3 px-4 text-sm font-bold border-b-2 active:scale-[0.97] transition-all duration-150 relative ${
-                activeTab === 'queue'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {i18n.t('support.tab.queue')}
-              {pendingCount > 0 && (
-                <span className="absolute top-1.5 right-0.5 bg-destructive text-destructive-foreground text-[10px] font-bold h-4 w-4 rounded-full flex items-center justify-center">
-                  {pendingCount}
-                </span>
-              )}
-            </button>
-          )}
           <button
             onClick={() => setActiveTab('submit')}
             className={`pb-3 px-4 text-sm font-bold border-b-2 active:scale-[0.97] transition-all duration-150 ${
@@ -312,6 +291,23 @@ export default function Support() {
           >
             {i18n.t('support.tab.my_tickets')}
           </button>
+          {isIT && (
+            <button
+              onClick={() => setActiveTab('queue')}
+              className={`pb-3 px-4 text-sm font-bold border-b-2 active:scale-[0.97] transition-all duration-150 relative ${
+                activeTab === 'queue'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {i18n.t('support.tab.queue')}
+              {pendingCount > 0 && (
+                <span className="absolute top-1.5 right-0.5 bg-destructive text-destructive-foreground text-[10px] font-bold h-4 w-4 rounded-full flex items-center justify-center">
+                  {pendingCount}
+                </span>
+              )}
+            </button>
+          )}
         </div>
 
         {/* Search + Sort Bar */}

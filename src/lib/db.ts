@@ -1,4 +1,4 @@
-import type { User, Task, Comment, Notification, ReportMetrics, AppSettings, UserPreferences, AuditEntry, AuditAction, Permission, Role, SupportTicket, SupportTicketComment, TimeEntry, TaskStatus, ChatRequest, ChatMessage, RecommendedApp } from './types'
+import type { User, Task, Comment, Notification, ReportMetrics, AppSettings, UserPreferences, AuditEntry, AuditAction, Permission, Role, SupportTicket, SupportTicketComment, TimeEntry, TaskStatus, ChatRequest, ChatMessage, RecommendedApp, DocumentFile, DocumentFolder, ActivityLog, DocumentAction, Invoice, InvoiceStatus, Department } from './types'
 import { i18n } from './i18n'
 import { getSupportTickets as getSupportTicketsImpl, createSupportTicket as createSupportTicketImpl, updateSupportTicket as updateSupportTicketImpl, deleteSupportTicket as deleteSupportTicketImpl, addCommentToSupportTicket as addCommentToSupportTicketImpl } from './db/support'
 import { getChatRequests as getChatRequestsImpl, sendChatRequest as sendChatRequestImpl, respondToChatRequest as respondToChatRequestImpl, getChatMessages as getChatMessagesImpl, sendChatMessage as sendChatMessageImpl } from './db/chat'
@@ -20,6 +20,10 @@ interface StoreSchema {
   chatRequests: ChatRequest[]
   chatMessages: ChatMessage[]
   recommendedApps: RecommendedApp[]
+  documentFiles: DocumentFile[]
+  documentFolders: DocumentFolder[]
+  documentActivityLog: ActivityLog[]
+  invoices: Invoice[]
 }
 
 function generateId(): string {
@@ -93,6 +97,7 @@ function getDefaultPreferences(): UserPreferences {
     quietHoursStart: '22:00', quietHoursEnd: '07:00',
     workDurationMin: 25, shortBreakMin: 5, longBreakMin: 15, longBreakInterval: 4,
     enableSoundNotif: true, soundNotifVolume: 0.5, soundNotifTheme: 'chime',
+    fontSize: 'medium', compactMode: false,
   }
 }
 
@@ -106,6 +111,8 @@ export const ALL_PERMISSIONS: Permission[] = [
   'support.priority', 'support.diagnostics', 'support.resolution_notes', 'support.feedback',
   'notifications.view', 'subtask.toggle', 'mention.create', 'effort.view_all',
   'it.apps.view', 'it.apps.manage',
+  'documents.view', 'documents.manage',
+  'invoices.view', 'invoices.manage',
 ]
 
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
@@ -117,6 +124,8 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'preferences.view', 'preferences.edit',
     'notifications.view', 'subtask.toggle', 'mention.create',
     'effort.view_all', 'it.apps.view',
+    'documents.view', 'documents.manage',
+    'invoices.view', 'invoices.manage',
   ],
   developer: [
     'task.view_all', 'task.edit.own', 'user.view',
@@ -124,12 +133,16 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'preferences.view', 'preferences.edit',
     'notifications.view', 'subtask.toggle', 'mention.create',
     'it.apps.view',
+    'documents.view',
+    'invoices.view',
   ],
   viewer: [
     'task.view_all', 'notifications.view',
     'support.priority', 'support.resolution_notes', 'support.feedback',
     'preferences.view', 'preferences.edit',
     'it.apps.view',
+    'documents.view',
+    'invoices.view',
   ],
 }
 
@@ -166,6 +179,10 @@ function getDefaultStore(): StoreSchema {
     chatRequests: [],
     chatMessages: [],
     recommendedApps: [],
+    documentFiles: [],
+    documentFolders: [],
+    documentActivityLog: [],
+    invoices: [],
   }
 }
 
@@ -211,6 +228,10 @@ class Database {
           chatRequests: parsed.chatRequests || [],
           chatMessages: parsed.chatMessages || [],
           recommendedApps: parsed.recommendedApps || defaults.recommendedApps,
+          documentFiles: parsed.documentFiles || [],
+          documentFolders: parsed.documentFolders || [],
+          documentActivityLog: parsed.documentActivityLog || [],
+          invoices: parsed.invoices || [],
         }
         if (needsMigration) {
           this.persist()
@@ -1129,6 +1150,214 @@ class Database {
   deleteRecommendedApp(id: string) {
     this.data.recommendedApps = this.data.recommendedApps.filter(a => a.id !== id)
     this.persist()
+  }
+
+  // ── Document Management ──────────────────────────────────────────
+
+  getDocumentFolders(department?: Department): DocumentFolder[] {
+    let result = this.data.documentFolders.filter(f => !f.deletedAt)
+    if (department) result = result.filter(f => f.department === department)
+    return result.sort((a, b) => a.name.localeCompare(b.name))
+  }
+
+  getDeletedDocumentFolders(department?: Department): DocumentFolder[] {
+    let result = this.data.documentFolders.filter(f => f.deletedAt)
+    if (department) result = result.filter(f => f.department === department)
+    return result.sort((a, b) => new Date(b.deletedAt!).getTime() - new Date(a.deletedAt!).getTime())
+  }
+
+  createDocumentFolder(f: Omit<DocumentFolder, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>): DocumentFolder {
+    const now = new Date().toISOString()
+    const folder: DocumentFolder = { ...f, id: generateId(), createdAt: now, updatedAt: now, deletedAt: null }
+    this.data.documentFolders.push(folder)
+    this.persist()
+    return folder
+  }
+
+  updateDocumentFolder(id: string, updates: Partial<Omit<DocumentFolder, 'id' | 'createdAt'>>): DocumentFolder | null {
+    const idx = this.data.documentFolders.findIndex(f => f.id === id)
+    if (idx === -1) return null
+    this.data.documentFolders[idx] = { ...this.data.documentFolders[idx], ...updates, updatedAt: new Date().toISOString() }
+    this.persist()
+    return this.data.documentFolders[idx]
+  }
+
+  deleteDocumentFolder(id: string, userId: string) {
+    const folder = this.data.documentFolders.find(f => f.id === id)
+    if (!folder || folder.deletedAt) return
+    const deletedAt = new Date().toISOString()
+    folder.deletedAt = deletedAt
+    folder.updatedAt = deletedAt
+    for (const file of this.data.documentFiles.filter(f => f.folderId === id)) {
+      if (file.deletedAt) continue
+      file.deletedAt = deletedAt
+      file.updatedAt = deletedAt
+      this.addDocumentActivity('deleted', file.id, file.name, userId, i18n.t('db.document.deleted').replace('{name}', file.name))
+    }
+    this.persist()
+  }
+
+  restoreDocumentFolder(id: string, userId: string) {
+    const folder = this.data.documentFolders.find(f => f.id === id)
+    if (!folder?.deletedAt) return
+    const folderDeletedAt = folder.deletedAt
+    const restoredAt = new Date().toISOString()
+    folder.deletedAt = null
+    folder.updatedAt = restoredAt
+    for (const file of this.data.documentFiles.filter(f => f.folderId === id && f.deletedAt === folderDeletedAt)) {
+      file.deletedAt = null
+      file.updatedAt = restoredAt
+      this.addDocumentActivity('restored', file.id, file.name, userId, i18n.t('db.document.restored').replace('{name}', file.name))
+    }
+    this.persist()
+  }
+
+  getDocumentFilesInFolder(id: string): DocumentFile[] {
+    return this.data.documentFiles.filter(f => f.folderId === id)
+  }
+
+  permanentDeleteDocumentFolder(id: string) {
+    const fileIds = new Set(this.data.documentFiles.filter(f => f.folderId === id).map(f => f.id))
+    this.data.documentFiles = this.data.documentFiles.filter(f => f.folderId !== id)
+    this.data.documentActivityLog = this.data.documentActivityLog.filter(log => !fileIds.has(log.fileId))
+    this.data.documentFolders = this.data.documentFolders.filter(f => f.id !== id)
+    this.persist()
+  }
+
+  getDocumentFiles(department?: Department, folderId?: string): DocumentFile[] {
+    let result = [...this.data.documentFiles]
+    if (department) result = result.filter(f => f.department === department)
+    if (folderId) result = result.filter(f => f.folderId === folderId)
+    result = result.filter(f => !f.deletedAt)
+    return result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  }
+
+  getDeletedDocumentFiles(department?: Department): DocumentFile[] {
+    let result = this.data.documentFiles.filter(f => f.deletedAt)
+    if (department) result = result.filter(f => f.department === department)
+    return result.sort((a, b) => new Date(b.deletedAt!).getTime() - new Date(a.deletedAt!).getTime())
+  }
+
+  createDocumentFile(f: Omit<DocumentFile, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>): DocumentFile {
+    const file: DocumentFile = {
+      ...f, id: generateId(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: null,
+    }
+    this.data.documentFiles.push(file)
+    this.addDocumentActivity('uploaded', file.id, file.name, file.uploadedBy, i18n.t('db.document.uploaded').replace('{name}', file.name))
+    this.persist()
+    return file
+  }
+
+  updateDocumentFile(id: string, updates: Partial<Omit<DocumentFile, 'id' | 'createdAt'>>, userId?: string): DocumentFile | null {
+    const idx = this.data.documentFiles.findIndex(f => f.id === id)
+    if (idx === -1) return null
+    const old = this.data.documentFiles[idx]
+    this.data.documentFiles[idx] = { ...old, ...updates, updatedAt: new Date().toISOString() }
+    if (updates.name && updates.name !== old.name && userId) {
+      this.addDocumentActivity('renamed', id, this.data.documentFiles[idx].name, userId,
+        i18n.t('db.document.renamed').replace('{old}', old.name).replace('{new}', updates.name))
+    }
+    this.persist()
+    return this.data.documentFiles[idx]
+  }
+
+  softDeleteDocumentFile(id: string, userId: string) {
+    const file = this.data.documentFiles.find(f => f.id === id)
+    if (!file) return
+    file.deletedAt = new Date().toISOString()
+    this.addDocumentActivity('deleted', file.id, file.name, userId, i18n.t('db.document.deleted').replace('{name}', file.name))
+    this.persist()
+  }
+
+  restoreDocumentFile(id: string, userId: string) {
+    const file = this.data.documentFiles.find(f => f.id === id)
+    if (!file) return
+    file.deletedAt = null
+    this.addDocumentActivity('restored', file.id, file.name, userId, i18n.t('db.document.restored').replace('{name}', file.name))
+    this.persist()
+  }
+
+  permanentDeleteDocumentFile(id: string) {
+    const file = this.data.documentFiles.find(f => f.id === id)
+    this.data.documentFiles = this.data.documentFiles.filter(f => f.id !== id)
+    if (file) {
+      this.data.documentActivityLog = this.data.documentActivityLog.filter(l => l.fileId !== id)
+    }
+    this.persist()
+  }
+
+  private addDocumentActivity(action: DocumentAction, fileId: string, fileName: string, userId: string, details: string) {
+    const user = this.data.users.find(u => u.id === userId)
+    this.data.documentActivityLog.push({
+      id: generateId(), action, fileId, fileName, userId, username: user?.username || 'unknown', details, timestamp: new Date().toISOString(),
+    })
+  }
+
+  getDocumentActivityLog(fileId?: string): ActivityLog[] {
+    let result = [...this.data.documentActivityLog]
+    if (fileId) result = result.filter(l => l.fileId === fileId)
+    return result.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+  }
+
+  purgeDeletedFiles(days: number = 7) {
+    const cutoff = Date.now() - days * 86400000
+    const expiredFolderIds = new Set(this.data.documentFolders
+      .filter(folder => folder.deletedAt && new Date(folder.deletedAt).getTime() < cutoff)
+      .map(folder => folder.id))
+    const purgedFileIds = new Set(this.data.documentFiles
+      .filter(file => expiredFolderIds.has(file.folderId) || (file.deletedAt && new Date(file.deletedAt).getTime() < cutoff))
+      .map(file => file.id))
+    this.data.documentFolders = this.data.documentFolders.filter(folder => !expiredFolderIds.has(folder.id))
+    this.data.documentFiles = this.data.documentFiles.filter(file => !purgedFileIds.has(file.id))
+    this.data.documentActivityLog = this.data.documentActivityLog.filter(log => !purgedFileIds.has(log.fileId))
+    this.persist()
+  }
+
+  // ── Invoicing ────────────────────────────────────────────────────
+
+  getInvoices(filters?: { status?: InvoiceStatus; search?: string }): Invoice[] {
+    let result = [...this.data.invoices]
+    if (filters?.status) result = result.filter(inv => inv.status === filters.status)
+    if (filters?.search) {
+      const s = filters.search.toLowerCase()
+      result = result.filter(inv => inv.number.toLowerCase().includes(s) || inv.clientName.toLowerCase().includes(s))
+    }
+    return result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  }
+
+  getInvoice(id: string): Invoice | null {
+    return this.data.invoices.find(inv => inv.id === id) || null
+  }
+
+  createInvoice(inv: Omit<Invoice, 'id' | 'number' | 'createdAt' | 'updatedAt' | 'paidAt'>): Invoice {
+    const maxNum = this.data.invoices.reduce((max, inv) => {
+      const n = parseInt(inv.number.replace('INV-', ''), 10)
+      return n > max ? n : max
+    }, 0)
+    const invoice: Invoice = {
+      ...inv, id: generateId(), number: `INV-${String(maxNum + 1).padStart(4, '0')}`,
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), paidAt: null,
+    }
+    this.data.invoices.push(invoice)
+    this.persist()
+    return invoice
+  }
+
+  updateInvoice(id: string, updates: Partial<Omit<Invoice, 'id' | 'number' | 'createdAt'>>): Invoice | null {
+    const idx = this.data.invoices.findIndex(inv => inv.id === id)
+    if (idx === -1) return null
+    this.data.invoices[idx] = { ...this.data.invoices[idx], ...updates, updatedAt: new Date().toISOString() }
+    this.persist()
+    return this.data.invoices[idx]
+  }
+
+  deleteInvoice(id: string) {
+    this.data.invoices = this.data.invoices.filter(inv => inv.id !== id)
+    this.persist()
+  }
+
+  markInvoicePaid(id: string): Invoice | null {
+    return this.updateInvoice(id, { status: 'paid', paidAt: new Date().toISOString() })
   }
 }
 

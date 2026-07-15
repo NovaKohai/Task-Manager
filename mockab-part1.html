@@ -1,0 +1,103 @@
+﻿<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nova Task Manager — خريطة التطوير</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0b0f;--surface:#14141a;--surface2:#1c1c26;--surface3:#252533;--border:#2a2a3d;--text:#f0f0f5;--text2:#a0a0b8;--text3:#6a6a80;--primary:#7c6af0;--primary-glow:rgba(124,106,240,0.25);--primary-light:#a99bff;--secondary:#f0c06a;--success:#4ade80;--success-bg:rgba(74,222,128,0.12);--warning:#facc15;--warning-bg:rgba(250,204,21,0.12);--danger:#f87171;--danger-bg:rgba(248,113,113,0.12);--info:#60a5fa;--info-bg:rgba(96,165,250,0.12);--radius:16px;--radius-sm:10px;--shadow:0 4px 24px rgba(0,0,0,0.4)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);line-height:1.6;overflow-x:hidden}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:var(--surface)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.header{position:sticky;top:0;z-index:100;background:linear-gradient(135deg,rgba(11,11,15,0.95),rgba(20,20,26,0.95));backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
+.header-logo{display:flex;align-items:center;gap:10px}
+.header-logo h1{font-size:20px;font-weight:800}
+.header-logo span{color:var(--primary)}
+.header-badge{background:var(--primary-glow);border:1px solid var(--primary);color:var(--primary-light);padding:3px 12px;border-radius:20px;font-size:11px;font-weight:600}
+.header-stats{display:flex;gap:20px;align-items:center}
+.header-stat{text-align:center}
+.header-stat-value{font-size:18px;font-weight:800}
+.header-stat-label{font-size:10px;color:var(--text3);text-transform:uppercase}
+.section-nav{position:sticky;top:66px;z-index:99;background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;display:flex;overflow-x:auto}
+.section-nav a{padding:12px 14px;font-size:12px;font-weight:600;color:var(--text3);text-decoration:none;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s}
+.section-nav a:hover{color:var(--text2)}
+.section-nav a.active{color:var(--primary);border-bottom-color:var(--primary)}
+.content{max-width:1400px;margin:0 auto;padding:24px}
+.section{margin-bottom:40px;scroll-margin-top:130px}
+.section-header{display:flex;align-items:center;gap:14px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.section-icon{width:40px;height:40px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.section-title{font-size:22px;font-weight:800}
+.section-subtitle{font-size:13px;color:var(--text3);margin-top:1px}
+.section-count{margin-right:auto;background:var(--surface3);padding:3px 12px;border-radius:20px;font-size:11px;color:var(--text2)}
+.current{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:14px}
+.current span{background:var(--surface2);border:1px solid var(--border);padding:2px 8px;border-radius:5px;font-size:10px;color:var(--text2)}
+.feat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-bottom:16px}
+.feat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;transition:all .25s ease;position:relative;overflow:hidden}
+.feat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--primary),var(--secondary));opacity:0;transition:opacity .25s}
+.feat-card:hover{border-color:var(--border-light);transform:translateY(-2px);box-shadow:var(--shadow)}
+.feat-card:hover::before{opacity:1}
+.feat-card-new{border-color:var(--primary-glow)}
+.feat-card-new::after{content:'جديد';font-size:8px;font-weight:700;position:absolute;top:10px;left:10px;background:var(--primary);color:#fff;padding:1px 7px;border-radius:3px}
+.feat-num{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;color:var(--text3);margin-bottom:6px}
+.feat-icon{width:32px;height:32px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:16px;margin-bottom:8px}
+.feat-card h3{font-size:14px;font-weight:700;margin-bottom:4px}
+.feat-card p{font-size:11px;color:var(--text3);line-height:1.6}
+.feat-tag{display:inline-block;margin-top:8px;font-size:9px;font-weight:600;padding:2px 7px;border-radius:3px}
+.tg-h{background:var(--danger-bg);color:var(--danger)}
+.tg-m{background:var(--warning-bg);color:var(--warning)}
+.tg-l{background:var(--info-bg);color:var(--info)}
+.tg-e{background:var(--success-bg);color:var(--success)}
+.mockup{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-top:4px}
+.mockup-h{background:var(--surface2);padding:10px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border)}
+.mockup-d{display:flex;gap:5px}
+.mockup-dot{width:9px;height:9px;border-radius:50%}
+.mdr{background:#ff5f57}.mdy{background:#ffbd2e}.mdg{background:#28c840}
+.mockup-title{font-size:11px;color:var(--text3);font-weight:500}
+.mockup-b{padding:20px;min-height:160px}
+.mg2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.mg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.mg4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.mcard{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px}
+.mcard-title{font-size:12px;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.mbar{height:6px;border-radius:3px;background:var(--surface3);overflow:hidden;margin:3px 0}
+.mbar-f{height:100%;border-radius:3px}
+.mrow{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border)}
+.mavatar{width:24px;height:24px;border-radius:50%;background:var(--surface3);flex-shrink:0}
+.mbadge{display:inline-block;padding:1px 7px;border-radius:3px;font-size:9px;font-weight:600}
+.mtxt{font-size:11px;color:var(--text2)}
+.mstats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.mstat{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;text-align:center}
+.mstat-v{font-size:22px;font-weight:800}
+.mstat-l{font-size:10px;color:var(--text3);margin-top:2px}
+.mtabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:14px}
+.mtab{padding:7px 14px;font-size:11px;font-weight:600;color:var(--text3);border-bottom:2px solid transparent;cursor:default}
+.mtab.active{color:var(--primary);border-bottom-color:var(--primary)}
+@media(max-width:768px){
+  .header{padding:10px 14px;flex-direction:column;gap:6px}
+  .header-stats{gap:10px}
+  .section-nav{padding:0 10px}
+  .content{padding:12px}
+  .feat-grid{grid-template-columns:1fr}
+  .mg2,.mg3,.mg4{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<header class="header">
+  <div class="header-logo">
+    <svg viewBox="0 0 36 36" width="32" height="32" fill="none"><rect x="2" y="2" width="32" height="32" rx="10" stroke="#7c6af0" stroke-width="2.5" fill="none"/><path d="M12 18L16 22L24 14" stroke="#7c6af0" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <h1>Nova <span>Task Manager</span></h1>
+    <span class="header-badge">خطة التطوير v2.0</span>
+  </div>
+  <div class="header-stats">
+    <div class="header-stat"><div class="header-stat-value">20</div><div class="header-stat-label">صفحة</div></div>
+    <div class="header-stat"><div class="header-stat-value">200</div><div class="header-stat-label">ميزة جديدة</div></div>
+    <div class="header-stat"><div class="header-stat-value">★</div><div class="header-stat-label">جاهز للتنفيذ</div></div>
+  </div>
+</header>
+<nav class="section-nav" id="sectionNav">
+  <a href="#s1" class="active">تسجيل الدخول</a><a href="#s2">لوحة المدير</a><a href="#s3">لوحتي</a><a href="#s4">المهام</a><a href="#s5">إنشاء مهمة</a><a href="#s6">تفاصيل المهمة</a><a href="#s7">التقارير</a><a href="#s8">الإعدادات</a><a href="#s9">التفضيلات</a><a href="#s10">المستخدمين</a><a href="#s11">سجل التدقيق</a><a href="#s12">الإشعارات</a><a href="#s13">التركيز</a><a href="#s14">الملف الشخصي</a><a href="#s15">التعريف</a><a href="#s16">الدعم الفني</a><a href="#s17">المحادثة</a><a href="#s18">تطبيقات IT</a><a href="#s19">المستندات</a><a href="#s20">الفواتير</a>
+</nav>

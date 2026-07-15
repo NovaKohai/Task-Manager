@@ -278,6 +278,46 @@
     transition: transform 200ms var(--ease-out), opacity 200ms var(--ease-out);
   }
 
+  .document-file-row {
+    transition: background 160ms var(--ease-out), border-color 160ms var(--ease-out);
+  }
+
+  .document-item-actions {
+    opacity: 1;
+    transition: opacity 140ms var(--ease-out), transform 140ms var(--ease-out), background 140ms var(--ease-out), color 140ms var(--ease-out);
+  }
+
+  .document-context-menu {
+    opacity: 1;
+    transform: scale(1);
+    transition: opacity 150ms var(--ease-out), transform 150ms var(--ease-out);
+  }
+
+  @starting-style {
+    .document-context-menu {
+      opacity: 0;
+      transform: scale(0.97);
+    }
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .document-file-row:hover {
+      background: color-mix(in oklch, var(--muted) 35%, var(--card));
+      border-color: var(--border);
+    }
+
+    .document-item-actions {
+      opacity: 0;
+    }
+
+    .document-file-row:hover .document-item-actions,
+    .document-file-row:focus-within .document-item-actions,
+    .document-folder-item:hover .document-item-actions,
+    .document-folder-item:focus-within .document-item-actions {
+      opacity: 1;
+    }
+  }
+
   /* Double Bezel Card Structure — single visual border via outer */
   .double-bezel-outer {
     background: color-mix(in oklch, var(--foreground) 3%, transparent);
@@ -649,8 +689,25 @@
   }
 }
 
+/* Font size variants */
+html.font-size-small { font-size: 16px; }
+html.font-size-medium { font-size: 18px; }
+html.font-size-large { font-size: 20px; }
+
+/* Compact mode — tighter spacing */
+html.compact-mode .glass-panel-inner { padding: 0.625rem; }
+html.compact-mode .glass-panel { border-radius: 0.75rem; }
+html.compact-mode .glass-panel-inner { border-radius: calc(0.75rem - var(--bezel-gap)); }
+html.compact-mode .double-bezel-inner { padding: 1rem; }
+html.compact-mode .double-bezel-outer { border-radius: 1.5rem; }
+html.compact-mode .double-bezel-inner { border-radius: calc(1.5rem - 0.375rem); }
+html.compact-mode .space-y-5 { --compact-space: 0.75rem; }
+html.compact-mode .space-y-8 { --compact-space: 1.25rem; }
+html.compact-mode [class*="gap-"] { --compact-gap: 0.25rem; }
+html.compact-mode .px-6 { padding-left: 1rem; padding-right: 1rem; }
+html.compact-mode .py-3 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+
 /* Global Lucide icon stroke-width customization for premium, ultra-light aesthetics */
 svg.lucide, svg.lucide-icon, svg[class*="lucide-"], .lucide {
   stroke-width: 1.55 !important;
 }
-

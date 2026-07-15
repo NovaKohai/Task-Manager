@@ -1,0 +1,51 @@
+{
+  "skill_name": "extension-clean-code",
+  "evals": [
+    {
+      "id": 1,
+      "name": "build-highlight-extension",
+      "prompt": "I want to build a Chrome extension that highlights code blocks on GitHub with a syntax-highlighting overlay. When I click the extension icon, a popup should show a toggle to enable/disable highlighting and a dropdown to pick a color theme. The content script should find all <pre><code> blocks on the page and wrap them in a highlighted container. Use Manifest V3. Keep it clean.",
+      "files": [],
+      "expected_output": "Three files: manifest.json, content.js, popup.html + popup.js, background.js",
+      "expectations": [
+        "manifest.json declares manifest_version: 3",
+        "manifest.json uses host_permissions (not permissions) for URL pattern matching",
+        "Content script uses const/let declarations (not var)",
+        "Message listener returns true for async sendResponse calls",
+        "Leverages a real syntax highlighting library instead of a custom regex tokenizer",
+        "Handles SPA navigation (e.g., MutationObserver on title changes)",
+        "Code is organized into modular, single-responsibility functions"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "fix-messaging-bug",
+      "prompt": "My Chrome extension's popup sends a message to the background script but never gets a response back. Here's my code:\n\nbackground.js:\nchrome.runtime.onMessage.addListener((message, sender, sendResponse) => {\n  if (message.type === 'FETCH_DATA') {\n    fetch('https://api.example.com/data').then(data => sendResponse(data));\n  }\n});\n\npopup.js:\nchrome.runtime.sendMessage({ type: 'FETCH_DATA' }, (response) => {\n  console.log('Got response:', response);\n});\n\nThe console.log never fires. What's wrong, and how do I fix it? Also, are there any other message-passing anti-patterns in this code?",
+      "files": [],
+      "expected_output": "Explanation of the bug (missing return true) and other anti-patterns found",
+      "expectations": [
+        "Identifies missing return true as the root cause for async sendResponse",
+        "Identifies raw Response object issue (fetch returns Response, needs .json())",
+        "Identifies missing error handling (no .catch() on fetch promise)",
+        "Recommends chrome.runtime.lastError check in popup callback",
+        "Provides fixed code examples for both background.js and popup.js"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "audit-extension-code",
+      "prompt": "Review this Chrome extension code for quality issues, security problems, and MV3 violations. List everything wrong and how to fix each one.\n\nmanifest.json:\n{\n  \"manifest_version\": 3,\n  \"name\": \"Page Helper\",\n  \"permissions\": [\"*://*/*\"],\n  \"background\": { \"service_worker\": \"bg.js\" },\n  \"content_scripts\": [{\n    \"matches\": [\"<all_urls>\"],\n    \"js\": [\"content.js\"]\n  }]\n}\n\ncontent.js:\nfunction doit() {\n  var data = document.querySelectorAll('.item');\n  var result = [];\n  for (var i = 0; i < data.length; i++) {\n    var x = data[i];\n    var url = x.getAttribute('data-url');\n    if (url) result.push(url);\n  }\n  chrome.runtime.sendMessage({type:'SAVE',items:result});\n}\n\nbg.js:\nvar items = [];\nchrome.runtime.onMessage.addListener(function(m, s, r) {\n  if (m.type == 'SAVE') {\n    items = items.concat(m.items);\n    chrome.storage.local.set({data: items});\n    r({ok: true});\n  }\n});\nsetInterval(function() { console.log('alive', items.length); }, 1000);",
+      "files": [],
+      "expected_output": "Structured findings report with severity ratings and fix recommendations",
+      "expectations": [
+        "Identifies that host permissions pattern (*://*/*) is in permissions instead of host_permissions",
+        "Identifies var declarations polluting global scope in content script",
+        "Identifies lack of input validation in background message handler",
+        "Identifies setInterval in service worker (should use chrome.alarms for persistence)",
+        "Identifies missing version field in manifest.json",
+        "Identifies sendResponse called without return true",
+        "Identifies doit() function defined but never invoked"
+      ]
+    }
+  ]
+}
