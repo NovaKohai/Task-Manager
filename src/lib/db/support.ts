@@ -1,8 +1,44 @@
-import type { SupportTicket } from '../types'
+import type { SupportTicket, SupportTicketComment } from '../types'
 import { i18n } from '../i18n'
 
 export function getSupportTickets(data: any): SupportTicket[] {
   return data.supportTickets || []
+}
+
+export function deleteSupportTicket(
+  data: any,
+  persist: () => void,
+  id: string
+): boolean {
+  if (!data.supportTickets) return false
+  const idx = data.supportTickets.findIndex((t: any) => t.id === id)
+  if (idx === -1) return false
+  data.supportTickets.splice(idx, 1)
+  persist()
+  return true
+}
+
+export function addCommentToSupportTicket(
+  data: any,
+  persist: () => void,
+  generateId: () => string,
+  ticketId: string,
+  authorId: string,
+  text: string
+): SupportTicketComment | null {
+  if (!data.supportTickets) return null
+  const ticket = data.supportTickets.find((t: any) => t.id === ticketId)
+  if (!ticket) return null
+  if (!ticket.comments) ticket.comments = []
+  const comment: SupportTicketComment = {
+    id: generateId(),
+    authorId,
+    text,
+    createdAt: new Date().toISOString(),
+  }
+  ticket.comments.push(comment)
+  persist()
+  return comment
 }
 
 export function createSupportTicket(

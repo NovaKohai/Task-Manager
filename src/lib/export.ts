@@ -4,12 +4,16 @@ import * as XLSX from 'xlsx'
 import type { ReportMetrics, Task, User } from './types'
 import { i18n } from './i18n'
 
+interface JsPDFWithAutoTable extends jsPDF {
+  lastAutoTable: { finalY: number }
+}
+
 export function exportReportPDF(metrics: ReportMetrics, period: string) {
-  const doc = new jsPDF()
+  const doc = new jsPDF() as JsPDFWithAutoTable
   doc.setFontSize(16)
   doc.text(i18n.t('export.report_title').replace('{period}', period), 14, 20)
   doc.setFontSize(9)
-  doc.text(i18n.t('export.generated').replace('{date}', new Date().toLocaleString(i18n.lang === 'ar' ? 'ar-SA' : 'en-US')), 14, 27)
+  doc.text(i18n.t('export.generated').replace('{date}', new Date().toLocaleString(i18n.localeStr)), 14, 27)
 
   doc.setFontSize(11)
   doc.text(`${i18n.t('export.total_tasks')}: ${metrics.totalTasks}`, 14, 36)
@@ -26,14 +30,14 @@ export function exportReportPDF(metrics: ReportMetrics, period: string) {
   })
 
   autoTable(doc, {
-    startY: (doc as any).lastAutoTable.finalY + 10,
+    startY: doc.lastAutoTable.finalY + 10,
     head: [[i18n.t('export.status'), i18n.t('export.count')]],
     body: metrics.byStatus.map(s => [i18n.t(`task.status.${s.status}`), String(s.count)]),
     headStyles: { fillColor: [99, 102, 241] },
   })
 
   autoTable(doc, {
-    startY: (doc as any).lastAutoTable.finalY + 10,
+    startY: doc.lastAutoTable.finalY + 10,
     head: [[i18n.t('export.date'), i18n.t('export.completed')]],
     body: metrics.trend.map(t => [t.date, String(t.completed)]),
     headStyles: { fillColor: [99, 102, 241] },
@@ -76,7 +80,7 @@ export function exportTaskPDF(task: Task, users: User[]) {
   doc.setFontSize(16)
   doc.text(task.code, 14, 20)
   doc.setFontSize(9)
-  doc.text(i18n.t('export.generated').replace('{date}', new Date().toLocaleString(i18n.lang === 'ar' ? 'ar-SA' : 'en-US')), 14, 27)
+  doc.text(i18n.t('export.generated').replace('{date}', new Date().toLocaleString(i18n.localeStr)), 14, 27)
 
   doc.setFontSize(14)
   doc.text(task.title, 14, 36)
@@ -95,9 +99,9 @@ export function exportTaskPDF(task: Task, users: User[]) {
       [i18n.t('export.priority'), i18n.t(`priority.${task.priority}`)],
       [i18n.t('export.assignee'), assigneeName],
       [i18n.t('export.project'), task.project || '—'],
-      [i18n.t('export.due_date'), task.dueDate ? new Date(task.dueDate).toLocaleDateString(i18n.lang === 'ar' ? 'ar-SA' : 'en-US') : '—'],
+      [i18n.t('export.due_date'), task.dueDate ? new Date(task.dueDate).toLocaleDateString(i18n.localeStr) : '—'],
       [i18n.t('export.est_hours'), task.estHours ? `${task.estHours}h` : '—'],
-      [i18n.t('export.created'), new Date(task.createdAt).toLocaleString(i18n.lang === 'ar' ? 'ar-SA' : 'en-US')],
+      [i18n.t('export.created'), new Date(task.createdAt).toLocaleString(i18n.localeStr)],
     ],
     theme: 'plain',
     styles: { fontSize: 10 },

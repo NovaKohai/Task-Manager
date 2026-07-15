@@ -9,7 +9,6 @@ export function UpdateDialog() {
   const info = useUpdateStore(s => s.info)
   const progress = useUpdateStore(s => s.progress)
   const dialogOpen = useUpdateStore(s => s.dialogOpen)
-  const openDialog = useUpdateStore(s => s.openDialog)
   const closeDialog = useUpdateStore(s => s.closeDialog)
   const download = useUpdateStore(s => s.download)
   const install = useUpdateStore(s => s.install)
@@ -51,7 +50,7 @@ export function UpdateDialog() {
 
         {info?.releaseNotes && (
           <div className="max-h-48 overflow-y-auto rounded-xl border border-border/20 bg-muted/20 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 mb-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
               {i18n.t('update.changelog')}
             </p>
             <div className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">

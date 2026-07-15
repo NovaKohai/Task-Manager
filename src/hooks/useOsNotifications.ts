@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { Notification } from '@/lib/types'
-import { db } from '@/lib/db'
 import { soundSynthesizer } from '@/lib/sound'
+import { useUserPreferencesStore } from '@/stores/userPreferencesStore'
 
 let permissionRequested = false
 
@@ -28,7 +28,7 @@ export function useOsNotifications(notifications: Notification[]) {
     }
     
     const now = Date.now()
-    const settings = db.getSettings()
+    const preferences = useUserPreferencesStore.getState().preferences
     let playedSound = false
 
     notifications.forEach(n => {
@@ -42,8 +42,8 @@ export function useOsNotifications(notifications: Notification[]) {
         new Notification(n.title, { body: n.message })
       }
 
-      if (settings.enableSoundNotif && !playedSound) {
-        soundSynthesizer.play(settings.soundNotifTheme, settings.soundNotifVolume)
+      if (preferences?.enableSoundNotif && !playedSound) {
+        soundSynthesizer.play(preferences.soundNotifTheme, preferences.soundNotifVolume)
         playedSound = true
       }
     })

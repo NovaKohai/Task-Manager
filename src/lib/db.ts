@@ -1,6 +1,6 @@
-import type { User, Task, Comment, Notification, ReportMetrics, AppSettings, AuditEntry, AuditAction, Permission, Role, SupportTicket, TimeEntry, TaskStatus, ChatRequest, ChatMessage } from './types'
+import type { User, Task, Comment, Notification, ReportMetrics, AppSettings, UserPreferences, AuditEntry, AuditAction, Permission, Role, SupportTicket, SupportTicketComment, TimeEntry, TaskStatus, ChatRequest, ChatMessage, RecommendedApp } from './types'
 import { i18n } from './i18n'
-import { getSupportTickets as getSupportTicketsImpl, createSupportTicket as createSupportTicketImpl, updateSupportTicket as updateSupportTicketImpl } from './db/support'
+import { getSupportTickets as getSupportTicketsImpl, createSupportTicket as createSupportTicketImpl, updateSupportTicket as updateSupportTicketImpl, deleteSupportTicket as deleteSupportTicketImpl, addCommentToSupportTicket as addCommentToSupportTicketImpl } from './db/support'
 import { getChatRequests as getChatRequestsImpl, sendChatRequest as sendChatRequestImpl, respondToChatRequest as respondToChatRequestImpl, getChatMessages as getChatMessagesImpl, sendChatMessage as sendChatMessageImpl } from './db/chat'
 
 const STORE_KEY = 'ttm_data'
@@ -12,12 +12,14 @@ interface StoreSchema {
   notifications: Notification[]
   timeEntries: TimeEntry[]
   settings: AppSettings
+  preferences: Record<string, UserPreferences>
   sessions: { userId: string; token: string }[]
   passwords: Record<string, string>
   auditEntries: AuditEntry[]
   supportTickets: SupportTicket[]
   chatRequests: ChatRequest[]
   chatMessages: ChatMessage[]
+  recommendedApps: RecommendedApp[]
 }
 
 function generateId(): string {
@@ -66,7 +68,7 @@ async function verifyPassword(password: string, stored: string): Promise<boolean
 
 function getDefaultSettings(): AppSettings {
   return {
-    serverName: 'TeamTask Server',
+    serverName: 'NovaTask Server',
     defaultTimezone: 'America/Los_Angeles',
     appUrl: 'https://ttm.internal.company.com:443',
     pwMinLength: 8, pwMaxLength: 128,
@@ -76,14 +78,8 @@ function getDefaultSettings(): AppSettings {
     accessTokenExpiry: 15, refreshTokenExpiry: 7,
     inactivityTimeout: 15, maxConcurrentSessions: 5,
     retentionDays: 365, softDeleteDays: 90, auditRetentionDays: 365,
-    enableBackup: true, backupCount: 30, backupPath: '\\\\fileserver\\backups\\TeamTask',
+    enableBackup: true, backupCount: 30, backupPath: '\\\\fileserver\\backups\\NovaTask',
     authRateLimit: 10, apiRateLimit: 1000,
-    enableEmailNotif: true, enablePushNotif: true, enableSlackNotif: false, enableDigest: false,
-    quietHoursStart: '22:00', quietHoursEnd: '07:00',
-    workDurationMin: 25, shortBreakMin: 5, longBreakMin: 15, longBreakInterval: 4,
-    enableSoundNotif: true,
-    soundNotifVolume: 0.5,
-    soundNotifTheme: 'chime',
     supportEnablePriority: true,
     supportEnableDiagnostics: true,
     supportEnableResolutionNotes: true,
@@ -91,14 +87,25 @@ function getDefaultSettings(): AppSettings {
   }
 }
 
+function getDefaultPreferences(): UserPreferences {
+  return {
+    enableEmailNotif: true, enablePushNotif: true, enableSlackNotif: false, enableDigest: false,
+    quietHoursStart: '22:00', quietHoursEnd: '07:00',
+    workDurationMin: 25, shortBreakMin: 5, longBreakMin: 15, longBreakInterval: 4,
+    enableSoundNotif: true, soundNotifVolume: 0.5, soundNotifTheme: 'chime',
+  }
+}
+
 export const ALL_PERMISSIONS: Permission[] = [
   'task.create', 'task.edit', 'task.edit.own', 'task.delete', 'task.assign', 'task.view_all', 'task.reorder', 'task.verify',
   'user.view', 'user.create', 'user.edit', 'user.delete', 'user.approve',
   'settings.view', 'settings.edit',
+  'preferences.view', 'preferences.edit',
   'reports.view', 'audit.view',
   'announcement.send', 'support.manage',
   'support.priority', 'support.diagnostics', 'support.resolution_notes', 'support.feedback',
   'notifications.view', 'subtask.toggle', 'mention.create', 'effort.view_all',
+  'it.apps.view', 'it.apps.manage',
 ]
 
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
@@ -107,88 +114,65 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'task.create', 'task.edit', 'task.delete', 'task.assign', 'task.view_all', 'task.reorder', 'task.verify',
     'user.view', 'settings.view', 'reports.view', 'audit.view', 'announcement.send', 'support.manage',
     'support.priority', 'support.diagnostics', 'support.resolution_notes', 'support.feedback',
+    'preferences.view', 'preferences.edit',
     'notifications.view', 'subtask.toggle', 'mention.create',
-    'effort.view_all',
+    'effort.view_all', 'it.apps.view',
   ],
   developer: [
     'task.view_all', 'task.edit.own', 'user.view',
     'support.priority', 'support.diagnostics', 'support.resolution_notes', 'support.feedback',
+    'preferences.view', 'preferences.edit',
     'notifications.view', 'subtask.toggle', 'mention.create',
+    'it.apps.view',
   ],
   viewer: [
     'task.view_all', 'notifications.view',
     'support.priority', 'support.resolution_notes', 'support.feedback',
+    'preferences.view', 'preferences.edit',
+    'it.apps.view',
   ],
 }
 
 const DEFAULT_HASHES: Record<string, string> = {
-  // PBKDF2-SHA256, 600k iterations, 16-byte salt — upgrade from the old unsalted SHA-256 seeds
   admin: 'cd72c84240d185d55197677c3fc36c93:d99f4a0a8a011116aa11eff599747a41d94b7349c4104d892e6fff5d9c35a187',
-  jane:  '14d03c9808cfc76f0ad4269b7862894a:006b9f34a78c7d3d9eba6592b2c895c7fddfa66b3018c8efaaf2f1285b30566e',
-  alex:  'ce1d8e9a032d3675cc03820a6e27adf9:d7bac78a7201eaa4374532d6819bbdc3826118e6b1f2fefe528024f67edd9369',
-  raj:   'cbf09e029d459acc971a24589d33f6b8:91bb6cc8b93ee4a57b3d2dc6d5568b347fa00744d41dbc793655ee59768910da',
-  maya:  '6d1943783a0a9aa344952f86208523d3:004755845432bda75d2b7d2d9dd848e75511fc69ab1ffe3c9d5e0e9b78b759fd',
 }
 
 function getDefaultStore(): StoreSchema {
-  const now = new Date().toISOString()
   function makeUser(overrides: Partial<User> & { username: string; name: string; email: string; role: Role }): User {
     return {
       id: overrides.id || generateId(),
       permissions: [...ROLE_PERMISSIONS[overrides.role]],
       active: true,
       approved: true,
-      createdAt: now,
+      createdAt: new Date().toISOString(),
       ...overrides,
     } as User
   }
 
-  const admin = makeUser({ id: 'user_1', username: 'admin', name: 'Admin User', email: 'admin@teamtask.local', role: 'admin', title: 'System Administrator', department: 'it' })
-  const jane = makeUser({ id: 'user_2', username: 'jane', name: 'Jane Doe', email: 'jane@teamtask.local', role: 'manager', title: 'Engineering Manager', department: 'engineering' })
-  const alex = makeUser({ id: 'user_3', username: 'alex', name: 'Alex Liu', email: 'alex@teamtask.local', role: 'developer', title: 'Full-Stack Developer', department: 'engineering' })
-  const raj = makeUser({ id: 'user_4', username: 'raj', name: 'Raj Johnson', email: 'raj@teamtask.local', role: 'developer', title: 'QA Engineer', department: 'qa' })
-  const maya = makeUser({ id: 'user_5', username: 'maya', name: 'Maya Kapoor', email: 'maya@teamtask.local', role: 'developer', title: 'UI/UX Designer', department: 'design' })
-
-  const tasks: Task[] = [
-    { id: 'task_1', code: 'TASK-0001', title: 'Implement dark mode toggle across dashboard', description: 'Add a dark mode toggle to the main dashboard interface. The toggle should persist the user\'s preference and apply system-wide CSS variable overrides.', status: 'in_progress', priority: 'high', assigneeId: 'user_3', creatorId: 'user_2', dueDate: new Date(Date.now() + 86400000 * 3).toISOString(), estHours: 8, project: 'Frontend', kanbanOrder: 0, createdAt: new Date(Date.now() - 86400000 * 5).toISOString(), updatedAt: new Date(Date.now() - 86400000).toISOString() },
-    { id: 'task_2', code: 'TASK-0002', title: 'Review API rate limiting PR', description: 'Review the pull request for API rate limiting middleware.', status: 'todo', priority: 'medium', assigneeId: 'user_3', creatorId: 'user_2', dueDate: new Date(Date.now() + 86400000).toISOString(), estHours: 3, project: 'Backend', kanbanOrder: 0, createdAt: new Date(Date.now() - 86400000 * 3).toISOString(), updatedAt: new Date(Date.now() - 86400000 * 2).toISOString() },
-    { id: 'task_3', code: 'TASK-0003', title: 'Write unit tests for auth module', description: 'Write comprehensive unit tests for the authentication module including login, logout, and token refresh flows.', status: 'todo', priority: 'medium', assigneeId: 'user_3', creatorId: 'user_2', dueDate: new Date(Date.now() + 86400000 * 5).toISOString(), estHours: 5, project: 'Backend', kanbanOrder: 1, createdAt: new Date(Date.now() - 86400000 * 4).toISOString(), updatedAt: new Date(Date.now() - 86400000 * 4).toISOString() },
-    { id: 'task_4', code: 'TASK-0004', title: 'Update API documentation', description: 'Update the OpenAPI documentation with the new rate limiting and notification endpoints.', status: 'todo', priority: 'low', assigneeId: 'user_3', creatorId: 'user_2', dueDate: new Date(Date.now() - 86400000).toISOString(), estHours: 2, project: 'Backend', kanbanOrder: 2, createdAt: new Date(Date.now() - 86400000 * 7).toISOString(), updatedAt: new Date(Date.now() - 86400000 * 6).toISOString() },
-    { id: 'task_5', code: 'TASK-0005', title: 'Set up staging environment', description: 'Configure the staging environment with monitoring and logging.', status: 'done', priority: 'high', assigneeId: 'user_4', creatorId: 'user_2', dueDate: new Date(Date.now() - 86400000 * 2).toISOString(), estHours: 6, project: 'DevOps', kanbanOrder: 0, createdAt: new Date(Date.now() - 86400000 * 10).toISOString(), updatedAt: new Date(Date.now() - 86400000 * 2).toISOString() },
-    { id: 'task_6', code: 'TASK-0006', title: 'Design new dashboard layout', description: 'Create wireframes and mockups for the new manager dashboard.', status: 'done', priority: 'medium', assigneeId: 'user_5', creatorId: 'user_2', dueDate: new Date(Date.now() - 86400000 * 4).toISOString(), estHours: 12, project: 'Frontend', kanbanOrder: 1, createdAt: new Date(Date.now() - 86400000 * 14).toISOString(), updatedAt: new Date(Date.now() - 86400000 * 4).toISOString() },
-  ]
-
-  const comments: Comment[] = [
-    { id: 'cmt_1', taskId: 'task_1', authorId: 'user_3', content: 'I\'ve started working on the CSS variable approach in the feature/dark-mode branch. The transition timing should be handled via transition: background-color 0.3s ease on the body element.', createdAt: new Date(Date.now() - 86400000 * 3).toISOString(), editedAt: null, deleted: false },
-    { id: 'cmt_2', taskId: 'task_1', authorId: 'user_2', content: 'Don\'t forget to update the chart colors too — the Recharts components need explicit dark mode palette tokens.', createdAt: new Date(Date.now() - 86400000 * 2).toISOString(), editedAt: null, deleted: false },
-    { id: 'cmt_3', taskId: 'task_1', authorId: 'user_4', content: 'Should we also add a keyboard shortcut? Ctrl+Shift+D would be nice for power users.', createdAt: new Date(Date.now() - 86400000).toISOString(), editedAt: null, deleted: false },
-  ]
-
-  const notifications: Notification[] = [
-    { id: 'notif_1', userId: 'user_3', type: 'task_assigned', title: 'New Task Assigned', message: 'You have been assigned to "Review API rate limiting PR"', read: false, taskId: 'task_2', createdAt: new Date().toISOString() },
-    { id: 'notif_2', userId: 'user_3', type: 'deadline', title: 'Deadline Approaching', message: '"Implement dark mode toggle" is due in 3 days', read: false, taskId: 'task_1', createdAt: new Date().toISOString() },
-    { id: 'notif_3', userId: 'user_3', type: 'comment', title: 'New Comment', message: 'Maya Kapoor commented on "Implement dark mode toggle"', read: true, taskId: 'task_1', createdAt: new Date(Date.now() - 86400000).toISOString() },
-  ]
+  const admin = makeUser({ id: 'user_1', username: 'admin', name: 'Admin', email: 'admin@novatask.local', role: 'admin', title: 'System Administrator', department: 'it' })
 
   return {
-    users: [admin, jane, alex, raj, maya],
-    tasks,
-    comments,
-    notifications,
+    users: [admin],
+    tasks: [],
+    comments: [],
+    notifications: [],
     timeEntries: [],
     settings: getDefaultSettings(),
+    preferences: {},
     sessions: [{ userId: 'user_1', token: 'tok_' + crypto.randomUUID() }],
     passwords: { ...DEFAULT_HASHES },
     auditEntries: [],
     supportTickets: [],
     chatRequests: [],
     chatMessages: [],
+    recommendedApps: [],
   }
 }
 
 class Database {
   private data: StoreSchema
   private loginAttempts: Map<string, { count: number; lockedUntil: number }> = new Map()
+  private auditWriteCount = 0
 
   constructor() {
     const stored = localStorage.getItem(STORE_KEY)
@@ -219,12 +203,14 @@ class Database {
           notifications: parsed.notifications || defaults.notifications,
           timeEntries: parsed.timeEntries || [],
           settings: { ...defaults.settings, ...parsed.settings },
+          preferences: { ...defaults.preferences, ...parsed.preferences },
           sessions: parsed.sessions || defaults.sessions,
           passwords: { ...defaults.passwords, ...parsed.passwords },
           auditEntries: parsed.auditEntries || [],
           supportTickets: parsed.supportTickets || [],
           chatRequests: parsed.chatRequests || [],
           chatMessages: parsed.chatMessages || [],
+          recommendedApps: parsed.recommendedApps || defaults.recommendedApps,
         }
         if (needsMigration) {
           this.persist()
@@ -253,8 +239,8 @@ class Database {
         }
         this.persist()
         return
-      } catch (e) {
-        console.error('Failed to initialize DB', e)
+      } catch (e: unknown) {
+        console.error('Failed to initialize DB', e instanceof Error ? e.message : String(e))
         localStorage.removeItem(STORE_KEY)
         localStorage.removeItem('ttm_token')
       }
@@ -266,9 +252,9 @@ class Database {
   private persist() {
     try {
       localStorage.setItem(STORE_KEY, JSON.stringify(this.data))
-    } catch (e) {
-      console.error('db persist failed:', e)
-      window.dispatchEvent(new CustomEvent('ttm_persist_error', { detail: e }))
+    } catch (e: unknown) {
+      console.error('db persist failed:', e instanceof Error ? e.message : String(e))
+      window.dispatchEvent(new CustomEvent('ttm_persist_error', { detail: e instanceof Error ? e.message : String(e) }))
     }
   }
 
@@ -281,7 +267,6 @@ class Database {
   get auditEntries() { return this.data.auditEntries }
   get supportTickets() { return this.data.supportTickets || [] }
 
-  // Auth
   async authenticate(username: string, password: string) {
     const settings = this.data.settings
     const attempt = this.loginAttempts.get(username)
@@ -420,6 +405,7 @@ class Database {
 
       const user = this.data.users.find(u => u.username === username)
       if (user) {
+        this.addAuditEntry('password_changed', user.id, user.username, i18n.t('db.password_changed').replace('{username}', user.username))
         const admins = this.data.users.filter(usr => usr.role === 'admin' && usr.username !== username)
         admins.forEach(adm => {
           this.addNotification({
@@ -464,9 +450,12 @@ class Database {
     if (updates.email && updates.email !== oldUser.email) changes.push(`${i18n.t('db.audit.email')}: "${oldUser.email}" → "${updates.email}"`)
     if (updates.role && updates.role !== oldUser.role) changes.push(`${i18n.t('db.audit.role')}: "${oldUser.role}" → "${updates.role}"`)
     if (updates.active !== undefined && updates.active !== oldUser.active) {
-      const oldActive = oldUser.active ? i18n.t('db.audit.active') : i18n.t('db.audit.inactive')
-      const newActive = updates.active ? i18n.t('db.audit.active') : i18n.t('db.audit.inactive')
-      changes.push(`${i18n.t('db.audit.status')}: ${oldActive} → ${newActive}`)
+      const action = updates.active ? 'user_activated' as const : 'user_deactivated' as const
+      this.addAuditEntry(action, updated.id, updated.username,
+        updates.active
+          ? i18n.t('db.user_activated').replace('{username}', updated.username)
+          : i18n.t('db.user_deactivated').replace('{username}', updated.username))
+      return
     }
     if (updates.permissions && JSON.stringify(updates.permissions) !== JSON.stringify(oldUser.permissions)) changes.push(i18n.t('db.audit.permissions_modified'))
     if (changes.length > 0) this.addAuditEntry('user_updated', updated.id, updated.username, i18n.t('db.user_updated').replace('{username}', updated.username).replace('{details}', changes.join(' | ')))
@@ -570,8 +559,8 @@ class Database {
 
     const creator = this.data.users.find(u => u.id === task.creatorId)
     const assigneeName = task.assigneeId
-      ? this.data.users.find(u => u.id === task.assigneeId)?.name || (i18n.lang === 'ar' ? 'غير معروف' : 'unknown')
-      : (i18n.lang === 'ar' ? 'غير محدد' : 'unassigned')
+      ? this.data.users.find(u => u.id === task.assigneeId)?.name || i18n.t('common.unknown')
+      : i18n.t('common.unassigned')
     this.addAuditEntry('task_created', task.creatorId, creator?.username || '',
       i18n.t('db.task_created').replace('{code}', task.code).replace('{title}', task.title).replace('{priority}', i18n.t(`priority.${task.priority}`)).replace('{assignee}', assigneeName))
 
@@ -624,8 +613,8 @@ class Database {
     if (updates.status && updates.status !== oldTask.status) changes.push(`${i18n.t('export.status')}: "${oldTask.status}" → "${updates.status}"`)
     if (updates.priority && updates.priority !== oldTask.priority) changes.push(`${i18n.t('export.priority')}: "${oldTask.priority}" → "${updates.priority}"`)
     if (updates.assigneeId !== undefined && updates.assigneeId !== oldTask.assigneeId) {
-      const oldAssignee = oldTask.assigneeId ? this.data.users.find(u => u.id === oldTask.assigneeId)?.name || (i18n.lang === 'ar' ? 'غير معروف' : 'unknown') : (i18n.lang === 'ar' ? 'غير محدد' : 'unassigned')
-      const newAssignee = updates.assigneeId ? this.data.users.find(u => u.id === updates.assigneeId)?.name || (i18n.lang === 'ar' ? 'غير معروف' : 'unknown') : (i18n.lang === 'ar' ? 'غير محدد' : 'unassigned')
+      const oldAssignee = oldTask.assigneeId ? this.data.users.find(u => u.id === oldTask.assigneeId)?.name || i18n.t('common.unknown') : i18n.t('common.unassigned')
+      const newAssignee = updates.assigneeId ? this.data.users.find(u => u.id === updates.assigneeId)?.name || i18n.t('common.unknown') : i18n.t('common.unassigned')
       changes.push(`${i18n.t('export.assignee')}: "${oldAssignee}" → "${newAssignee}"`)
     }
     if (updates.dueDate !== undefined && updates.dueDate !== oldTask.dueDate) {
@@ -710,7 +699,7 @@ class Database {
     const task = this.getTask(comment.taskId)
     if (task) {
       const commenter = this.data.users.find(u => u.id === comment.authorId)
-      const commenterName = commenter ? commenter.name : (i18n.lang === 'ar' ? 'شخص ما' : 'Someone')
+      const commenterName = commenter ? commenter.name : i18n.t('common.someone')
       
       const targetUserId = !task.assigneeId ? task.creatorId :
         comment.authorId === task.assigneeId ? task.creatorId : task.assigneeId
@@ -933,8 +922,9 @@ class Database {
     this.data.settings = { ...this.data.settings, ...s }
     this.persist()
     const changed: string[] = []
-    for (const key of Object.keys(s)) {
-      if ((oldSettings as any)[key] !== (s as any)[key]) {
+    const keys = Object.keys(s) as (keyof AppSettings)[]
+    for (const key of keys) {
+      if (oldSettings[key] !== s[key]) {
         changed.push(key)
       }
     }
@@ -952,6 +942,21 @@ class Database {
     }
   }
 
+  getUserPreferences(userId: string): UserPreferences {
+    if (!this.data.preferences[userId]) {
+      this.data.preferences[userId] = getDefaultPreferences()
+    }
+    return { ...this.data.preferences[userId] }
+  }
+
+  updateUserPreferences(userId: string, data: Partial<UserPreferences>) {
+    if (!this.data.preferences[userId]) {
+      this.data.preferences[userId] = getDefaultPreferences()
+    }
+    this.data.preferences[userId] = { ...this.data.preferences[userId], ...data }
+    this.persist()
+  }
+
   addAuditEntry(action: AuditAction, userId: string, username: string, details: string) {
     const entry: AuditEntry = {
       id: generateId(),
@@ -962,7 +967,8 @@ class Database {
       timestamp: new Date().toISOString(),
     }
     this.data.auditEntries.push(entry)
-    this.purgeOldAuditEntries()
+    this.auditWriteCount++
+    if (this.auditWriteCount % 20 === 0) this.purgeOldAuditEntries()
     this.persist()
     return entry
   }
@@ -973,7 +979,7 @@ class Database {
     this.data.auditEntries = this.data.auditEntries.filter(e => new Date(e.timestamp).getTime() > cutoff)
   }
 
-  getAuditLog(filters?: { action?: string; userId?: string; search?: string; offset?: number; limit?: number }): AuditEntry[] {
+  getAuditLog(filters?: { action?: AuditAction; userId?: string; search?: string; offset?: number; limit?: number }): AuditEntry[] {
     let result = [...this.data.auditEntries]
     if (filters?.action) result = result.filter(e => e.action === filters.action)
     if (filters?.userId) result = result.filter(e => e.userId === filters.userId)
@@ -1064,6 +1070,14 @@ class Database {
     return updateSupportTicketImpl(this.data, () => this.persist(), (n) => this.addNotification(n), id, updates)
   }
 
+  deleteSupportTicket(id: string): boolean {
+    return deleteSupportTicketImpl(this.data, () => this.persist(), id)
+  }
+
+  addCommentToSupportTicket(ticketId: string, authorId: string, text: string): SupportTicketComment | null {
+    return addCommentToSupportTicketImpl(this.data, () => this.persist(), generateId, ticketId, authorId, text)
+  }
+
   getChatRequests(userId: string): ChatRequest[] {
     return getChatRequestsImpl(this.data, userId)
   }
@@ -1082,6 +1096,39 @@ class Database {
 
   sendChatMessage(senderId: string, receiverId: string, text: string): ChatMessage {
     return sendChatMessageImpl(this.data, () => this.persist(), generateId, senderId, receiverId, text)
+  }
+
+  getRecommendedApps(): RecommendedApp[] {
+    return [...this.data.recommendedApps]
+  }
+
+  addRecommendedApp(app: Omit<RecommendedApp, 'id' | 'createdAt' | 'updatedAt'>): RecommendedApp {
+    const entry: RecommendedApp = {
+      ...app,
+      id: generateId(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+    this.data.recommendedApps.push(entry)
+    this.persist()
+    return entry
+  }
+
+  updateRecommendedApp(id: string, updates: Partial<Omit<RecommendedApp, 'id' | 'createdBy' | 'createdAt' | 'updatedAt'>>): RecommendedApp | null {
+    const idx = this.data.recommendedApps.findIndex(a => a.id === id)
+    if (idx === -1) return null
+    this.data.recommendedApps[idx] = {
+      ...this.data.recommendedApps[idx],
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    }
+    this.persist()
+    return this.data.recommendedApps[idx]
+  }
+
+  deleteRecommendedApp(id: string) {
+    this.data.recommendedApps = this.data.recommendedApps.filter(a => a.id !== id)
+    this.persist()
   }
 }
 

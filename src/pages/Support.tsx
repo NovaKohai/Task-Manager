@@ -1,20 +1,44 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
-import { LifeBuoy, X } from 'lucide-react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { LifeBuoy, X, Search, ArrowUpDown } from 'lucide-react'
 import { i18n } from '@/lib/i18n'
 import { useAuthStore } from '@/stores/authStore'
 import { useUserStore } from '@/stores/userStore'
 import { useSupportStore } from '@/stores/supportStore'
 import { hasPermission } from '@/lib/utils'
-import type { SupportTicketCategory, SupportTicketStatus, Priority } from '@/lib/types'
+import type { SupportTicket, SupportTicketCategory, SupportTicketStatus, Priority } from '@/lib/types'
 import { db } from '@/lib/db'
 import { TicketSubmitForm } from '@/components/support/TicketSubmitForm'
 import { MyTicketsList } from '@/components/support/MyTicketsList'
 import { ItQueueManager } from '@/components/support/ItQueueManager'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
+
+type SortMode = 'newest' | 'oldest' | 'priority'
+
+const PRIORITY_ORDER: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 }
+
+function sortTickets(tickets: SupportTicket[], sort: SortMode) {
+  return [...tickets].sort((a, b) => {
+    if (sort === 'newest') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    if (sort === 'oldest') return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    if (sort === 'priority') return (PRIORITY_ORDER[b.priority || 'medium'] || 0) - (PRIORITY_ORDER[a.priority || 'medium'] || 0)
+    return 0
+  })
+}
+
+function searchTickets(tickets: SupportTicket[], query: string) {
+  if (!query.trim()) return tickets
+  const q = query.toLowerCase()
+  return tickets.filter(t =>
+    t.description.toLowerCase().includes(q) ||
+    i18n.t(`support.ticket.category.${t.category}`).toLowerCase().includes(q)
+  )
+}
 
 export default function Support() {
   const user = useAuthStore((s) => s.user)
   const { users, fetchUsers } = useUserStore()
-  const { tickets, isLoading, fetchTickets, createTicket, updateTicket } = useSupportStore()
+  const { tickets, isLoading, fetchTickets, createTicket, updateTicket, deleteTicket, addComment } = useSupportStore()
 
   const settings = useMemo(() => db.getSettings(), [])
   const [category, setCategory] = useState<SupportTicketCategory>('network')
@@ -25,6 +49,8 @@ export default function Support() {
   const [activeTab, setActiveTab] = useState<'submit' | 'my_tickets' | 'queue'>('submit')
   const [filterStatus, setFilterStatus] = useState<'all' | SupportTicketStatus>('all')
   const [expandedImage, setExpandedImage] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sortMode, setSortMode] = useState<SortMode>('newest')
   
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
@@ -35,6 +61,9 @@ export default function Support() {
   const [hoveredRating, setHoveredRating] = useState<Record<string, number>>({})
   const [selectedRating, setSelectedRating] = useState<Record<string, number>>({})
   const [feedbackTextByTicket, setFeedbackTextByTicket] = useState<Record<string, string>>({})
+  const [commentTextByTicket, setCommentTextByTicket] = useState<Record<string, string>>({})
+  const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({})
+  const [deleteConfirmTicket, setDeleteConfirmTicket] = useState<string | null>(null)
 
   const isIT = hasPermission(user, 'support.manage')
 
@@ -43,7 +72,6 @@ export default function Support() {
     fetchTickets()
   }, [fetchUsers, fetchTickets])
 
-  // Automatically switch tab if user is IT to view the queue, or fallback to submit
   useEffect(() => {
     if (isIT) {
       setActiveTab('queue')
@@ -105,7 +133,7 @@ export default function Support() {
         } else {
           deviceInfo = `${navigator.platform} | ${navigator.userAgent}`
         }
-      } catch (_) { /* ignore system info errors */ }
+      } catch { /* Electron API may be unavailable in browser — fall back to navigator info */ }
 
       const usePriority = settings.supportEnablePriority && hasPermission(user, 'support.priority')
 
@@ -147,29 +175,53 @@ export default function Support() {
     await updateTicket(ticketId, { rating, feedbackText: feedbackText.trim() })
   }
 
-  const handleAssign = async (ticketId: string) => {
+  const handleAssign = useCallback(async (ticketId: string) => {
     if (!user) return
     await updateTicket(ticketId, { assigneeId: user.id, status: 'in_progress' })
-  }
+  }, [user, updateTicket])
 
-  const handleStatusChange = async (ticketId: string, newStatus: SupportTicketStatus) => {
+  const handleStatusChange = useCallback(async (ticketId: string, newStatus: SupportTicketStatus) => {
     await updateTicket(ticketId, { status: newStatus })
+  }, [updateTicket])
+
+  const handleDeleteTicket = useCallback(async (ticketId: string) => {
+    await deleteTicket(ticketId)
+    setDeleteConfirmTicket(null)
+  }, [deleteTicket])
+
+  const handleAddComment = async (ticketId: string) => {
+    const text = commentTextByTicket[ticketId]?.trim()
+    if (!text || !user) return
+    await addComment(ticketId, user.id, text)
+    setCommentTextByTicket(prev => ({ ...prev, [ticketId]: '' }))
   }
 
-  const getUserName = (id: string | null) => {
+  const getUserName = useCallback((id: string | null) => {
     if (!id) return '—'
     return users.find(u => u.id === id)?.name || id
-  }
+  }, [users])
 
-  const getUserDetails = (id: string) => {
+  const getUserDetails = useCallback((id: string) => {
     return users.find(u => u.id === id)
-  }
+  }, [users])
 
-  const myTickets = tickets.filter(t => t.creatorId === user?.id)
-  const filteredQueue = tickets.filter(t => {
-    if (filterStatus === 'all') return true
-    return t.status === filterStatus
-  })
+  const myTickets = useMemo(() => {
+    const base = tickets.filter(t => t.creatorId === user?.id)
+    return sortTickets(searchTickets(base, searchQuery), sortMode)
+  }, [tickets, user, searchQuery, sortMode])
+
+  const filteredQueue = useMemo(() => {
+    const base = tickets.filter(t => {
+      if (filterStatus === 'all') return true
+      return t.status === filterStatus
+    })
+    return sortTickets(searchTickets(base, searchQuery), sortMode)
+  }, [tickets, filterStatus, searchQuery, sortMode])
+
+  const pendingCount = useMemo(() =>
+    tickets.filter(t => t.status !== 'completed').length,
+    [tickets]
+  )
 
   const getStatusBadgeVariant = (status: SupportTicketStatus) => {
     switch (status) {
@@ -181,7 +233,6 @@ export default function Support() {
 
   return (
     <div className="container max-w-6xl mx-auto py-8 px-4 font-outfit">
-      {/* Expanded Image Overlay Modal */}
       {expandedImage && (
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 transition-all duration-300"
@@ -202,7 +253,14 @@ export default function Support() {
         </div>
       )}
 
-      {/* Page Header */}
+      <ConfirmDialog
+        isOpen={!!deleteConfirmTicket}
+        title={i18n.t('support.action.delete')}
+        description={i18n.t('support.action.delete.confirm')}
+        onConfirm={() => handleDeleteTicket(deleteConfirmTicket!)}
+        onCancel={() => setDeleteConfirmTicket(null)}
+      />
+
       <div className="flex flex-col gap-1 mb-8 text-right rtl:text-right ltr:text-left">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-primary to-primary/80 text-primary-foreground flex items-center justify-center shadow-lg shadow-primary/20">
@@ -215,7 +273,6 @@ export default function Support() {
         </div>
       </div>
 
-      {/* Tabs Layout */}
       <div className="flex flex-col gap-6">
         <div className="flex border-b border-border/10 pb-px gap-2">
           {isIT && (
@@ -228,9 +285,9 @@ export default function Support() {
               }`}
             >
               {i18n.t('support.tab.queue')}
-              {tickets.filter(t => t.status !== 'completed').length > 0 && (
+              {pendingCount > 0 && (
                 <span className="absolute top-1.5 right-0.5 bg-destructive text-destructive-foreground text-[10px] font-bold h-4 w-4 rounded-full flex items-center justify-center">
-                  {tickets.filter(t => t.status !== 'completed').length}
+                  {pendingCount}
                 </span>
               )}
             </button>
@@ -257,7 +314,35 @@ export default function Support() {
           </button>
         </div>
 
-        {/* Tab Contents */}
+        {/* Search + Sort Bar */}
+        {(activeTab === 'my_tickets' || activeTab === 'queue') && (
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={i18n.t('support.search.placeholder')}
+                className="w-full bg-surface/30 border border-border/10 hover:border-border/20 focus:border-primary/50 focus:ring-1 focus:ring-primary/30 outline-none rounded-xl pl-9 pr-3 py-2 text-xs transition-all font-outfit"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <ArrowUpDown className="h-4 w-4 text-muted-foreground/60" />
+              <Select aria-label={i18n.t('support.sort.label')} value={sortMode} onValueChange={(v) => setSortMode(v as SortMode)}>
+                <SelectTrigger className="h-9 rounded-xl bg-surface/30 border border-border/10 hover:border-border/20 text-xs gap-2 min-w-[130px] spring-transition">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">{i18n.t('support.sort.newest')}</SelectItem>
+                  <SelectItem value="oldest">{i18n.t('support.sort.oldest')}</SelectItem>
+                  <SelectItem value="priority">{i18n.t('support.sort.priority')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
+
         <div className="min-h-[400px]">
           {activeTab === 'submit' && (
             <TicketSubmitForm
@@ -289,6 +374,7 @@ export default function Support() {
               getStatusBadgeVariant={getStatusBadgeVariant}
               setExpandedImage={setExpandedImage}
               getUserName={getUserName}
+              getUserDetails={getUserDetails}
               hoveredRating={hoveredRating}
               setHoveredRating={setHoveredRating}
               selectedRating={selectedRating}
@@ -296,6 +382,12 @@ export default function Support() {
               feedbackTextByTicket={feedbackTextByTicket}
               setFeedbackTextByTicket={setFeedbackTextByTicket}
               handleFeedbackSubmit={handleFeedbackSubmit}
+              handleDeleteTicket={(id) => setDeleteConfirmTicket(id)}
+              commentTextByTicket={commentTextByTicket}
+              setCommentTextByTicket={setCommentTextByTicket}
+              expandedComments={expandedComments}
+              setExpandedComments={setExpandedComments}
+              handleAddComment={handleAddComment}
             />
           )}
 
@@ -316,6 +408,12 @@ export default function Support() {
               handleAssign={handleAssign}
               handleResolve={handleResolve}
               handleStatusChange={handleStatusChange}
+              handleDeleteTicket={(id) => setDeleteConfirmTicket(id)}
+              commentTextByTicket={commentTextByTicket}
+              setCommentTextByTicket={setCommentTextByTicket}
+              expandedComments={expandedComments}
+              setExpandedComments={setExpandedComments}
+              handleAddComment={handleAddComment}
             />
           )}
         </div>

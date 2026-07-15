@@ -103,7 +103,7 @@ export const TicketSubmitForm: React.FC<TicketSubmitFormProps> = ({
           <div className="space-y-2">
             <label className="text-caption font-bold text-foreground">{i18n.t('support.priority')}</label>
             <div className="w-[180px]">
-              <Select value={priority} onValueChange={(v) => setPriority(v as Priority)}>
+              <Select aria-label={i18n.t('support.priority')} value={priority} onValueChange={(v) => setPriority(v as Priority)}>
                 <SelectTrigger className="h-10 rounded-xl bg-background border border-border/10 hover:border-border/20 spring-transition">
                   <SelectValue />
                 </SelectTrigger>
@@ -155,7 +155,7 @@ export const TicketSubmitForm: React.FC<TicketSubmitFormProps> = ({
           <Clock className="h-4 w-4 text-muted-foreground" />
           <span className="text-xs text-muted-foreground">
             {i18n.t('support.form.submission_date')}{' '}
-            <span className="font-bold text-foreground">{new Date().toLocaleDateString(i18n.lang === 'ar' ? 'ar-SA' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+            <span className="font-bold text-foreground">{new Date().toLocaleDateString(i18n.localeStr, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
           </span>
         </div>
         <p className="text-[10px] text-muted-foreground/60 mt-1">

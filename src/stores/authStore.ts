@@ -29,9 +29,9 @@ export const useAuthStore = create<AuthState>((set) => ({
       localStorage.setItem('ttm_token', session.token)
       set({ user: session.user, token: session.token, isLoading: false })
       return true
-    } catch (e) {
+    } catch (e: unknown) {
       set({ isLoading: false })
-      throw e
+      throw e instanceof Error ? e : new Error(String(e))
     }
   },
 
@@ -58,8 +58,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         localStorage.removeItem('ttm_token')
         set({ user: null, token: null })
       }
-    } catch (e) {
-      console.error('checkSession failed', e)
+    } catch (e: unknown) {
+      console.error('checkSession failed', e instanceof Error ? e.message : String(e))
       localStorage.removeItem('ttm_token')
       set({ user: null, token: null })
     } finally {

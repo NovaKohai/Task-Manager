@@ -51,7 +51,7 @@ export default function Reports() {
     const total = m.totalTasks
     const completed = m.completedTasks
     const rate = m.completionRate
-    const topLabel = i18n.lang === 'ar' ? 'مهام مكتملة' : 'tasks completed'
+    const topLabel = i18n.t('reports.tasks_completed_label')
     const top = m.topPerformers.map(p => `${p.name} (${p.completed} ${topLabel})`).join(', ')
 
     if (total === 0) {
@@ -59,7 +59,7 @@ export default function Reports() {
       return
     }
 
-    const noneLabel = i18n.lang === 'ar' ? 'لا توجد مساهمات حتى الآن' : 'No contributions registered yet'
+    const noneLabel = i18n.t('reports.no_contributions')
     const summary = i18n.t('reports.summary_content')
       .replace('{completed}', String(completed))
       .replace('{total}', String(total))
@@ -72,11 +72,11 @@ export default function Reports() {
   const maxTrend = Math.max(...m.trend.map(d => d.completed), 1)
 
   return (
-    <div className="space-y-5 page-bg">
+    <div className="space-y-8 page-bg">
       <div className="flex items-center justify-between animate-rise stagger-1">
         <div>
           <h1 className="text-lg font-bold tracking-tight text-foreground">{i18n.t('report.title')}</h1>
-          <p className="text-xs text-muted-foreground/80 mt-1">{i18n.t('reports.subtitle')}</p>
+          <p className="text-xs text-muted-foreground/90 mt-1">{i18n.t('reports.subtitle')}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="secondary" size="sm" onClick={async () => { const period = i18n.t(periodKeys[periodIdx]); const { exportReportXLSX } = await import('@/lib/export'); exportReportXLSX(m, period) }} className="h-8 rounded-full spring-transition text-xs font-semibold px-4">
@@ -114,7 +114,7 @@ export default function Reports() {
                   <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                 </div>
                 <p className="text-2xl font-bold text-foreground">{m.completedTasks}</p>
-                <p className="text-xs text-muted-foreground">{i18n.t('reports.out_of').replace('{count}', String(m.totalTasks))}</p>
+                <p className="text-xs text-muted-foreground">{i18n.t('reports.out_of').replace('{total}', String(m.totalTasks))}</p>
               </div>
             </div>
             <div className="glass-panel">
@@ -151,7 +151,9 @@ export default function Reports() {
               <div className="glass-panel-inner space-y-4">
                 <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">{i18n.t('report.trend')}</h2>
                 <div className="flex items-end gap-2" style={{ height: 120 }}>
-                  {m.trend.map((d, i) => (
+                  {m.trend.length === 0 ? (
+                    <p className="text-sm text-muted-foreground/60 w-full text-center pt-10">{i18n.t('report.no_data')}</p>
+                  ) : m.trend.map((d, i) => (
                     <div key={i} className="flex flex-1 flex-col items-center gap-1">
                       <div className="w-full rounded-full bg-primary spring-transition" style={{ height: `${(d.completed / maxTrend) * 100}%`, minHeight: 4 }} />
                       <span className="text-caption text-muted-foreground font-mono">{d.date}</span>
@@ -165,7 +167,9 @@ export default function Reports() {
               <div className="glass-panel-inner space-y-4">
                 <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">{i18n.t('report.distribution')}</h2>
                 <div className="space-y-3">
-                  {m.byStatus.map((s) => (
+                  {m.byStatus.length === 0 ? (
+                    <p className="text-sm text-muted-foreground/60">{i18n.t('report.no_data')}</p>
+                  ) : m.byStatus.map((s) => (
                     <div key={s.status}>
                       <div className="mb-1 flex items-center justify-between text-sm">
                         <span className="font-bold">{i18n.t(`task.status.${s.status}`)}</span>
@@ -185,7 +189,9 @@ export default function Reports() {
             <div className="glass-panel-inner space-y-4">
               <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">{i18n.t('report.performers')}</h2>
               <div className="flex flex-col gap-3 sm:flex-row">
-                {m.topPerformers.map((p, i) => (
+                {m.topPerformers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground/60 w-full text-center py-6">{i18n.t('report.no_data')}</p>
+                ) : m.topPerformers.map((p, i) => (
                   <div key={p.userId} className="flex flex-1 items-center gap-3 rounded-xl border border-border/10 p-4 hover:border-border/30 spring-fast bg-muted/10">
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground shadow-sm">{i + 1}</div>
                     <div>
@@ -216,7 +222,11 @@ export default function Reports() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {m.topPerformers.map((p) => (
+                  {m.topPerformers.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-sm text-muted-foreground/60 text-center py-8">{i18n.t('report.no_data')}</TableCell>
+                    </TableRow>
+                  ) : m.topPerformers.map((p) => (
                     <TableRow key={p.userId} className="hover:bg-muted/20 spring-fast">
                       <TableCell className="text-sm font-bold text-foreground">{p.name}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{p.completed}</TableCell>
@@ -246,7 +256,7 @@ export default function Reports() {
                       <li key={p.userId} className="flex items-center justify-between gap-3 rounded-xl border border-border/10 px-3 py-2.5 hover:border-border/30 spring-fast bg-muted/10">
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="text-sm font-bold text-foreground truncate">{p.name}</span>
-                          {u && <Badge variant={roleBadge[u.role]} className="rounded-full text-micro px-1.5 py-0">{i18n.t(`user.${u.role}`)}</Badge>}
+                          {u && <Badge variant={roleBadge[u.role]} className="rounded-full text-micro px-1.5 py-0.5">{i18n.t(`user.${u.role}`)}</Badge>}
                         </div>
                         <span className="text-sm font-mono tabular-nums text-muted-foreground shrink-0">{durationLabel(minutes)}</span>
                       </li>

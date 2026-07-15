@@ -204,7 +204,7 @@ export default function TaskDetail() {
 
   const statusTransitions = useMemo(() => {
     const isVerifier = user ? hasPermission(user, 'task.verify') : false
-    const list: { from: TaskStatus[]; to: TaskStatus; label: string; variant: string }[] = [
+    const list: { from: TaskStatus[]; to: TaskStatus; label: string; variant: 'primary' | 'secondary' | 'success' | 'danger' | 'ghost' | 'warning' }[] = [
       { from: ['todo'], to: 'in_progress', label: i18n.t('task_detail.start'), variant: 'primary' },
     ]
     if (isVerifier) {
@@ -237,7 +237,7 @@ export default function TaskDetail() {
   const canDelete = user ? hasPermission(user, 'task.delete') : false
 
   return (
-    <div className="space-y-5 page-bg">
+    <div className="space-y-8 page-bg">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground animate-rise stagger-1">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="h-7 w-7 rounded-full hover:bg-muted/40 spring-transition">
@@ -265,12 +265,12 @@ export default function TaskDetail() {
             </div>
           </div>
 
-          <p className="text-sm leading-relaxed text-muted-foreground/80 max-w-prose">{t.description || i18n.t('task_detail.no_description')}</p>
+          <p className="text-sm leading-relaxed text-muted-foreground/90 max-w-prose">{t.description || i18n.t('task_detail.no_description')}</p>
 
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-5 pt-2">
             <div className="bg-muted/20 rounded-xl p-3 border border-border/10">
               <Label className="text-caption font-semibold uppercase tracking-wider text-muted-foreground/60">{i18n.t('task.assignee')}</Label>
-              <p className="mt-1 flex items-center gap-1 text-sm font-semibold"><User className="h-3 w-3 shrink-0 text-primary" />{t.assigneeId ? (() => { const asUser = getUser(t.assigneeId!); return asUser ? <span className="inline-flex items-center gap-1.5 flex-wrap"><span>{asUser.name}</span><Badge variant={roleBadge[asUser.role]} className="rounded-full text-micro px-1.5 py-0">{i18n.t(`user.${asUser.role}`)}</Badge>{asUser.department ? <Badge variant={getDepartmentConfig(asUser.department).variant} className="rounded-full text-micro px-1.5 py-0">{i18n.t(getDepartmentConfig(asUser.department).label)}</Badge> : null}</span> : 'Unknown' })() : i18n.t('task_detail.unassigned')}</p>
+              <p className="mt-1 flex items-center gap-1 text-sm font-semibold"><User className="h-3 w-3 shrink-0 text-primary" />{t.assigneeId ? (() => { const asUser = getUser(t.assigneeId!); return asUser ? <span className="inline-flex items-center gap-1.5 flex-wrap"><span>{asUser.name}</span><Badge variant={roleBadge[asUser.role]} className="rounded-full text-micro px-1.5 py-0.5">{i18n.t(`user.${asUser.role}`)}</Badge>{asUser.department ? <Badge variant={getDepartmentConfig(asUser.department).variant} className="rounded-full text-micro px-1.5 py-0.5">{i18n.t(getDepartmentConfig(asUser.department).label)}</Badge> : null}</span> : 'Unknown' })() : i18n.t('task_detail.unassigned')}</p>
             </div>
             <div className="bg-muted/20 rounded-xl p-3 border border-border/10">
               <Label className="text-caption font-semibold uppercase tracking-wider text-muted-foreground/60">{i18n.t('task.due_date')}</Label>
@@ -301,7 +301,7 @@ export default function TaskDetail() {
 
           <div className="flex flex-wrap gap-2 pt-2">
             {statusTransitions.filter(s => s.from.includes(t.status)).map(s => (
-              <Button key={s.to} variant={s.variant as any} size="sm" onClick={() => handleStatusChange(s.to)} className="h-8 rounded-full text-xs font-bold spring-transition">
+              <Button key={s.to} variant={s.variant} size="sm" onClick={() => handleStatusChange(s.to)} className="h-8 rounded-full text-xs font-bold spring-transition">
                 {s.to === 'done' ? <CheckCircle2 className="h-3.5 w-3.5" /> : s.to === 'cancelled' ? <XCircle className="h-3.5 w-3.5" /> : null}
                 {s.label}
               </Button>
@@ -469,7 +469,7 @@ export default function TaskDetail() {
                     <div className="flex-1 min-w-0 space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-bold text-foreground">{getUserName(c.authorId)}</span>
-                        {(() => { const commentAuthor = getUser(c.authorId); return commentAuthor ? <Badge variant={roleBadge[commentAuthor.role]} className="rounded-full text-micro px-1.5 py-0">{i18n.t(`user.${commentAuthor.role}`)}</Badge> : null })()}
+                        {(() => { const commentAuthor = getUser(c.authorId); return commentAuthor ? <Badge variant={roleBadge[commentAuthor.role]} className="rounded-full text-micro px-1.5 py-0.5">{i18n.t(`user.${commentAuthor.role}`)}</Badge> : null })()}
                         <span className="text-caption text-muted-foreground font-mono">{formatFull(c.createdAt)}</span>
                         {c.editedAt && <span className="text-caption text-muted-foreground/60">{i18n.t('task_detail.edited')}</span>}
                       </div>

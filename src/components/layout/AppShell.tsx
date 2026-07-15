@@ -18,10 +18,8 @@ export default function AppShell() {
   useEffect(() => {
     const handlePersistError = () => {
       toast({
-        title: i18n.lang === 'ar' ? 'خطأ في حفظ البيانات' : 'Data Persistence Error',
-        description: i18n.lang === 'ar'
-          ? 'المساحة التخزينية ممتلئة. قد لا يتم حفظ التعديلات.'
-          : 'Storage quota exceeded. Your changes might not be saved.',
+        title: i18n.t('error.data_persist.title'),
+        description: i18n.t('error.data_persist.desc'),
         variant: 'destructive',
       })
     }
@@ -56,6 +54,16 @@ export default function AppShell() {
   }, [user, isLoading, location.pathname, navigate])
 
   useEffect(() => {
+    if (
+      !isLoading && user &&
+      location.pathname.startsWith('/preferences') &&
+      !hasPermission(user, 'preferences.view')
+    ) {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [user, isLoading, location.pathname, navigate])
+
+  useEffect(() => {
     if (user && !localStorage.getItem('ttm_onboarding_done') && location.pathname !== '/onboarding') {
       navigate('/onboarding', { replace: true })
     }
@@ -83,10 +91,8 @@ export default function AppShell() {
 
   function handleLogout() { logout(); navigate('/login', { replace: true }) }
 
-  const isRtl = i18n.lang === 'ar'
-
   return (
-    <div dir={isRtl ? 'rtl' : 'ltr'} className="flex min-h-screen bg-background">
+    <div dir={i18n.dir} className="flex min-h-screen bg-background">
       <div className="bg-glow fixed top-[-200px] right-[-200px] opacity-70" />
       <div className="bg-glow fixed bottom-[-200px] left-[-200px] opacity-50" />
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-xl focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-primary-foreground">

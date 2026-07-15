@@ -10,7 +10,6 @@ type UpdateStatus =
   | 'error'
   | 'downloading'
   | 'downloaded'
-  | 'done'
 
 interface UpdateState {
   status: UpdateStatus
@@ -32,11 +31,11 @@ interface UpdateActions {
 
 type UpdateStore = UpdateState & UpdateActions
 
-let listenerCleanup: (() => void) | null = null
+let unsubStatusListener: (() => void) | null = null
 
 function subscribeOnce() {
-  if (listenerCleanup || !window.electronAPI) return
-  listenerCleanup = window.electronAPI.onUpdateStatus((status) => {
+  if (unsubStatusListener || !window.electronAPI) return
+  unsubStatusListener = window.electronAPI.onUpdateStatus((status) => {
     if (status.type === 'progress') {
       useUpdateStore.setState({ status: 'downloading', progress: status.percent })
     } else if (status.type === 'downloaded') {
@@ -92,7 +91,11 @@ export const useUpdateStore = create<UpdateStore>((set) => ({
 
   install: async () => {
     if (!window.electronAPI) return
-    window.electronAPI.installUpdate()
+    const result = await window.electronAPI.installUpdate()
+    if (result?.error) {
+      set({ status: 'error', error: result.error })
+      toast({ title: i18n.t('update.failed'), description: result.error, variant: 'destructive' })
+    }
   },
 
   dismiss: (version?: string) => {
@@ -111,6 +114,8 @@ export function initUpdateCheck() {
   window.electronAPI.checkForUpdates().then((result) => {
     if (result.available && result.version !== dismissed) {
       useUpdateStore.setState({ info: result, dialogOpen: true })
+    } else if (result.error) {
+      useUpdateStore.setState({ status: 'error', error: result.error })
     }
   })
 }

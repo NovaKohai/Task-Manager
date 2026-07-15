@@ -32,7 +32,7 @@ export default function Header({ user, unreadCount }: HeaderProps) {
       <div className="flex-1 flex items-center gap-3">
         <h1 className="text-xs font-semibold flex items-center gap-2">
           <span>{i18n.t(greetingKey)},{' '}<span className="text-primary font-bold">{user.name.split(' ')[0]}</span></span>
-          <Badge variant={roleBadge[user.role]} className="rounded-full text-micro px-1.5 py-0 leading-none shrink-0">{i18n.t(`user.${user.role}`)}</Badge>
+          <Badge variant={roleBadge[user.role]} className="rounded-full text-micro px-1.5 py-0.5 leading-none shrink-0">{i18n.t(`user.${user.role}`)}</Badge>
         </h1>
         <div className="hidden sm:flex items-center gap-1.5 text-[10px] font-semibold text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-2.5 py-0.5 select-none" title="All changes saved to local database storage">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
@@ -85,7 +85,7 @@ export default function Header({ user, unreadCount }: HeaderProps) {
       <button
         onClick={() => toggleLocale()}
         aria-label={i18n.t('lang.toggle')}
-        className="flex h-8 items-center rounded-full border border-input/50 px-3 text-caption font-semibold text-muted-foreground/80 hover:text-foreground hover:border-primary transition-[color,border-color] duration-200 pressable"
+        className="flex h-8 items-center rounded-full border border-input/50 px-3 text-caption font-semibold text-muted-foreground/90 hover:text-foreground hover:border-primary transition-[color,border-color] duration-200 pressable"
       >
         {i18n.t(`lang.${lang}`)}
       </button>

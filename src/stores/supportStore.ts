@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { SupportTicket } from '@/lib/types'
+import type { SupportTicket, SupportTicketComment } from '@/lib/types'
 import { db } from '@/lib/db'
 import { yieldToUI } from '@/lib/utils'
 
@@ -9,6 +9,8 @@ interface SupportState {
   fetchTickets: () => Promise<void>
   createTicket: (ticketData: Omit<SupportTicket, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'assigneeId'>) => Promise<SupportTicket>
   updateTicket: (id: string, updates: Partial<SupportTicket>) => Promise<SupportTicket | null>
+  deleteTicket: (id: string) => Promise<boolean>
+  addComment: (ticketId: string, authorId: string, text: string) => Promise<SupportTicketComment | null>
 }
 
 export const useSupportStore = create<SupportState>((set) => ({
@@ -39,5 +41,27 @@ export const useSupportStore = create<SupportState>((set) => ({
       isLoading: false,
     }))
     return updated
+  },
+
+  deleteTicket: async (id) => {
+    const ok = db.deleteSupportTicket(id)
+    if (ok) {
+      set(state => ({ tickets: state.tickets.filter(t => t.id !== id) }))
+    }
+    return ok
+  },
+
+  addComment: async (ticketId, authorId, text) => {
+    const comment = db.addCommentToSupportTicket(ticketId, authorId, text)
+    if (comment) {
+      set(state => ({
+        tickets: state.tickets.map(t =>
+          t.id === ticketId
+            ? { ...t, comments: [...(t.comments || []), comment!] }
+            : t
+        )
+      }))
+    }
+    return comment
   },
 }))

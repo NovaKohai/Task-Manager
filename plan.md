@@ -1,303 +1,159 @@
-# Windows Server Migration Plan
+# Final Audit — Fix Plan
 
-## Current Architecture
-
-```
-┌─────────────────────────────────────────────────┐
-│              Electron Desktop App               │
-│  ┌───────────────────────────────────────────┐  │
-│  │       React SPA (Vite + TypeScript)       │  │
-│  │  ┌──────────┐  ┌──────────┐  ┌────────┐  │  │
-│  │  │ Zustand  │  │ Zustand  │  │Zustand │  │  │
-│  │  │ AuthStore│  │TaskStore │  │More... │  │  │
-│  │  └────┬─────┘  └────┬─────┘  └───┬────┘  │  │
-│  │       └──────┬──────┘────────────┘       │  │
-│  │              ▼                            │  │
-│  │       ┌──────────────┐                    │  │
-│  │       │   db.ts      │  localStorage      │  │
-│  │       │ (Database)   │────────────────►   │  │
-│  │       │   class      │  'ttm_data'        │  │
-│  │       └──────────────┘                    │  │
-│  └───────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────┘
-```
-
-**Problem**: All data lives in browser `localStorage`. No sync, no backup, no multi-device. Each Electron install has its own isolated database.
+## Scope: Full codebase audit + fix
+Audited using: clean‑code‑guard, emil‑design‑eng, impeccable, a11y-audit
 
 ---
 
-## Target Architecture
+## Phase 1 — Bugs (3 items)
 
-```
-┌──────────────────┐       ┌─────────────────────────────┐
-│  Electron Client │       │    Windows Server 2022+     │
-│  (React SPA)     │◄─────►│                             │
-│                  │ HTTP  │  ┌───────────────────────┐  │
-│  ┌────────────┐  │ JSON  │  │ ASP.NET Core 9 WebAPI │  │
-│  │ api/       │  │       │  │                       │  │
-│  │  auth.ts   │──┼───────┼─►│  Controllers/         │  │
-│  │  tasks.ts  │  │       │  │  Services/            │  │
-│  │  users.ts  │  │       │  │  Middleware/           │  │
-│  │  ...       │  │       │  └──────────┬────────────┘  │
-│  └────────────┘  │       │             │               │
-│                  │       │  ┌──────────▼────────────┐  │
-│  ┌────────────┐  │       │  │  Entity Framework     │  │
-│  │ Zustand    │  │       │  │  (Code-First)         │  │
-│  │ stores     │  │       │  └──────────┬────────────┘  │
-│  │ use API    │  │       │             │               │
-│  └────────────┘  │       │  ┌──────────▼────────────┐  │
-│                  │       │  │  SQL Server 2022      │  │
-│                  │       │  │  (or PostgreSQL)      │  │
-│                  │       │  └───────────────────────┘  │
-└──────────────────┘       └─────────────────────────────┘
-```
+### 1.1 App.tsx — Wrap LoginPage in `<Suspense>`
+- **File:** `src/App.tsx`
+- **Problem:** `LoginPage` is lazy‑loaded but rendered outside `AppShell` which provides the only `<Suspense>`. If the chunk doesn't load, React throws the promise and the tree fails to render (blank page).
+- **Fix:** Wrap the `LoginPage` route with `<Suspense fallback={...}>`.
+
+### 1.2 AdminUsers.tsx — Partial update on edit
+- **File:** `src/pages/AdminUsers.tsx:150-151`
+- **Problem:** `updateUser()` is called before `updateUserPassword()`. If the password call throws, the profile was already saved but the password wasn't — the error message doesn't tell the user.
+- **Fix:** Use a two‑phase approach: if password is provided, try password first, then save profile. Show specific error.
+
+### 1.3 ErrorBoundary.tsx — Missing preventDefault
+- **File:** `src/components/ErrorBoundary.tsx:63`
+- **Problem:** `handlePromiseRejection` catches the error for state display but doesn't call `event.preventDefault()`, so the browser still logs an unhandled rejection.
+- **Fix:** Add `event.preventDefault()` as first line.
 
 ---
 
-## Migration Phases
+## Phase 2 — A11y: Critical (15 items)
 
-### Phase 1: Backend Scaffold (2-3 days)
+### 2.1–2.7 Form controls missing accessible labels
+- **Files:** BroadcastDialog (select), TicketSubmitForm (select), DepartmentSelect (select), ITApps (input, select, textarea, input, input, textarea), Preferences (select), Support (select)
+- **Fix:** Add `aria-label` or `<label>` + `id` to each unlabeled control.
 
-#### 1.1 Create ASP.NET Core 9 WebAPI project
-```
-team-task-manager-server/
-├── Controllers/
-│   ├── AuthController.cs
-│   ├── TasksController.cs
-│   ├── UsersController.cs
-│   ├── CommentsController.cs
-│   ├── NotificationsController.cs
-│   ├── ReportsController.cs
-│   ├── SettingsController.cs
-│   └── AuditController.cs
-├── Models/
-│   ├── User.cs
-│   ├── Task.cs
-│   ├── Comment.cs
-│   ├── Notification.cs
-│   ├── AuditEntry.cs
-│   └── AppSettings.cs
-├── Data/
-│   └── AppDbContext.cs
-├── Services/
-│   ├── AuthService.cs
-│   ├── TaskService.cs
-│   ├── ReportService.cs
-│   └── AuditService.cs
-├── DTOs/
-│   ├── LoginRequest.cs
-│   ├── LoginResponse.cs
-│   ├── TaskFilter.cs
-│   └── ReportMetrics.cs
-├── Middleware/
-│   ├── JwtMiddleware.cs
-│   └── RateLimitMiddleware.cs
-├── Migrations/
-├── Program.cs
-└── appsettings.json
-```
+### 2.8–2.9 TaskList keyboard‑inaccessible divs
+- **File:** `src/pages/TaskList.tsx:517-518`
+- **Fix:** Add `onKeyDown` handler (Escape to close) or use `<button>` with `role="presentation"`.
 
-**Key decisions:**
-- **Framework**: ASP.NET Core 9 Minimal API or Controllers
-- **Auth**: JWT with refresh tokens (matching current `accessTokenExpiry`/`refreshTokenExpiry` settings)
-- **Database**: SQL Server 2022 Express (free, runs on Windows Server)
-- **ORM**: Entity Framework Core (code-first, migrations)
-- **Hosting**: IIS or `dotnet run` as Windows Service
-
-#### 1.2 Database Schema
-
-All entities map 1:1 from `StoreSchema` in `db.ts`:
-
-| Table | Key fields |
-|-------|-----------|
-| `Users` | Id, Username, Name, Email, Role, PasswordHash, Active, Approved, CreatedAt |
-| `Tasks` | Id, Code, Title, Description, Status, Priority, AssigneeId, CreatorId, DueDate, EstHours, Project, CreatedAt, UpdatedAt |
-| `Comments` | Id, TaskId, AuthorId, Content, EditedAt, Deleted |
-| `Notifications` | Id, UserId, Type, Title, Message, TaskId, Read, CreatedAt |
-| `Sessions` | Id, UserId, Token, ExpiresAt |
-| `AuditEntries` | Id, Action, UserId, Username, Details, Timestamp |
-| `AppSettings` | Id, Key, Value (single-row or kv store) |
-
-**Password storage**: BCrypt instead of SHA-256 (current SHA-256 is insufficient for production).
-
-**Migrations**: EF Core migrations for schema versioning.
+### 2.10 ITApps icon img alt
+- **File:** `src/pages/ITApps.tsx:358`
+- **Fix:** Add descriptive `alt` text (the app name).
 
 ---
 
-### Phase 2: Client API Layer (1-2 days)
+## Phase 3 — A11y: Site‑wide structural (one‑time setup)
 
-#### 2.1 Create API module
+### 3.1 Add skip‑to‑content link
+- **File:** `src/components/layout/AppShell.tsx`
+- **Fix:** Add `<a href="#main-content" className="sr-only...">` as first focusable element.
 
-```
-src/api/
-├── client.ts        # Base fetch wrapper (JWT attach, error handling, retry)
-├── auth.ts          # login(), logout(), register(), refreshToken()
-├── tasks.ts         # CRUD + list with filters
-├── users.ts         # CRUD
-├── comments.ts      # CRUD
-├── notifications.ts # list, markRead, markAllRead
-├── reports.ts       # getReportMetrics()
-├── settings.ts      # get, update, reset
-└── audit.ts         # list, clear
-```
+### 3.2 Add `<main>` landmark wrapper
+- **File:** `src/components/layout/AppShell.tsx` (or each page shell)
+- **Fix:** Wrap `<Outlet />` in `<main id="main-content">`.
 
-**`client.ts`** handles:
-- Base URL from settings (or env variable)
-- JWT token attachment via `Authorization: Bearer`
-- 401 → token refresh → retry
-- Request/response serialization
-- Rate limiting backoff
+### 3.3 Add `<nav>` to Sidebar
+- **File:** `src/components/layout/Sidebar.tsx`
+- **Fix:** Wrap nav link groups in `<nav aria-label="...">`.
 
-#### 2.2 Rewrite Zustand stores
+### 3.4 Add `<h1>` to every page
+- **Files:** All page components that start with `<h2>` or `<h3>` (AdminUsers, AuditLog, BroadcastDialog, etc.)
+- **Fix:** Add a single `<h1 className="sr-only">` or visible `<h1>` as the main heading.
 
-Each store currently calls `db.someMethod()` directly. Rewrite to call the API layer instead:
-
-**Before** (current `taskStore.ts`):
-```ts
-createTask: async (data) => {
-  const task = db.createTask(data)
-  set(state => ({ tasks: [task, ...state.tasks] }))
-  return task
-}
-```
-
-**After**:
-```ts
-createTask: async (data) => {
-  const task = await api.tasks.create(data)
-  set(state => ({ tasks: [task, ...state.tasks] }))
-  return task
-}
-```
-
-Same pattern for all stores:
-- `authStore.ts` → `api.auth.login()`, `api.auth.logout()`, `api.auth.checkSession()`
-- `taskStore.ts` → `api.tasks.*`
-- `userStore.ts` → `api.users.*`
-- `commentStore.ts` → `api.comments.*`
-- `notificationStore.ts` → `api.notifications.*`
-- `reportStore.ts` → `api.reports.*`
-- `settingsStore.ts` → `api.settings.*`
-- `auditStore.ts` → `api.audit.*`
-
-#### 2.3 Remove `db.ts` dependents
-
-After all stores are migrated:
-- Delete direct usage of `import { db } from '@/lib/db'` in page components
-- The only remaining usage is in `TaskDetail.tsx` for `db.checkDeadlinesAndOverdue()` and `db.checkWeeklyDigests()` — move these to the server side
-- Delete `src/lib/db.ts`
+### 3.5 Add `prefers-reduced-motion` to global CSS
+- **File:** `src/index.css`
+- **Fix:** Add `@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; ... } }`
 
 ---
 
-### Phase 3: Offline Support (optional, 2-3 days)
+## Phase 4 — Animation polish (emil‑design‑eng)
 
-If offline resilience is needed:
+### 4.1 Replace `transition-all` with specific properties
+- **Files:** toast.tsx, TicketSubmitForm.tsx, AppShell.tsx, TaskList.tsx, Sidebar.tsx, ChatWindow.tsx, PriorityAlerts.tsx, ChatSidebar.tsx, VoipCallOverlay.tsx, MyTicketsList.tsx, ItQueueManager.tsx, Reports.tsx, Onboarding.tsx, Settings.tsx
+- **Fix:** `transition-all` → `transition-[specific-props] duration-200 ease-out`.
 
-1. Keep a lightweight local IndexedDB cache
-2. On server available: read from server, write to server
-3. On server unavailable: read from cache, queue writes, sync on reconnect
-4. Conflict resolution: last-write-wins with timestamp
+### 4.2 Add button `:active` press feedback
+- **File:** `src/components/ui/button.tsx`
+- **Fix:** Add `active:scale-[0.97]` to button variants.
 
-This adds significant complexity. **Recommend skipping v1** and shipping as online-only first.
+### 4.3 Improve entry animations
+- **Files:** All `animate-rise` usages (consider adding `motion-safe:animate-rise` wrapper)
+- **Fix:** Wrap anim classes with `motion-safe:` or add reduced‑motion fallback.
 
----
-
-### Phase 4: Deployment (1 day)
-
-#### Windows Server setup:
-- Install .NET 9 Runtime
-- Install SQL Server 2022 Express
-- Create DB and user
-- Deploy via IIS or as a Windows Service
-- Configure HTTPS with cert
-- Open firewall port
-
-#### IIS deployment:
-```
-- Create App Pool (No Managed Code, identity=NetworkService)
-- Point to publish folder
-- Set HTTPS binding with cert
-- Enable Websockets if needed for real-time
-```
-
-#### Client config:
-- Electron app reads server URL from a config file or environment variable
-- First-run dialog: "Enter your TeamTask Server address"
-- Or use mDNS/ZeroConf for LAN discovery
+### 4.4 `animate-pulse` on non‑loading indicators
+- **Files:** ChatSidebar, ChatWindow (online dot), ErrorBoundary (alert icon), Header, PriorityAlerts
+- **Fix:** Remove `animate-pulse` from static indicators; use subtle static styling.
 
 ---
 
-### Phase 5: Real-time Updates (stretch, 2-3 days)
+## Phase 5 — Code quality (10 items)
 
-- Add SignalR hub to ASP.NET Core backend
-- Client subscribes to task/notification updates
-- Push notifications instead of polling
+### 5.1 db.ts — Permission migration runs on every load
+- **File:** `src/lib/db.ts:226-239`
+- **Fix:** Track schema version in store; only run migration on version change.
 
----
+### 5.2 db.ts — Hardcoded English auth errors
+- **File:** `src/lib/db.ts:288,294`
+- **Fix:** Use `i18n.t()` for error messages (throw translated strings).
 
-## Effort Summary
+### 5.3 types.ts — `RecommendedApp.category` should be union
+- **File:** `src/lib/types.ts:224`
+- **Fix:** Create `RecommendedAppCategory` union type.
 
-| Phase | What | Days | Dependencies |
-|-------|------|------|-------------|
-| 1 | ASP.NET Core API + DB | 2-3 | None |
-| 2 | Frontend API layer + store rewrite | 1-2 | Phase 1 |
-| 3 | Offline support | 2-3 | Phase 2 (skip for v1) |
-| 4 | Deployment | 1 | Phase 1+2 |
-| 5 | SignalR real-time | 2-3 | Phase 2 (stretch) |
-| **Total** | | **7-12** | |
+### 5.4 ITApps.tsx — Empty catch block
+- **File:** `src/pages/ITApps.tsx:136`
+- **Fix:** Log the error: `catch (e) { console.error(e); ... }`.
 
----
+### 5.5 ITApps.tsx — Touch‑unfriendly hover‑reveal buttons
+- **File:** `src/pages/ITApps.tsx:222`
+- **Fix:** Use `group-hover:opacity-100 focus-visible:opacity-100` instead of just `group-hover`.
 
-## Key Risks
+### 5.6 AuditLog.tsx — CSV export missing catch
+- **File:** `src/pages/AuditLog.tsx:145-168`
+- **Fix:** Add `catch` block with toast error.
 
-1. **Breaking all existing localStorage data**: Users will lose their local data after migration. Migration script needed to export localStorage → JSON → import to server on first connection.
-2. **Auth model change**: JWT replaces simple token. Refresh token rotation, expiry handling, and secure storage needed.
-3. **Password rehash**: All existing SHA-256 hashes must be rehashed to BCrypt on first login (or migration script).
-4. **Rate limiting**: Currently simulated in settings. Server must enforce real rate limits.
-5. **Concurrency**: LocalStorage is synchronous single-user. Server has concurrent access — need proper locking/transactions.
+### 5.7 AuditLog.tsx — Stale store access
+- **File:** `src/pages/AuditLog.tsx:175`
+- **Fix:** Pass `user` as parameter or use hook at call time.
 
----
+### 5.8 AdminUsers.tsx — async on sync functions
+- **File:** `src/pages/AdminUsers.tsx:183,211`
+- **Fix:** Remove `async` from `handleDelete` and `handleReject`.
 
-## Migration Data Script
+### 5.9 App.tsx — Toaster outside HashRouter
+- **File:** `src/App.tsx:74`
+- **Fix:** Move `<Toaster />` and `<UpdateDialog />` inside `</HashRouter>`.
 
-Before cutting over, provide a utility to export `ttm_data` from localStorage and POST to the server:
-
-```ts
-// tools/export-local-data.ts
-const data = JSON.parse(localStorage.getItem('ttm_data'))
-await fetch(`${serverUrl}/api/migrate/import`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify(data),
-})
-```
-
-Server endpoint re-encrypts passwords to BCrypt and inserts with preserved IDs.
+### 5.10 AdminUsers.tsx — Silent error on admin actions
+- **File:** `src/pages/AdminUsers.tsx:179,196,207,220`
+- **Fix:** Show error toast on failure for toggle/delete/approve/reject.
 
 ---
 
-## File Change Summary
+## Phase 6 — UI polish (4 items)
 
-| File | Action |
-|------|--------|
-| `src/lib/db.ts` | **DELETE** (entire file, 803 lines) |
-| `src/api/client.ts` | **CREATE** |
-| `src/api/auth.ts` | **CREATE** |
-| `src/api/tasks.ts` | **CREATE** |
-| `src/api/users.ts` | **CREATE** |
-| `src/api/comments.ts` | **CREATE** |
-| `src/api/notifications.ts` | **CREATE** |
-| `src/api/reports.ts` | **CREATE** |
-| `src/api/settings.ts` | **CREATE** |
-| `src/api/audit.ts` | **CREATE** |
-| `src/stores/authStore.ts` | **REWRITE** (db → api) |
-| `src/stores/taskStore.ts` | **REWRITE** (db → api) |
-| `src/stores/userStore.ts` | **REWRITE** (db → api) |
-| `src/stores/commentStore.ts` | **REWRITE** (db → api) |
-| `src/stores/notificationStore.ts` | **REWRITE** (db → api) |
-| `src/stores/reportStore.ts` | **REWRITE** (db → api) |
-| `src/stores/settingsStore.ts` | **REWRITE** (db → api) |
-| `src/stores/auditStore.ts` | **REWRITE** (db → api) |
-| `src/pages/TaskDetail.tsx` | **EDIT** (remove db refs) |
-| `src/lib/analytics.ts` | **REWRITE** (send to server if opted in) |
-| `src/App.tsx` | Possibly **EDIT** (add server URL config) |
+### 6.1 Chat.tsx — Fake online indicator
+- **File:** `src/components/chat/ChatWindow.tsx:67`
+- **Fix:** Remove the green dot + `animate-pulse` that implies real presence.
+
+### 6.2 ITApps.tsx — Better empty states
+- **File:** `src/pages/ITApps.tsx:211-218`
+- **Fix:** Differentiate "no apps at all" vs "no apps in filter".
+
+### 6.3 Chat.tsx — Missing aria-labels on call buttons
+- **File:** `src/components/chat/ChatWindow.tsx:78-94`
+- **Fix:** Add `aria-label` to voice/video buttons.
+
+### 6.4 Chat.tsx — Hardcoded English fallback
+- **File:** `src/components/chat/ChatWindow.tsx:72`
+- **Fix:** Use `i18n.t()` instead of `'System Administrator'` / `'Staff'`.
+
+---
+
+## Execution order
+1. Phase 1 (bugs) — highest risk
+2. Phase 2 (a11y critical) — blocks access
+3. Phase 3 (a11y structural) — one‑time setup, benefits every page
+4. Phase 4 (animation) — visual polish
+5. Phase 5 (code quality) — maintainability
+6. Phase 6 (UI polish) — minor improvements
+
+After each phase: `npm run lint` and `npm run build` to verify.

@@ -26,27 +26,27 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onCancel() }}>
-      <DialogContent className="max-w-md rounded-2xl glass-panel animate-rise p-6">
-        <DialogHeader className={i18n.lang === 'ar' ? 'text-right' : 'text-left'}>
+      <DialogContent className="max-w-md animate-rise p-6">
+        <DialogHeader className={i18n.dir === 'rtl' ? 'text-right' : 'text-left'}>
           <DialogTitle className="text-base font-bold text-foreground">{title}</DialogTitle>
-          <DialogDescription className="text-xs text-muted-foreground/80 mt-2">
+          <DialogDescription className="text-xs text-muted-foreground/90 mt-2">
             {description}
           </DialogDescription>
         </DialogHeader>
-        <DialogFooter className={`mt-4 gap-2 flex ${i18n.lang === 'ar' ? 'flex-row-reverse justify-start' : 'flex-row justify-end'}`}>
+        <DialogFooter className={`mt-4 gap-2 flex ${i18n.dir === 'rtl' ? 'flex-row-reverse justify-start' : 'flex-row justify-end'}`}>
           <Button 
             onClick={onCancel} 
             variant="ghost" 
             className="h-9 px-4 rounded-xl text-xs font-semibold spring-transition active:scale-[0.97]"
           >
-            {cancelText || (i18n.lang === 'ar' ? 'إلغاء' : 'Cancel')}
+            {cancelText || i18n.t('cancel')}
           </Button>
           <Button 
             onClick={onConfirm} 
             variant={variant} 
             className="h-9 px-4 rounded-xl text-xs font-semibold spring-transition active:scale-[0.97]"
           >
-            {confirmText || (i18n.lang === 'ar' ? 'تأكيد' : 'Confirm')}
+            {confirmText || i18n.t('confirm')}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nova Task Manager</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: oklch(0.14 0.008 110);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      overflow: hidden;
+      font-family: system-ui, -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .splash {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 28px;
+    }
+
+    .card {
+      width: 320px;
+      height: 320px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: color-mix(in oklch, oklch(0.18 0.008 110) 65%, transparent);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid color-mix(in oklch, oklch(0.26 0.008 110) 50%, transparent);
+      border-radius: 2.5rem;
+      box-shadow:
+        inset 0 1px 0 oklch(1 0 0 / 0.06),
+        0 8px 32px oklch(0 0 0 / 0.4);
+      animation: cardIn 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: radial-gradient(
+        circle at 30% 20%,
+        color-mix(in oklch, oklch(0.6 0.16 160) 6%, transparent) 0%,
+        transparent 60%
+      );
+      pointer-events: none;
+    }
+
+    .logo {
+      width: 200px;
+      height: 200px;
+      display: block;
+      position: relative;
+      z-index: 1;
+    }
+
+    .logo-blades {
+      transform-origin: 256px 200px;
+      animation: bladesIn 1100ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+
+    .checkmark {
+      stroke-dasharray: 180;
+      stroke-dashoffset: 180;
+      animation: drawCheck 750ms 450ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .wordmark {
+      opacity: 0;
+      animation: wordmarkIn 800ms 650ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .subtitle {
+      font-size: 0.9375rem;
+      font-weight: 400;
+      color: oklch(0.6 0.01 110);
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      opacity: 0;
+      animation: subtitleIn 800ms 800ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(24px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @keyframes bladesIn {
+      0% { opacity: 0; transform: scale(0.6) rotate(-45deg); }
+      100% { opacity: 1; transform: scale(1) rotate(0); }
+    }
+
+    @keyframes drawCheck {
+      to { stroke-dashoffset: 0; }
+    }
+
+    @keyframes wordmarkIn {
+      0% { opacity: 0; transform: translateY(16px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes subtitleIn {
+      0% { opacity: 0; transform: translateY(12px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .card,
+      .logo-blades,
+      .checkmark,
+      .wordmark,
+      .subtitle {
+        animation: none !important;
+        opacity: 1 !important;
+        stroke-dashoffset: 0 !important;
+        transform: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="splash">
+    <div class="card">
+      <svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+        <defs>
+          <linearGradient id="blade-top" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#C084FC" />
+            <stop offset="100%" stop-color="#6366F1" />
+          </linearGradient>
+          <linearGradient id="blade-right" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#38BDF8" />
+            <stop offset="100%" stop-color="#0EA5E9" />
+          </linearGradient>
+          <linearGradient id="blade-bottom" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#34D399" />
+            <stop offset="100%" stop-color="#059669" />
+          </linearGradient>
+          <linearGradient id="blade-left" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#F472B6" />
+            <stop offset="100%" stop-color="#DB2777" />
+          </linearGradient>
+        </defs>
+
+        <!-- Chromatic Blades Group (centered and scaled) -->
+        <g class="logo-blades">
+          <g transform="translate(256, 200) scale(0.8) translate(-256, -256)">
+            <!-- Top Arm -->
+            <path d="M 256 64 C 256 160 220 220 160 220 C 220 220 256 220 256 64 Z" fill="url(#blade-top)" />
+            <!-- Right Arm -->
+            <path d="M 448 256 C 352 256 292 220 292 160 C 292 220 292 256 448 256 Z" fill="url(#blade-right)" />
+            <!-- Bottom Arm -->
+            <path d="M 256 448 C 256 352 292 292 352 292 C 292 292 256 292 256 448 Z" fill="url(#blade-bottom)" />
+            <!-- Left Arm -->
+            <path d="M 64 256 C 160 256 220 292 220 352 C 220 292 220 256 64 256 Z" fill="url(#blade-left)" />
+
+            <!-- Checkmark -->
+            <path class="checkmark" d="M 210 260 L 245 295 L 320 210" stroke="#FFFFFF" stroke-width="32" stroke-linecap="round" stroke-linejoin="round" />
+          </g>
+        </g>
+
+        <!-- NOVA wordmark -->
+        <g class="wordmark" stroke="#FFFFFF" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" fill="none">
+          <path d="M 133.5 450 L 133.5 390 L 183.5 450 L 183.5 390" />
+          <rect x="198.5" y="390" width="50" height="60" rx="15" ry="15" />
+          <path d="M 263.5 390 L 288.5 450 L 313.5 390" />
+          <path d="M 328.5 450 L 353.5 390 L 378.5 450" />
+        </g>
+      </svg>
+    </div>
+    <div class="subtitle">Task Manager</div>
+  </div>
+</body>
+</html>

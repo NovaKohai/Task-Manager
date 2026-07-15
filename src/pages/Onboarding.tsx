@@ -55,7 +55,7 @@ export default function Onboarding() {
 
             <div className="space-y-2">
               <h1 className="text-lg font-bold tracking-tight text-foreground">{s.title}</h1>
-              <p className="text-sm text-muted-foreground/80 leading-relaxed">{s.description}</p>
+              <p className="text-sm text-muted-foreground/90 leading-relaxed">{s.description}</p>
             </div>
           </div>
         </div>

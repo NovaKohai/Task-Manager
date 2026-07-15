@@ -5,12 +5,12 @@ export type UserLike = Pick<User, 'id' | 'name' | 'username'>
 
 export function formatDate(d: string | null | undefined, fallback = '—'): string {
   if (!d) return fallback
-  return new Date(d).toLocaleDateString(i18n.lang === 'ar' ? 'ar-SA' : 'en-US')
+  return new Date(d).toLocaleDateString(i18n.localeStr)
 }
 
 export function formatTime(d: string | null | undefined): string {
   if (!d) return '—'
-  return new Date(d).toLocaleTimeString(i18n.lang === 'ar' ? 'ar-SA' : 'en-US', {
+  return new Date(d).toLocaleTimeString(i18n.localeStr, {
     hour: '2-digit',
     minute: '2-digit',
   })
@@ -18,7 +18,7 @@ export function formatTime(d: string | null | undefined): string {
 
 export function formatFull(d: string | null | undefined, fallback = '—'): string {
   if (!d) return fallback
-  return new Date(d).toLocaleDateString(i18n.lang === 'ar' ? 'ar-SA' : 'en-US', {
+  return new Date(d).toLocaleDateString(i18n.localeStr, {
     year: 'numeric',
     month: 'short',
     day: 'numeric',

@@ -22,8 +22,8 @@ export const useUserStore = create<UserState>((set) => ({
     try {
       await yieldToUI()
       set({ users: db.getUsers() })
-    } catch (e) {
-      console.error('fetchUsers failed', e)
+    } catch (e: unknown) {
+      console.error('fetchUsers failed', e instanceof Error ? e.message : String(e))
     } finally {
       set({ isLoading: false })
     }
@@ -36,9 +36,9 @@ export const useUserStore = create<UserState>((set) => ({
       const user = await db.createUser(data, password)
       set(state => ({ users: [...state.users, user] }))
       return user
-    } catch (e) {
-      console.error('createUser failed', e)
-      throw e
+    } catch (e: unknown) {
+      console.error('createUser failed', e instanceof Error ? e.message : String(e))
+      throw e instanceof Error ? e : new Error(String(e))
     } finally {
       set({ isLoading: false })
     }
@@ -53,9 +53,9 @@ export const useUserStore = create<UserState>((set) => ({
         users: state.users.map(u => u.id === id ? (updated ?? u) : u),
       }))
       return updated
-    } catch (e) {
-      console.error('updateUser failed', e)
-      throw e
+    } catch (e: unknown) {
+      console.error('updateUser failed', e instanceof Error ? e.message : String(e))
+      throw e instanceof Error ? e : new Error(String(e))
     } finally {
       set({ isLoading: false })
     }
@@ -64,9 +64,9 @@ export const useUserStore = create<UserState>((set) => ({
   updateUserPassword: async (username: string, newPassword: string) => {
     try {
       await db.updatePassword(username, newPassword)
-    } catch (e) {
-      console.error('updateUserPassword failed', e)
-      throw e
+    } catch (e: unknown) {
+      console.error('updateUserPassword failed', e instanceof Error ? e.message : String(e))
+      throw e instanceof Error ? e : new Error(String(e))
     }
   },
 
@@ -76,8 +76,8 @@ export const useUserStore = create<UserState>((set) => ({
       await yieldToUI()
       db.deleteUser(id)
       set(state => ({ users: state.users.filter(u => u.id !== id) }))
-    } catch (e) {
-      console.error('deleteUser failed', e)
+    } catch (e: unknown) {
+      console.error('deleteUser failed', e instanceof Error ? e.message : String(e))
     } finally {
       set({ isLoading: false })
     }

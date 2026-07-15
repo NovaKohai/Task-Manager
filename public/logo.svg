@@ -1,28 +1,57 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" width="100%" height="100%">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <linearGradient id="logo-grad-1" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#a855f7" />
-      <stop offset="100%" stop-color="#06b6d4" />
+    <!-- Background Gradient -->
+    <linearGradient id="bg-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0B0F19" />
+      <stop offset="100%" stop-color="#111827" />
     </linearGradient>
-    <linearGradient id="logo-grad-2" x1="100%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#3b82f6" />
-      <stop offset="100%" stop-color="#ec4899" />
+
+    <!-- Blade Gradients -->
+    <linearGradient id="blade-top" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#C084FC" />
+      <stop offset="100%" stop-color="#6366F1" />
+    </linearGradient>
+    <linearGradient id="blade-right" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="100%" stop-color="#0EA5E9" />
+    </linearGradient>
+    <linearGradient id="blade-bottom" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34D399" />
+      <stop offset="100%" stop-color="#059669" />
+    </linearGradient>
+    <linearGradient id="blade-left" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F472B6" />
+      <stop offset="100%" stop-color="#DB2777" />
     </linearGradient>
   </defs>
-  <!-- Background Glow -->
-  <circle cx="32" cy="32" r="28" fill="url(#logo-grad-1)" opacity="0.08" />
-  
-  <!-- Outer Hexagonal Shell -->
-  <path d="M32 6L54 19V45L32 58L10 45V19L32 6Z" stroke="url(#logo-grad-1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.25" />
-  <path d="M32 6L54 19V45L32 58L10 45V19L32 6Z" stroke="url(#logo-grad-2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="6 6" opacity="0.5" />
-  
-  <!-- TeamTask Interlocking 'T' and Checkmark -->
-  <!-- Horizontal T-bar -->
-  <path d="M20 22H44" stroke="url(#logo-grad-1)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" />
-  
-  <!-- Vertical T-stem curving to the left -->
-  <path d="M32 22V36C32 40 29 43 25 43C21 43 18 40 18 36" stroke="url(#logo-grad-2)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" />
-  
-  <!-- Checkmark line intersecting the T-stem -->
-  <path d="M30 38L35 43L46 26" stroke="url(#logo-grad-1)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Dark Premium Background -->
+  <rect width="512" height="512" rx="115" ry="115" fill="url(#bg-gradient)" stroke="rgba(255,255,255,0.08)" stroke-width="4" />
+
+  <!-- Chromatic Blades Group (centered and scaled) -->
+  <g transform="translate(256, 200) scale(0.8) translate(-256, -256)">
+    <!-- Top Arm -->
+    <path d="M 256 64 C 256 160 220 220 160 220 C 220 220 256 220 256 64 Z" fill="url(#blade-top)" />
+    <!-- Right Arm -->
+    <path d="M 448 256 C 352 256 292 220 292 160 C 292 220 292 256 448 256 Z" fill="url(#blade-right)" />
+    <!-- Bottom Arm -->
+    <path d="M 256 448 C 256 352 292 292 352 292 C 292 292 256 292 256 448 Z" fill="url(#blade-bottom)" />
+    <!-- Left Arm -->
+    <path d="M 64 256 C 160 256 220 292 220 352 C 220 292 220 256 64 256 Z" fill="url(#blade-left)" />
+    
+    <!-- Floating Checkmark in Center -->
+    <path d="M 210 260 L 245 295 L 320 210" stroke="#FFFFFF" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" />
+  </g>
+
+  <!-- Vector Wordmark "NOVA" at the bottom -->
+  <g stroke="#FFFFFF" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- N -->
+    <path d="M 133.5 450 L 133.5 390 L 183.5 450 L 183.5 390" />
+    <!-- O (drawn as path or rect) -->
+    <rect x="198.5" y="390" width="50" height="60" rx="15" ry="15" />
+    <!-- V -->
+    <path d="M 263.5 390 L 288.5 450 L 313.5 390" />
+    <!-- A (futuristic bar-less A) -->
+    <path d="M 328.5 450 L 353.5 390 L 378.5 450" />
+  </g>
 </svg>

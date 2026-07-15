@@ -23,13 +23,13 @@ export function EmptyState({
         {icon || <Inbox className="h-8 w-8" />}
       </div>
       <h3 className="text-sm font-bold text-foreground mb-1">{title}</h3>
-      <p className="text-xs text-muted-foreground/80 max-w-[280px] mb-5 leading-normal">
+      <p className="text-xs text-muted-foreground/90 max-w-[280px] mb-6 leading-normal">
         {description}
       </p>
       {actionText && onAction && (
         <Button 
           onClick={onAction} 
-          className="h-9 px-4 rounded-xl text-xs font-semibold bg-primary hover:bg-primary/90 text-primary-foreground spring-transition shadow-lg shadow-primary/10 active:scale-[0.97]"
+          className="shadow-lg shadow-primary/10"
         >
           {actionText}
         </Button>

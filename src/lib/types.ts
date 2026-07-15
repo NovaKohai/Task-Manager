@@ -3,6 +3,15 @@ export type Department = 'engineering' | 'qa' | 'it' | 'hr' | 'finance' | 'accou
 export type TaskStatus = 'todo' | 'in_progress' | 'under_review' | 'done' | 'cancelled'
 export type Priority = 'low' | 'medium' | 'high' | 'critical'
 
+export type Language = 'en' | 'ar'
+
+export type LocaleConfig = {
+  lang: Language
+  label: string
+  localeStr: string
+  dir: 'ltr' | 'rtl'
+}
+
 export type Permission =
   | 'task.create'
   | 'task.edit'
@@ -19,6 +28,8 @@ export type Permission =
   | 'user.approve'
   | 'settings.view'
   | 'settings.edit'
+  | 'preferences.view'
+  | 'preferences.edit'
   | 'reports.view'
   | 'audit.view'
   | 'announcement.send'
@@ -31,12 +42,14 @@ export type Permission =
   | 'subtask.toggle'
   | 'mention.create'
   | 'effort.view_all'
+  | 'it.apps.view'
+  | 'it.apps.manage'
 
 export type User = {
   id: string
   username: string
   name: string
-  email: string
+  email?: string
   role: Role
   permissions: Permission[]
   avatar?: string
@@ -45,6 +58,8 @@ export type User = {
   createdAt: string
   title?: string
   department?: Department
+  phone?: string
+  birthDate?: string
 }
 
 export type Task = {
@@ -158,6 +173,13 @@ export type AppSettings = {
   backupPath: string
   authRateLimit: number
   apiRateLimit: number
+  supportEnablePriority: boolean
+  supportEnableDiagnostics: boolean
+  supportEnableResolutionNotes: boolean
+  supportEnableFeedback: boolean
+}
+
+export type UserPreferences = {
   enableEmailNotif: boolean
   enablePushNotif: boolean
   enableSlackNotif: boolean
@@ -171,10 +193,6 @@ export type AppSettings = {
   enableSoundNotif: boolean
   soundNotifVolume: number
   soundNotifTheme: string
-  supportEnablePriority: boolean
-  supportEnableDiagnostics: boolean
-  supportEnableResolutionNotes: boolean
-  supportEnableFeedback: boolean
 }
 
 export type Session = {
@@ -187,6 +205,10 @@ export type AuditAction =
   | 'task_created' | 'task_updated' | 'task_deleted'
   | 'user_created' | 'user_updated' | 'user_deleted'
   | 'user_approved' | 'user_rejected'
+  | 'user_activated' | 'user_deactivated'
+  | 'password_changed'
+  | 'profile_updated'
+  | 'broadcast_sent'
   | 'settings_updated' | 'settings_reset'
   | 'audit_log_cleared'
 
@@ -199,6 +221,20 @@ export type AuditEntry = {
   timestamp: string
 }
 
+export type RecommendedApp = {
+  id: string
+  name: string
+  description: string
+  category: string
+  icon: string
+  officialSite: string
+  downloadUrl: string
+  notes: string
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+}
+
 export type SupportTicketStatus = 'pending' | 'in_progress' | 'completed'
 
 export type SupportTicketCategory =
@@ -208,13 +244,19 @@ export type SupportTicketCategory =
   | 'email_account'
   | 'other'
 
+export type SupportTicketComment = {
+  id: string
+  authorId: string
+  text: string
+  createdAt: string
+}
+
 export type SupportTicket = {
   id: string
   creatorId: string
   category: SupportTicketCategory
   description: string
   image?: string
-  reminderDate?: string
   deviceInfo?: string
   systemLog?: string
   status: SupportTicketStatus
@@ -225,6 +267,7 @@ export type SupportTicket = {
   resolutionNotes?: string
   rating?: number
   feedbackText?: string
+  comments?: SupportTicketComment[]
 }
 
 export type ChatRequest = {

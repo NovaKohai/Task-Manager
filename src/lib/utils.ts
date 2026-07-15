@@ -22,9 +22,26 @@ export function formatTime(dateStr: string): string {
   if (hours < 24) return i18n.t('notifications.hour_ago').replace('{h}', String(hours))
   const days = Math.floor(hours / 24)
   if (days < 7) return i18n.t('notifications.day_ago').replace('{d}', String(days))
-  return d.toLocaleDateString(i18n.lang === 'ar' ? 'ar-SA' : 'en-US')
+  return d.toLocaleDateString(i18n.localeStr)
 }
 
 export function yieldToUI(): Promise<void> {
   return new Promise(r => setTimeout(r, 0))
+}
+
+export function formatPhone(val: string): string {
+  const digits = val.replace(/\D/g, '').slice(0, 12)
+  if (digits.length === 0) return ''
+  if (digits.length <= 3) return `(+${digits}`
+  if (digits.length <= 5) return `(+${digits.slice(0, 3)}) ${digits.slice(3)}`
+  if (digits.length <= 8) return `(+${digits.slice(0, 3)}) ${digits.slice(3, 5)} ${digits.slice(5)}`
+  return `(+${digits.slice(0, 3)}) ${digits.slice(3, 5)} ${digits.slice(5, 8)} ${digits.slice(8, 12)}`
+}
+
+export function formatDate(val: string): string {
+  const digits = val.replace(/\D/g, '').slice(0, 8)
+  if (digits.length === 0) return ''
+  if (digits.length <= 2) return digits
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`
 }

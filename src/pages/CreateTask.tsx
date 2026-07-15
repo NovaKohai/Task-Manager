@@ -50,7 +50,7 @@ export default function CreateTask() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5 page-bg">
+    <div className="mx-auto max-w-3xl space-y-8 page-bg">
       <div className="flex items-center gap-3 animate-rise stagger-1">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="h-7 w-7 rounded-full hover:bg-muted/40 spring-transition">
           <ArrowLeft className="h-4 w-4" />

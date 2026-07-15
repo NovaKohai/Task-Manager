@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { roleBadge, getDepartmentConfig } from '@/lib/constants'
 import { formatDate, findUser } from '@/lib/format'
 import type { ReportMetrics, User, Task } from '@/lib/types'
+import PriorityAlerts from '@/components/dashboard/PriorityAlerts'
 
 function AnimatedCounter({ value, duration = 1200 }: { value: number; duration?: number }) {
   const [count, setCount] = useState(0)
@@ -189,7 +190,7 @@ function renderStatsGrid(stats: StatsData, metrics: ReportMetrics | null) {
 
         <div className="mt-4 p-3 rounded-xl bg-primary/5 border border-primary/10 flex items-center gap-2.5">
           <TrendingUp className="h-4 w-4 text-primary shrink-0" />
-          <p className="text-micro text-muted-foreground/80 font-medium leading-normal">
+          <p className="text-micro text-muted-foreground/90 font-medium leading-normal">
             {motivational}
           </p>
         </div>
@@ -247,7 +248,7 @@ function renderRecentTasks(
                       )}>
                         {i18n.t(`priority.${t.priority}`)}
                       </span>
-                      {(() => { const assigneeUser = findUser(users, t.assigneeId); return assigneeUser ? <span className="inline-flex items-center gap-1"><span className="text-caption text-muted-foreground">{assigneeUser.name}</span><Badge variant={roleBadge[assigneeUser.role]} className="rounded-full text-micro px-1.5 py-0">{i18n.t(`user.${assigneeUser.role}`)}</Badge>{assigneeUser.department ? <Badge variant={getDepartmentConfig(assigneeUser.department).variant} className="rounded-full text-micro px-1.5 py-0">{i18n.t(getDepartmentConfig(assigneeUser.department).label)}</Badge> : null}</span> : <span className="text-caption text-muted-foreground">—</span> })()}
+                      {(() => { const assigneeUser = findUser(users, t.assigneeId); return assigneeUser ? <span className="inline-flex items-center gap-1"><span className="text-caption text-muted-foreground">{assigneeUser.name}</span><Badge variant={roleBadge[assigneeUser.role]} className="rounded-full text-micro px-1.5 py-0.5">{i18n.t(`user.${assigneeUser.role}`)}</Badge>{assigneeUser.department ? <Badge variant={getDepartmentConfig(assigneeUser.department).variant} className="rounded-full text-micro px-1.5 py-0.5">{i18n.t(getDepartmentConfig(assigneeUser.department).label)}</Badge> : null}</span> : <span className="text-caption text-muted-foreground">—</span> })()}
                     </div>
                   </div>
                 </div>
@@ -288,7 +289,7 @@ function renderTeamPerformance(topPerformers: { userId: string; name: string; co
                   <div className="flex-1 min-w-0">
                     <h4 className="text-xs font-semibold text-foreground truncate flex items-center gap-1.5 flex-wrap">
                       {member.name}
-                      {userRecord?.department ? <Badge variant={getDepartmentConfig(userRecord.department).variant} className="rounded-full text-micro px-1.5 py-0">{i18n.t(getDepartmentConfig(userRecord.department).label)}</Badge> : null}
+                      {userRecord?.department ? <Badge variant={getDepartmentConfig(userRecord.department).variant} className="rounded-full text-micro px-1.5 py-0.5">{i18n.t(getDepartmentConfig(userRecord.department).label)}</Badge> : null}
                     </h4>
                     <p className="text-caption text-muted-foreground truncate">
                       {userRecord ? i18n.t(`user.${userRecord.role}`) : '—'}
@@ -307,7 +308,7 @@ function renderTeamPerformance(topPerformers: { userId: string; name: string; co
           </div>
         </div>
 
-        <div className="mt-6 pt-4 border-t border-border/10 flex justify-between items-center text-caption text-muted-foreground font-medium">
+        <div className="mt-6 pt-4 flex justify-between items-center text-caption text-muted-foreground font-medium">
           <span>{i18n.t('dashboard.workspace_members').replace('{count}', String(users.length))}</span>
           <span className="text-primary font-bold">{i18n.t('dashboard.active_status')}</span>
         </div>
@@ -353,7 +354,7 @@ function renderWorkloadHeatmap(tasks: Task[], users: User[]) {
                   <div className="flex items-center justify-between text-xs">
                     <div className="font-bold flex items-center gap-1.5 flex-wrap">
                       <span>{dev.name}</span>
-                      {dev.department && <Badge variant={getDepartmentConfig(dev.department).variant} className="rounded-full text-micro px-1.5 py-0">{i18n.t(getDepartmentConfig(dev.department).label)}</Badge>}
+                      {dev.department && <Badge variant={getDepartmentConfig(dev.department).variant} className="rounded-full text-micro px-1.5 py-0.5">{i18n.t(getDepartmentConfig(dev.department).label)}</Badge>}
                     </div>
                     <span className={cn('text-micro font-semibold px-2 py-0.5 rounded-full border', statusColor)}>
                       {statusLabel} ({totalHours}h)
@@ -397,15 +398,20 @@ export default function ManagerDashboard() {
   )
   const stats = metrics || { totalTasks: 0, completedTasks: 0, completionRate: 0, overdueTasks: 0, trend: [], topPerformers: [] }
 
+  const hour = new Date().getHours()
+  let greetingKey = 'greeting.evening'
+  if (hour < 12) greetingKey = 'greeting.morning'
+  else if (hour < 18) greetingKey = 'greeting.afternoon'
+
   return (
-    <div className="space-y-5 max-w-[1400px] mx-auto dashboard-bg">
+    <div className="space-y-8 max-w-[1400px] mx-auto dashboard-bg">
       {/* Dashboard Greeting Header */}
       <div className="flex items-center justify-between pb-6 border-b border-border/40 animate-rise stagger-1">
         <div>
           <h1 className="text-lg font-bold tracking-tight text-foreground">
-            {i18n.t('greeting.morning')}, <span className="text-primary">{user?.name?.split(' ')[0]}</span>
+            {i18n.t(greetingKey)}, <span className="text-primary">{user?.name?.split(' ')[0]}</span>
           </h1>
-          <p className="text-xs text-muted-foreground/80 mt-1">{i18n.t('dashboard.team_overview')}</p>
+          <p className="text-xs text-muted-foreground/90 mt-1">{i18n.t('dashboard.team_overview')}</p>
         </div>
 
         <Button onClick={() => navigate('/tasks/create')} className="group flex items-center justify-between gap-4 bg-gradient-to-r from-primary to-primary/80 hover:opacity-95 text-primary-foreground font-medium text-xs px-5 py-2.5 rounded-full shadow-lg shadow-primary/10 active:scale-[0.98] spring-transition h-10 border-none">
@@ -415,6 +421,8 @@ export default function ManagerDashboard() {
           </div>
         </Button>
       </div>
+
+      <PriorityAlerts />
 
       {/* Bento Grid Top Section: Trend Chart & Stats Card */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 animate-rise stagger-2">

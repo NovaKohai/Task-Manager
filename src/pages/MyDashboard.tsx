@@ -10,6 +10,7 @@ import { i18n } from '@/lib/i18n'
 import { priorityBadge, getInitials, roleBadge, getDepartmentConfig } from '@/lib/constants'
 import { Badge } from '@/components/ui/badge'
 import { formatFull } from '@/lib/format'
+import PriorityAlerts from '@/components/dashboard/PriorityAlerts'
 
 // formatDueLabel returns a relative-day label (today/tomorrow/days_left/days_overdue)
 // rather than an absolute date — this is dashboard-specific and intentionally
@@ -39,7 +40,7 @@ export default function MyDashboard() {
   const recentActivity = useMemo(() => tasks.slice(0, 5), [tasks])
 
   return (
-    <div className="space-y-5 dashboard-bg">
+    <div className="space-y-8 dashboard-bg">
       {/* Greeting */}
       <div className="glass-panel animate-rise stagger-1">
         <div className="glass-panel-inner">
@@ -52,8 +53,8 @@ export default function MyDashboard() {
             <div>
               <h1 className="text-lg font-semibold tracking-tight text-foreground flex items-center gap-2 flex-wrap">
                 {i18n.t('dashboard.welcome_back').replace('{name}', user?.name?.split(' ')[0] || 'User')}
-                {user && <Badge variant={roleBadge[user.role]} className="rounded-full text-micro px-2 py-0">{i18n.t(`user.${user.role}`)}</Badge>}
-                {user?.department && <Badge variant={getDepartmentConfig(user.department).variant} className="rounded-full text-micro px-2 py-0">{i18n.t(getDepartmentConfig(user.department).label)}</Badge>}
+                {user && <Badge variant={roleBadge[user.role]} className="rounded-full text-micro px-2 py-0.5">{i18n.t(`user.${user.role}`)}</Badge>}
+                {user?.department && <Badge variant={getDepartmentConfig(user.department).variant} className="rounded-full text-micro px-2 py-0.5">{i18n.t(getDepartmentConfig(user.department).label)}</Badge>}
               </h1>
               <p className="text-xs text-muted-foreground">
                 {i18n.t('dashboard.task_summary').replace('{open}', String(openTasks.length)).replace('{completed}', String(completedCount))}
@@ -62,6 +63,8 @@ export default function MyDashboard() {
           </div>
         </div>
       </div>
+
+      <PriorityAlerts />
 
       {/* Stat Cards */}
       <div className="grid gap-4 sm:grid-cols-3 animate-rise stagger-2">

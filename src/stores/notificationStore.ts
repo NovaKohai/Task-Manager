@@ -23,8 +23,8 @@ export const useNotificationStore = create<NotificationState>((set) => ({
       const notifications = db.getNotifications(userId)
       const unreadCount = notifications.filter(n => !n.read).length
       set({ notifications, unreadCount, isLoading: false })
-    } catch (e) {
-      console.error('fetchNotifications failed', e)
+    } catch (e: unknown) {
+      console.error('fetchNotifications failed', e instanceof Error ? e.message : String(e))
       set({ isLoading: false })
     }
   },
@@ -37,8 +37,8 @@ export const useNotificationStore = create<NotificationState>((set) => ({
       const notifications = db.getNotifications(userId)
       const unreadCount = notifications.filter(n => !n.read).length
       set({ notifications, unreadCount, isLoading: false })
-    } catch (e) {
-      console.error('refreshNotifications failed', e)
+    } catch (e: unknown) {
+      console.error('refreshNotifications failed', e instanceof Error ? e.message : String(e))
       set({ isLoading: false })
     }
   },

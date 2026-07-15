@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom'
 import { ArrowLeft, Pause, Play, Square, RotateCcw, Coffee, Target, History } from 'lucide-react'
 import { useTaskStore } from '@/stores/taskStore'
 import { useAuthStore } from '@/stores/authStore'
+import { useUserPreferencesStore } from '@/stores/userPreferencesStore'
 import { db } from '@/lib/db'
 import { Button } from '@/components/ui/button'
 import { i18n } from '@/lib/i18n'
@@ -29,7 +30,9 @@ export default function Focus() {
 
   const task = useMemo(() => taskId ? db.getTask(taskId) : null, [taskId])
 
-  const settings = useMemo(() => db.getSettings(), [])
+  const preferences = useUserPreferencesStore(s => s.preferences)
+  const fetchPreferences = useUserPreferencesStore(s => s.fetchPreferences)
+  useEffect(() => { fetchPreferences() }, [fetchPreferences])
   const [mode, setMode] = useState<Mode>('focus')
   const [draft, setDraft] = useState<Draft | null>(null)
   const [, forceTick] = useState(0)
@@ -45,7 +48,7 @@ export default function Focus() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, tasks.length])
 
-  const targetMinutes = mode === 'focus' ? settings.workDurationMin : settings.shortBreakMin
+  const targetMinutes = mode === 'focus' ? (preferences?.workDurationMin ?? 25) : (preferences?.shortBreakMin ?? 5)
 
   function elapsedMinutes(): number {
     if (!draft) return 0
@@ -162,7 +165,7 @@ export default function Focus() {
   const totalMinutes = userTaskTotals.get(user.id) ?? 0
 
   return (
-    <div className="space-y-5 page-bg">
+    <div className="space-y-8 page-bg">
       <div className="flex items-center justify-between animate-rise stagger-1">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="h-7 w-7 rounded-full hover:bg-muted/40 spring-transition">
@@ -287,14 +290,19 @@ export default function Focus() {
       <div className="grid grid-cols-3 gap-3 animate-rise stagger-3">
         <div className="glass-panel">
           <div className="glass-panel-inner text-center py-4">
-            <p className="text-caption font-bold uppercase tracking-widest text-muted-foreground/60">{i18n.t('focus.today_minutes')}</p>
+            <p className="text-caption font-bold uppercase tracking-widest text-muted-foreground">{i18n.t('focus.today_minutes')}</p>
             <p className="text-2xl font-black mt-1 tabular-nums">{durationLabel(todayMinutes)}</p>
+          </div>
+        </div>
+        <div className="glass-panel">
+          <div className="glass-panel-inner text-center py-4">
+            <p className="text-caption font-bold uppercase tracking-widest text-muted-foreground">{i18n.t('focus.total_minutes')}</p>
             <p className="text-2xl font-black mt-1 tabular-nums">{durationLabel(totalMinutes)}</p>
           </div>
         </div>
         <div className="glass-panel">
           <div className="glass-panel-inner text-center py-4">
-            <p className="text-caption font-bold uppercase tracking-widest text-muted-foreground/60">{i18n.t('focus.total_sessions')}</p>
+            <p className="text-caption font-bold uppercase tracking-widest text-muted-foreground">{i18n.t('focus.total_sessions')}</p>
             <p className="text-2xl font-black mt-1 tabular-nums">{recent.filter(r => r.kind === 'focus').length}</p>
           </div>
         </div>
@@ -314,7 +322,7 @@ export default function Focus() {
       {recent.length > 0 && (
         <div className="glass-panel animate-rise stagger-4">
           <div className="glass-panel-inner">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 mb-3 flex items-center gap-2">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
               <History className="h-3.5 w-3.5" />
               {i18n.t('focus.recent_sessions')}
             </h2>

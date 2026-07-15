@@ -53,7 +53,7 @@ export const VoipCallOverlay: React.FC<VoipCallOverlayProps> = ({
         <div className="relative">
           <Avatar className="h-24 w-24 ring-4 ring-primary/20 shadow-xl">
             {peerUser?.avatar && (
-              <AvatarImage src={peerUser.avatar} />
+              <AvatarImage src={peerUser.avatar} alt={peerUser.name} />
             )}
             <AvatarFallback className="bg-primary text-primary-foreground text-3xl font-bold font-outfit">
               {getInitials(peerUser?.name || 'VOIP')}
@@ -92,7 +92,7 @@ export const VoipCallOverlay: React.FC<VoipCallOverlayProps> = ({
           {/* Actual Camera Feed */}
           {!isCamOff && !permissionError && (
             <video
-              ref={localVideoRef as any}
+              ref={localVideoRef}
               autoPlay
               playsInline
               muted={isMuted}

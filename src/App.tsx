@@ -1,4 +1,4 @@
-import { useEffect, lazy } from 'react'
+import { useEffect, lazy, Suspense } from 'react'
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useThemeStore } from '@/stores/themeStore'
@@ -6,6 +6,7 @@ import { initUpdateCheck } from '@/stores/updateStore'
 import { Toaster } from '@/components/ui/toaster'
 import { UpdateDialog } from '@/components/UpdateDialog'
 import AppShell from '@/components/layout/AppShell'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 const LoginPage = lazy(() => import('@/pages/LoginPage'))
 const ManagerDashboard = lazy(() => import('@/pages/ManagerDashboard'))
@@ -15,6 +16,7 @@ const CreateTask = lazy(() => import('@/pages/CreateTask'))
 const TaskDetail = lazy(() => import('@/pages/TaskDetail'))
 const Reports = lazy(() => import('@/pages/Reports'))
 const SettingsPage = lazy(() => import('@/pages/Settings'))
+const PreferencesPage = lazy(() => import('@/pages/Preferences'))
 const AdminUsers = lazy(() => import('@/pages/AdminUsers'))
 const AuditLog = lazy(() => import('@/pages/AuditLog'))
 const Notifications = lazy(() => import('@/pages/Notifications'))
@@ -23,6 +25,15 @@ const Profile = lazy(() => import('@/pages/Profile'))
 const Onboarding = lazy(() => import('@/pages/Onboarding'))
 const SupportPage = lazy(() => import('@/pages/Support'))
 const ChatPage = lazy(() => import('@/pages/Chat'))
+const ITApps = lazy(() => import('@/pages/ITApps'))
+
+function LoadingFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+    </div>
+  )
+}
 
 export default function App() {
   const checkSession = useAuthStore((s) => s.checkSession)
@@ -41,10 +52,10 @@ export default function App() {
   }, [])
 
   return (
-    <>
+    <ErrorBoundary>
       <HashRouter>
         <Routes>
-          <Route path="/login" element={<LoginPage />} />
+          <Route path="/login" element={<Suspense fallback={<LoadingFallback />}><LoginPage /></Suspense>} />
           <Route element={<AppShell />}>
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<ManagerDashboard />} />
@@ -54,6 +65,7 @@ export default function App() {
             <Route path="/tasks/:id" element={<TaskDetail />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/preferences" element={<PreferencesPage />} />
             <Route path="/admin/users" element={<AdminUsers />} />
             <Route path="/admin/audit-log" element={<AuditLog />} />
             <Route path="/notifications" element={<Notifications />} />
@@ -63,11 +75,12 @@ export default function App() {
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/support" element={<SupportPage />} />
             <Route path="/chat" element={<ChatPage />} />
+            <Route path="/it-apps" element={<ITApps />} />
           </Route>
         </Routes>
+        <Toaster />
+        <UpdateDialog />
       </HashRouter>
-      <Toaster />
-      <UpdateDialog />
-    </>
+    </ErrorBoundary>
   )
 }

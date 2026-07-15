@@ -29,11 +29,12 @@ interface ElectronAPI {
   getAppVersion: () => Promise<string>
   checkForUpdates: () => Promise<UpdateInfo>
   downloadUpdate: () => Promise<{ started: boolean }>
-  installUpdate: () => Promise<void>
+  installUpdate: () => Promise<{ error?: string } | void>
   getSystemInfo: () => Promise<any>
   onUpdateStatus: (callback: (status: UpdateStatus) => void) => () => void
 }
 
 interface Window {
   electronAPI?: ElectronAPI
+  webkitAudioContext?: typeof AudioContext
 }

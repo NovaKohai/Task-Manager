@@ -1,5 +1,5 @@
-import { useEffect, useState, useMemo } from 'react'
-import { Download, Search, X, Trash2 } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Download, Search, X, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Users, XCircle } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useDebounce } from '@/hooks/useDebounce'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
@@ -11,7 +11,18 @@ import { Badge } from '@/components/ui/badge'
 import { i18n } from '@/lib/i18n'
 import { db } from '@/lib/db'
 import { formatFull } from '@/lib/format'
-import type { AuditAction, AuditEntry } from '@/lib/types'
+import type { AuditAction } from '@/lib/types'
+
+type SortKey = 'date' | 'action' | 'user'
+type SortDir = 'asc' | 'desc'
+
+const DATE_PRESETS: { label: string; value: number }[] = [
+  { label: 'audit_log.date_all', value: 0 },
+  { label: 'audit_log.date_24h', value: 86400000 },
+  { label: 'audit_log.date_7d', value: 7 * 86400000 },
+  { label: 'audit_log.date_30d', value: 30 * 86400000 },
+  { label: 'audit_log.date_90d', value: 90 * 86400000 },
+]
 
 function actionLabel(action: AuditAction): string {
   return i18n.t(`audit_log.action_${action}`)
@@ -29,51 +40,131 @@ const actionVariants: Record<AuditAction, 'default' | 'success' | 'danger' | 'wa
   user_deleted: 'danger',
   user_approved: 'success',
   user_rejected: 'danger',
+  user_activated: 'success',
+  user_deactivated: 'danger',
+  password_changed: 'warning',
+  profile_updated: 'default',
+  broadcast_sent: 'default',
   settings_updated: 'default',
   settings_reset: 'warning',
   audit_log_cleared: 'danger',
 }
 
-const allActions: AuditAction[] = ['login', 'logout', 'login_failed', 'task_created', 'task_updated', 'task_deleted', 'user_created', 'user_updated', 'user_deleted', 'user_approved', 'user_rejected', 'settings_updated', 'settings_reset', 'audit_log_cleared']
+const allActions: AuditAction[] = [
+  'login', 'logout', 'login_failed',
+  'task_created', 'task_updated', 'task_deleted',
+  'user_created', 'user_updated', 'user_deleted',
+  'user_approved', 'user_rejected',
+  'user_activated', 'user_deactivated',
+  'password_changed', 'profile_updated', 'broadcast_sent',
+  'settings_updated', 'settings_reset', 'audit_log_cleared',
+]
+
+function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
+  if (!active) return <ArrowUpDown className="h-3 w-3 inline ml-1 opacity-30" />
+  return dir === 'asc'
+    ? <ArrowUp className="h-3 w-3 inline ml-1" />
+    : <ArrowDown className="h-3 w-3 inline ml-1" />
+}
 
 export default function AuditLog() {
-  const [entries, setEntries] = useState<AuditEntry[]>([])
   const [actionFilter, setActionFilter] = useState<string>('all')
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 200)
   const [page, setPage] = useState(0)
   const [showClearConfirm, setShowClearConfirm] = useState(false)
+  const [dateRange, setDateRange] = useState(0)
+  const [userFilter, setUserFilter] = useState<string | null>(null)
+  const [sortKey, setSortKey] = useState<SortKey>('date')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [exporting, setExporting] = useState(false)
   const PAGE_SIZE = 25
 
-  useEffect(() => {
-    const results = db.getAuditLog({
-      action: actionFilter !== 'all' ? actionFilter : undefined,
-      search: debouncedSearch || undefined,
-      offset: page * PAGE_SIZE,
-      limit: PAGE_SIZE,
-    })
-    setEntries(results)
-  }, [actionFilter, debouncedSearch, page])
+  const allEntries = useMemo(() => {
+    let result = [...db.auditEntries]
 
-  const totalCount = useMemo(() => db.auditEntries.length, [])
+    if (actionFilter !== 'all') {
+      result = result.filter(e => e.action === actionFilter)
+    }
+
+    if (userFilter) {
+      result = result.filter(e => e.userId === userFilter)
+    }
+
+    if (dateRange > 0) {
+      const cutoff = Date.now() - dateRange
+      result = result.filter(e => new Date(e.timestamp).getTime() > cutoff)
+    }
+
+    if (debouncedSearch) {
+      const s = debouncedSearch.toLowerCase()
+      result = result.filter(e =>
+        e.details.toLowerCase().includes(s) ||
+        e.username.toLowerCase().includes(s)
+      )
+    }
+
+    result.sort((a, b) => {
+      let cmp = 0
+      switch (sortKey) {
+        case 'date':
+          cmp = new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+          break
+        case 'action':
+          cmp = a.action.localeCompare(b.action)
+          break
+        case 'user':
+          cmp = a.username.localeCompare(b.username)
+          break
+      }
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+
+    return result
+  }, [actionFilter, userFilter, dateRange, debouncedSearch, sortKey, sortDir])
+
+  const totalCount = allEntries.length
+  const entries = allEntries.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+
+  const userFilterName = useMemo(() => {
+    if (!userFilter) return null
+    const u = db.getUsers().find(u => u.id === userFilter)
+    return u ? u.username || u.name : null
+  }, [userFilter])
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortKey(key)
+      setSortDir('desc')
+    }
+    setPage(0)
+  }
 
   function handleExportCSV() {
-    const all = db.getAuditLog()
-    const headers = [i18n.t('audit_log.date'), i18n.t('audit_log.action'), i18n.t('audit_log.user'), i18n.t('audit_log.details')]
-    const rows = all.map(e => [
-      new Date(e.timestamp).toISOString(),
-      actionLabel(e.action),
-      e.username,
-      `"${e.details.replace(/"/g, '""')}"`,
-    ])
-    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n')
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `audit-log-${new Date().toISOString().split('T')[0]}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+    setExporting(true)
+    setTimeout(() => {
+      try {
+        const headers = [i18n.t('audit_log.date'), i18n.t('audit_log.action'), i18n.t('audit_log.user'), i18n.t('audit_log.details')]
+        const rows = allEntries.map(e => [
+          new Date(e.timestamp).toISOString(),
+          actionLabel(e.action),
+          e.username,
+          `"${e.details.replace(/"/g, '""')}"`,
+        ])
+        const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n')
+        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `audit-log-${new Date().toISOString().split('T')[0]}.csv`
+        a.click()
+        URL.revokeObjectURL(url)
+      } finally {
+        setExporting(false)
+      }
+    }, 50)
   }
 
   function handleClearLog() {
@@ -83,13 +174,6 @@ export default function AuditLog() {
   function executeClearLog() {
     const user = useAuthStore.getState().user
     db.clearAuditLog(user?.id, user?.username)
-    const results = db.getAuditLog({
-      action: actionFilter !== 'all' ? actionFilter : undefined,
-      search: search || undefined,
-      offset: 0,
-      limit: PAGE_SIZE,
-    })
-    setEntries(results)
     setPage(0)
     setShowClearConfirm(false)
   }
@@ -100,22 +184,22 @@ export default function AuditLog() {
   }
 
   return (
-    <div className="space-y-5 page-bg relative min-h-[calc(100vh-8rem)]">
+    <div className="space-y-8 page-bg relative min-h-[calc(100vh-8rem)]">
       <div aria-hidden="true" className="absolute inset-0 dotted-bg pointer-events-none" />
       {/* Header */}
       <div className="flex items-center justify-between animate-rise stagger-1">
         <div>
           <h1 className="text-lg font-bold tracking-tight text-foreground">{i18n.t('audit_log.title')}</h1>
-          <p className="text-xs text-muted-foreground/80 mt-1">{i18n.t('audit_log.subtitle')}</p>
+          <p className="text-xs text-muted-foreground/90 mt-1">{i18n.t('audit_log.subtitle')}</p>
         </div>
         <div className="flex gap-2">
           <Button onClick={handleClearLog} variant="danger" className="h-10 rounded-full text-xs font-semibold spring-transition active:scale-[0.97] shadow-lg shadow-destructive/10">
             <Trash2 className="h-4 w-4" />
             {i18n.t('audit_log.clear')}
           </Button>
-          <Button onClick={handleExportCSV} className="h-10 rounded-full bg-primary hover:bg-primary/90 text-xs font-semibold spring-transition shadow-lg shadow-primary/20 active:scale-[0.97]">
+          <Button onClick={handleExportCSV} disabled={exporting} className="h-10 rounded-full bg-primary hover:bg-primary/90 text-xs font-semibold spring-transition shadow-lg shadow-primary/20 active:scale-[0.97]">
             <Download className="h-4 w-4" />
-            {i18n.t('audit_log.export_csv')}
+            {exporting ? i18n.t('audit_log.exporting') : i18n.t('audit_log.export_csv')}
           </Button>
         </div>
       </div>
@@ -152,6 +236,33 @@ export default function AuditLog() {
         </span>
       </div>
 
+      {/* Date range + user filter */}
+      <div className="flex flex-wrap gap-2 items-center animate-rise stagger-2">
+        <span className="text-caption font-semibold text-muted-foreground mr-1">{i18n.t('audit_log.period')}:</span>
+        {DATE_PRESETS.map(p => (
+          <button
+            key={p.value}
+            onClick={() => { setDateRange(p.value); setPage(0) }}
+            className={`px-3 py-1.5 rounded-full text-caption font-semibold spring-transition border ${
+              dateRange === p.value
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-background/50 text-muted-foreground border-border/40 hover:bg-muted/30'
+            }`}
+          >
+            {i18n.t(p.label)}
+          </button>
+        ))}
+        {userFilterName && (
+          <div className="flex items-center gap-1.5 ml-2 px-2.5 py-1 rounded-full bg-secondary/20 text-secondary text-caption font-semibold spring-transition border border-secondary/20">
+            <Users className="h-3.5 w-3.5" />
+            {userFilterName}
+            <button onClick={() => { setUserFilter(null); setPage(0) }} className="ml-0.5 hover:text-secondary-foreground spring-transition">
+              <XCircle className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* Table */}
       <div className="glass-panel animate-rise stagger-3">
         <div className="glass-panel-inner p-0">
@@ -169,10 +280,24 @@ export default function AuditLog() {
                 <caption className="sr-only">{i18n.t('audit_log.title')}</caption>
                 <TableHeader>
                   <TableRow>
-                    <th scope="col" className="text-xs font-medium h-10 px-2 text-left align-middle text-muted-foreground sr-only">{i18n.t('audit_log.date')}</th>
-                    <TableHead className="text-xs font-medium">{i18n.t('audit_log.date')}</TableHead>
-                    <TableHead className="text-xs font-medium">{i18n.t('audit_log.action')}</TableHead>
-                    <TableHead className="text-xs font-medium">{i18n.t('audit_log.user')}</TableHead>
+                    <TableHead className="text-xs font-medium">
+                      <button onClick={() => toggleSort('date')} className="flex items-center gap-0.5 hover:text-foreground spring-transition">
+                        {i18n.t('audit_log.date')}
+                        <SortIcon active={sortKey === 'date'} dir={sortDir} />
+                      </button>
+                    </TableHead>
+                    <TableHead className="text-xs font-medium">
+                      <button onClick={() => toggleSort('action')} className="flex items-center gap-0.5 hover:text-foreground spring-transition">
+                        {i18n.t('audit_log.action')}
+                        <SortIcon active={sortKey === 'action'} dir={sortDir} />
+                      </button>
+                    </TableHead>
+                    <TableHead className="text-xs font-medium">
+                      <button onClick={() => toggleSort('user')} className="flex items-center gap-0.5 hover:text-foreground spring-transition">
+                        {i18n.t('audit_log.user')}
+                        <SortIcon active={sortKey === 'user'} dir={sortDir} />
+                      </button>
+                    </TableHead>
                     <TableHead className="text-xs font-medium">{i18n.t('audit_log.details')}</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -185,12 +310,21 @@ export default function AuditLog() {
                       <TableCell>
                         <Badge
                           variant={actionVariants[entry.action] || 'default'}
-                          className="rounded-full text-caption px-2.5 py-0"
+                          className="rounded-full text-caption px-2.5 py-0.5"
                         >
                           {actionLabel(entry.action)}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-sm font-medium">{entry.username || '-'}</TableCell>
+                      <TableCell className="text-sm font-medium">
+                        {entry.username ? (
+                          <button
+                            onClick={() => { setUserFilter(entry.userId); setPage(0) }}
+                            className="hover:text-primary spring-transition underline decoration-dotted underline-offset-2"
+                          >
+                            {entry.username}
+                          </button>
+                        ) : '-'}
+                      </TableCell>
                       <TableCell className="text-sm text-muted-foreground max-w-md truncate" title={entry.details}>
                         {entry.details}
                       </TableCell>
@@ -200,7 +334,7 @@ export default function AuditLog() {
               </Table>
               {/* Pagination */}
               {totalCount > PAGE_SIZE && (
-                <div className="flex items-center justify-between px-4 py-3 border-t border-border/10">
+                <div className="flex items-center justify-between px-4 py-3">
                   <span className="text-caption text-muted-foreground/60">
                     {i18n.t('audit_log.page').replace('{page}', String(page + 1)).replace('{total}', String(Math.ceil(totalCount / PAGE_SIZE)))}
                   </span>

@@ -7,58 +7,76 @@ import { ChatSidebar } from '@/components/chat/ChatSidebar'
 import { ChatWindow } from '@/components/chat/ChatWindow'
 import { VoipCallOverlay } from '@/components/chat/VoipCallOverlay'
 
-// Web Audio API Ringtone Synthesizer
-let audioCtx: AudioContext | null = null
-let ringInterval: any = null
-
-const playRingtone = () => {
-  try {
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
-    audioCtx = new AudioContextClass()
-    ringInterval = setInterval(() => {
-      if (!audioCtx) return
-      const osc1 = audioCtx.createOscillator()
-      const osc2 = audioCtx.createOscillator()
-      const gainNode = audioCtx.createGain()
-      
-      osc1.connect(gainNode)
-      osc2.connect(gainNode)
-      gainNode.connect(audioCtx.destination)
-      
-      osc1.type = 'sine'
-      osc1.frequency.setValueAtTime(440, audioCtx.currentTime) // A4
-      
-      osc2.type = 'sine'
-      osc2.frequency.setValueAtTime(480, audioCtx.currentTime) // G4
-      
-      gainNode.gain.setValueAtTime(0, audioCtx.currentTime)
-      gainNode.gain.linearRampToValueAtTime(0.15, audioCtx.currentTime + 0.05)
-      gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.9)
-      
-      osc1.start(audioCtx.currentTime)
-      osc1.stop(audioCtx.currentTime + 0.95)
-      osc2.start(audioCtx.currentTime)
-      osc2.stop(audioCtx.currentTime + 0.95)
-    }, 1200)
-  } catch (e) {
-    console.warn('Failed to start Web Audio Ringtone', e)
-  }
+function formatTime(secs: number): string {
+  const mins = Math.floor(secs / 60)
+  const s = secs % 60
+  return `${mins.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
 }
 
-const stopRingtone = () => {
-  if (ringInterval) {
-    clearInterval(ringInterval)
-    ringInterval = null
-  }
-  if (audioCtx) {
-    audioCtx.close()
-    audioCtx = null
-  }
+function useRingtone() {
+  const audioCtxRef = useRef<AudioContext | null>(null)
+  const ringIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const playRingtone = useCallback(() => {
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext!
+      audioCtxRef.current = new AudioContextClass()
+      ringIntervalRef.current = setInterval(() => {
+        const ctx = audioCtxRef.current
+        if (!ctx) return
+        const osc1 = ctx.createOscillator()
+        const osc2 = ctx.createOscillator()
+        const gainNode = ctx.createGain()
+        
+        osc1.connect(gainNode)
+        osc2.connect(gainNode)
+        gainNode.connect(ctx.destination)
+        
+        osc1.type = 'sine'
+        osc1.frequency.setValueAtTime(440, ctx.currentTime)
+        
+        osc2.type = 'sine'
+        osc2.frequency.setValueAtTime(480, ctx.currentTime)
+        
+        gainNode.gain.setValueAtTime(0, ctx.currentTime)
+        gainNode.gain.linearRampToValueAtTime(0.15, ctx.currentTime + 0.05)
+        gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.9)
+        
+        osc1.start(ctx.currentTime)
+        osc1.stop(ctx.currentTime + 0.95)
+        osc2.start(ctx.currentTime)
+        osc2.stop(ctx.currentTime + 0.95)
+      }, 1200)
+    } catch (e) {
+      console.warn('Failed to start Web Audio Ringtone', e)
+    }
+  }, [])
+
+  const stopRingtone = useCallback(() => {
+    if (ringIntervalRef.current) {
+      clearInterval(ringIntervalRef.current)
+      ringIntervalRef.current = null
+    }
+    if (audioCtxRef.current) {
+      audioCtxRef.current.close()
+      audioCtxRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (ringIntervalRef.current) clearInterval(ringIntervalRef.current)
+      if (audioCtxRef.current) audioCtxRef.current.close()
+    }
+  }, [])
+
+  return { playRingtone, stopRingtone }
 }
 
 export default function Chat() {
   const currentUser = useAuthStore((s) => s.user)
   const { users, fetchUsers } = useUserStore()
+  const { playRingtone, stopRingtone } = useRingtone()
   
   const [activeTab, setActiveTab] = useState<'active' | 'all' | 'requests'>('active')
   const [searchQuery, setSearchQuery] = useState('')
@@ -85,6 +103,10 @@ export default function Chat() {
   
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  const getColleague = useCallback((userId: string) => {
+    return users.find((u) => u.id === userId)
+  }, [users])
 
   // Real-time local state loader
   const loadChatData = useCallback(() => {
@@ -172,7 +194,6 @@ export default function Chat() {
     const handleSimulatedCall = (e: Event) => {
       const customEvent = e as CustomEvent
       if (customEvent.detail && currentUser && customEvent.detail.receiverId === currentUser.id) {
-        // Trigger Ringing tone
         playRingtone()
         setActiveCall({
           status: 'ringing',
@@ -184,7 +205,7 @@ export default function Chat() {
     }
     window.addEventListener('ttm_simulated_voip_call', handleSimulatedCall)
     return () => window.removeEventListener('ttm_simulated_voip_call', handleSimulatedCall)
-  }, [currentUser])
+  }, [currentUser, playRingtone])
 
   // Listen to simulated VoIP calling responses
   useEffect(() => {
@@ -206,7 +227,7 @@ export default function Chat() {
     }
     window.addEventListener('ttm_simulated_voip_response', handleCallResponse)
     return () => window.removeEventListener('ttm_simulated_voip_response', handleCallResponse)
-  }, [currentUser])
+  }, [currentUser, stopRingtone])
 
   // Listen to simulated VoIP call termination
   useEffect(() => {
@@ -223,7 +244,7 @@ export default function Chat() {
     }
     window.addEventListener('ttm_simulated_voip_hangup', handleCallEnd)
     return () => window.removeEventListener('ttm_simulated_voip_hangup', handleCallEnd)
-  }, [currentUser, mediaStream])
+  }, [currentUser, mediaStream, stopRingtone])
 
   // Filtered lists of contacts
   const otherUsers = useMemo(() => {
@@ -338,16 +359,6 @@ export default function Chat() {
     }
   }
 
-  const formatTime = (secs: number) => {
-    const mins = Math.floor(secs / 60)
-    const s = secs % 60
-    return `${mins.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
-  }
-
-  const getColleague = (userId: string) => {
-    return users.find((u) => u.id === userId)
-  }
-
   return (
     <div className="flex h-[calc(100vh-140px)] gap-6 animate-rise">
       <ChatSidebar
@@ -368,7 +379,7 @@ export default function Chat() {
         handleDeclineRequest={handleDeclineRequest}
       />
 
-      <div className="flex-1 bg-surface/30 backdrop-blur-xl border border-border/10 rounded-2xl flex flex-col overflow-hidden shadow-sm relative">
+      <div className="flex-1 bg-surface/40 backdrop-blur-xl border border-border/10 rounded-2xl flex flex-col overflow-hidden shadow-diffusion relative">
         <ChatWindow
           selectedContact={selectedContact}
           currentUser={currentUser}

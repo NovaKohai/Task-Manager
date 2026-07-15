@@ -6,6 +6,11 @@ const os = require('os')
 // so update files are downloaded from your GitHub Releases (no code changes needed there).
 const { autoUpdater } = require('electron-updater')
 
+const ghToken = process.env.GH_TOKEN
+if (ghToken) {
+  autoUpdater.requestHeaders = { authorization: `token ${ghToken}` }
+}
+
 const isDev = process.argv.includes('--dev')
 
 // ── Content Security Policy ─────────────────────────────────────────────────
@@ -32,10 +37,6 @@ function sendToRenderer(channel, data) {
 // already expects, so the renderer side needs zero changes.
 autoUpdater.autoDownload = false
 autoUpdater.autoInstallOnAppQuit = false
-
-autoUpdater.on('checking-for-update', () => {
-  sendToRenderer('update-status', { type: 'checking' })
-})
 
 autoUpdater.on('update-available', (info) => {
   sendToRenderer('update-status', { type: 'available', version: info.version, releaseNotes: info.releaseNotes, releaseDate: info.releaseDate })
@@ -84,7 +85,9 @@ ipcMain.handle('check-for-updates', async () => {
     const currentVersion = app.getVersion()
     const latestVersion = result ? result.updateInfo.version : currentVersion
     
-    // Compare versions (e.g. 1.0.5 > 1.0.4)
+    // Simple semver numeric comparison (e.g. 1.0.5 > 1.0.4).
+    // Does not handle pre-release tags (1.0.6-beta → NaN) — pre-releases
+    // are treated as not-newer, which is acceptable for this app.
     const isNewer = (() => {
       const l = latestVersion.split('.').map(Number)
       const c = currentVersion.split('.').map(Number)
@@ -125,14 +128,45 @@ ipcMain.handle('install-update', async () => {
   }
 })
 
-// ── Window ──────────────────────────────────────────────────────────────────
+// ── Splash Window ────────────────────────────────────────────────────────────
+// A lightweight frameless window shown while the main React app loads.
+// Closed automatically once the main window emits 'ready-to-show'.
 
-function createWindow() {
+function createSplashWindow() {
+  splashStartTime = Date.now()
+  const splash = new BrowserWindow({
+    width: 440,
+    height: 540,
+    frame: false,
+    resizable: false,
+    center: true,
+    show: true,
+    backgroundColor: '#0D0F14',
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    webPreferences: {
+      sandbox: true,
+    },
+  })
+
+  splash.loadFile(path.join(__dirname, 'splash.html'))
+  splash.on('closed', () => { splashWin = null })
+
+  return splash
+}
+
+let splashWin = null
+let splashStartTime = 0
+
+// ── Main Window ──────────────────────────────────────────────────────────────
+
+function createWindow(skipSplash) {
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
     minWidth: 960,
     minHeight: 600,
+    show: skipSplash,
     title: 'Team Task Manager',
     icon: path.join(__dirname, 'icon.png'),
     webPreferences: {
@@ -147,9 +181,36 @@ function createWindow() {
 
   if (isDev) {
     win.loadURL('http://localhost:5173')
-    win.webContents.openDevTools()
+
+    if (!skipSplash) {
+      win.once('ready-to-show', () => {
+        const elapsed = Date.now() - splashStartTime
+        const delay = Math.max(0, 1200 - elapsed)
+        setTimeout(() => {
+          if (splashWin && !splashWin.isDestroyed()) {
+            splashWin.close()
+            splashWin = null
+          }
+          win.show()
+          win.focus()
+        }, delay)
+      })
+    }
   } else {
     win.loadFile(path.join(__dirname, '../dist/index.html'))
+
+    win.once('ready-to-show', () => {
+      const elapsed = Date.now() - splashStartTime
+      const delay = Math.max(0, 1200 - elapsed)
+      setTimeout(() => {
+        if (splashWin && !splashWin.isDestroyed()) {
+          splashWin.close()
+          splashWin = null
+        }
+        win.show()
+        win.focus()
+      }, delay)
+    })
   }
 
   // DevTools shortcut only fires in dev mode — silently ignored in production.
@@ -158,6 +219,8 @@ function createWindow() {
       win.webContents.toggleDevTools()
     }
   })
+
+  return win
 }
 
 app.whenReady().then(() => {
@@ -172,7 +235,15 @@ app.whenReady().then(() => {
     })
   })
 
-  createWindow()
+  if (isDev) {
+    // Dev mode: show main window immediately (Vite dev server is fast)
+    const devWin = createWindow(true)
+    devWin.webContents.openDevTools()
+  } else {
+    // Production: show splash while React loads
+    splashWin = createSplashWindow()
+    createWindow(false)
+  }
 })
 
 app.on('window-all-closed', () => {

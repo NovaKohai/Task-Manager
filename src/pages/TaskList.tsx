@@ -185,7 +185,7 @@ export default function TaskList() {
       if (!canEditTask(task)) {
         toast({
           title: i18n.t('error'),
-          description: i18n.lang === 'ar' ? 'ليست لديك صلاحية تعديل هذه المهمة' : 'You do not have permission to edit this task',
+          description: i18n.t('task.edit_permission_error'),
           variant: 'destructive'
         })
         return
@@ -203,7 +203,7 @@ export default function TaskList() {
       if (!canReorder) {
         toast({
           title: i18n.t('error'),
-          description: i18n.lang === 'ar' ? 'ليست لديك صلاحية إعادة ترتيب المهام' : 'You do not have permission to reorder tasks',
+          description: i18n.t('task.reorder_permission_error'),
           variant: 'destructive'
         })
         return
@@ -248,7 +248,7 @@ export default function TaskList() {
 
   const handleKeyboardMoveKeyDown = async (e: React.KeyboardEvent, task: Task) => {
     const columns: TaskStatus[] = ['todo', 'in_progress', 'under_review', 'done', 'cancelled']
-    const isRTL = i18n.lang === 'ar'
+    const isRTL = i18n.dir === 'rtl'
     const statusTasks = tasks
       .filter(t => t.status === task.status)
       .sort((a, b) => (a.kanbanOrder ?? 0) - (b.kanbanOrder ?? 0))
@@ -277,7 +277,7 @@ export default function TaskList() {
       setActiveKeyboardMoveTaskId(null)
       setOriginalState(null)
       toast({
-        description: i18n.lang === 'ar' ? 'تم إلغاء النقل' : 'Move cancelled',
+        description: i18n.t('task.move_cancelled'),
       })
       setTimeout(() => document.getElementById(`task-card-${task.id}`)?.focus(), 50)
       return
@@ -324,7 +324,7 @@ export default function TaskList() {
         if (!canEditTask(task)) {
           toast({
             title: i18n.t('error'),
-            description: i18n.lang === 'ar' ? 'ليست لديك صلاحية تعديل هذه المهمة' : 'You do not have permission to edit this task',
+            description: i18n.t('task.edit_permission_error'),
             variant: 'destructive'
           })
           return
@@ -354,7 +354,7 @@ export default function TaskList() {
     if (!canEditTask(task)) {
       toast({
         title: i18n.t('error'),
-        description: i18n.lang === 'ar' ? 'ليست لديك صلاحية تعديل هذه المهمة' : 'You do not have permission to edit this task',
+        description: i18n.t('task.edit_permission_error'),
         variant: 'destructive'
       })
       return
@@ -368,7 +368,7 @@ export default function TaskList() {
     })
     setActiveKeyboardMoveTaskId(task.id)
     toast({
-      description: i18n.lang === 'ar' ? 'تم تفعيل نمط النقل. استخدم الأسهم للنقل.' : 'Move mode active. Use Arrow keys to move.',
+      description: i18n.t('task.move_mode_active'),
     })
     setTimeout(() => document.getElementById(`task-card-${task.id}`)?.focus(), 50)
   }
@@ -407,7 +407,7 @@ export default function TaskList() {
     if (!canEditTask(task)) {
       toast({
         title: i18n.t('error'),
-        description: i18n.lang === 'ar' ? 'ليست لديك صلاحية تعديل هذه المهمة' : 'You do not have permission to edit this task',
+        description: i18n.t('task.edit_permission_error'),
         variant: 'destructive'
       })
       return
@@ -467,7 +467,7 @@ export default function TaskList() {
           <h3 className="text-xs font-semibold text-foreground leading-tight line-clamp-2">{t.title}</h3>
           
           {t.project && (
-            <span className="inline-block text-micro text-muted-foreground/80 bg-muted/40 rounded px-1.5 py-0.5">{t.project}</span>
+            <span className="inline-block text-micro text-muted-foreground/90 bg-muted/40 rounded px-1.5 py-0.5">{t.project}</span>
           )}
 
           <div className="flex items-center justify-between pt-1 border-t border-border/5">
@@ -514,8 +514,8 @@ export default function TaskList() {
 
               {showCardMenuTaskId === t.id && (
                 <>
-                  <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setShowCardMenuTaskId(null) }} />
-                  <div className="absolute right-0 mt-1 w-44 bg-surface border rounded-xl shadow-diffusion p-1 z-20 animate-rise" onClick={(e) => e.stopPropagation()}>
+                  <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setShowCardMenuTaskId(null) }} onKeyDown={(e) => { if (e.key === 'Escape') setShowCardMenuTaskId(null) }} role="presentation" />
+                  <div className="absolute right-0 mt-1 w-44 bg-surface border rounded-xl shadow-diffusion p-1 z-20 animate-rise" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Escape') setShowCardMenuTaskId(null) }}>
                     <button
                       onClick={(e) => {
                         setShowCardMenuTaskId(null)
@@ -524,7 +524,7 @@ export default function TaskList() {
                       className="w-full text-left rtl:text-right px-2.5 py-1.5 text-micro rounded-lg hover:bg-primary/10 hover:text-primary spring-fast flex items-center gap-1.5 border-0 bg-transparent cursor-pointer"
                     >
                       <Move className="h-3 w-3" />
-                      {i18n.lang === 'ar' ? 'تحريك (لوحة المفاتيح)' : 'Move (Keyboard)'}
+                      {i18n.t('task.move_keyboard')}
                     </button>
 
                     {canReorder && (
@@ -686,11 +686,11 @@ export default function TaskList() {
   }
 
   return (
-    <div className="space-y-5 page-bg">
+    <div className="space-y-8 page-bg">
       <div className="flex items-center justify-between animate-rise stagger-1">
         <div>
           <h1 className="text-lg font-bold tracking-tight text-foreground">{i18n.t('nav.tasks')}</h1>
-          <p className="text-xs text-muted-foreground/80 mt-1">{i18n.t('task_list.subtitle')}</p>
+          <p className="text-xs text-muted-foreground/90 mt-1">{i18n.t('task_list.subtitle')}</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex rounded-full bg-muted/40 p-1 border border-border/10">
@@ -839,7 +839,7 @@ export default function TaskList() {
                         {(() => {
                           const userObj = assignee(t.assigneeId)
                           if (!userObj) return '—'
-                          return <span className="inline-flex items-center gap-1.5"><span>{userObj.name}</span><Badge variant={roleBadge[userObj.role]} className="rounded-full text-micro px-1.5 py-0">{i18n.t(`user.${userObj.role}`)}</Badge>{userObj.department ? <Badge variant={getDepartmentConfig(userObj.department).variant} className="rounded-full text-micro px-1.5 py-0">{i18n.t(getDepartmentConfig(userObj.department).label)}</Badge> : null}</span>
+                          return <span className="inline-flex items-center gap-1.5"><span>{userObj.name}</span><Badge variant={roleBadge[userObj.role]} className="rounded-full text-micro px-1.5 py-0.5">{i18n.t(`user.${userObj.role}`)}</Badge>{userObj.department ? <Badge variant={getDepartmentConfig(userObj.department).variant} className="rounded-full text-micro px-1.5 py-0.5">{i18n.t(getDepartmentConfig(userObj.department).label)}</Badge> : null}</span>
                         })()}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">

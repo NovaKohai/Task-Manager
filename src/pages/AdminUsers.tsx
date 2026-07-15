@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
-import { Plus, Pencil, X, AlertTriangle, Check, Trash2, Send, Bell, User as UserIcon, Lock, Shield } from 'lucide-react'
+import { Plus, Pencil, X, AlertTriangle, Check, Trash2, Bell, User as UserIcon, Lock, Shield, Calendar, Phone, ChevronDown, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 import { useUserStore } from '@/stores/userStore'
 import { useAuthStore } from '@/stores/authStore'
 import { Button } from '@/components/ui/button'
@@ -11,10 +11,14 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import { i18n } from '@/lib/i18n'
-import { db, ALL_PERMISSIONS, ROLE_PERMISSIONS } from '@/lib/db'
+import { ROLE_PERMISSIONS } from '@/lib/db'
 import type { Permission, Role, Department, User } from '@/lib/types'
 import { roleBadge, getDepartmentConfig } from '@/lib/constants'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import BroadcastDialog from '@/components/BroadcastDialog'
+import { PERMISSION_GROUPS } from '@/lib/permissionGroups'
+import { validateEmail, validatePhone, validateDate, validateName, validateUsername } from '@/lib/validation'
+import { useToast } from '@/hooks/use-toast'
 
 export default function AdminUsers() {
   const { users, isLoading, fetchUsers, createUser, updateUser, updateUserPassword, deleteUser } = useUserStore()
@@ -29,6 +33,8 @@ export default function AdminUsers() {
   const [name, setName] = useState('')
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+  const [birthDate, setBirthDate] = useState('')
   const [role, setRole] = useState<Role>('developer')
   const [title, setTitle] = useState('')
   const [department, setDepartment] = useState<Department | ''>('')
@@ -38,9 +44,12 @@ export default function AdminUsers() {
   const [error, setError] = useState('')
 
   const [broadcastOpen, setBroadcastOpen] = useState(false)
-  const [broadcastMsg, setBroadcastMsg] = useState('')
-  const [broadcastError, setBroadcastError] = useState('')
-  const [broadcastSuccess, setBroadcastSuccess] = useState('')
+  const [confirmRoleReset, setConfirmRoleReset] = useState<Role | null>(null)
+  const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set())
+  const [sortKey, setSortKey] = useState<string>('name')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null)
+  const { toast } = useToast()
 
   useEffect(() => {
     fetchUsers()
@@ -50,6 +59,8 @@ export default function AdminUsers() {
     setName('')
     setUsername('')
     setEmail('')
+    setPhone('')
+    setBirthDate('')
     setRole('developer')
     setTitle('')
     setDepartment('')
@@ -64,7 +75,9 @@ export default function AdminUsers() {
     setEditUser(u)
     setName(u.name)
     setUsername(u.username)
-    setEmail(u.email)
+    setEmail(u.email || '')
+    setPhone(u.phone || '')
+    setBirthDate(u.birthDate || '')
     setRole(u.role)
     setTitle(u.title || '')
     setDepartment(u.department || '')
@@ -82,8 +95,17 @@ export default function AdminUsers() {
 
   function handleRoleChange(newRole: Role) {
     setRole(newRole)
-    if (!editUser) {
+    if (editUser) {
+      setConfirmRoleReset(newRole)
+    } else {
       setPermissions([...ROLE_PERMISSIONS[newRole]])
+    }
+  }
+
+  function executeRoleReset() {
+    if (confirmRoleReset) {
+      setPermissions([...ROLE_PERMISSIONS[confirmRoleReset]])
+      setConfirmRoleReset(null)
     }
   }
 
@@ -94,31 +116,47 @@ export default function AdminUsers() {
   }
 
   async function handleSave() {
-    if (!name.trim() || !username.trim()) {
-      setError(i18n.t('admin_users.error_name_username'))
+    const nameErr = validateName(name)
+    if (nameErr) { setError(nameErr); return }
+    const usernameErr = validateUsername(username)
+    if (usernameErr) { setError(usernameErr); return }
+    const emailErr = validateEmail(email)
+    if (emailErr) { setError(emailErr); return }
+    const phoneErr = validatePhone(phone)
+    if (phoneErr) { setError(phoneErr); return }
+    const dateErr = validateDate(birthDate)
+    if (dateErr) { setError(dateErr); return }
+
+    if (!editUser && !password.trim()) {
+      setError(i18n.t('admin_users.error_password_required'))
       return
     }
+
     setError('')
     try {
       if (editUser) {
+        if (password.trim()) {
+          await updateUserPassword(editUser.username, password.trim())
+        }
         await updateUser(editUser.id, {
           name: name.trim(),
           username: username.trim(),
-          email: email.trim(),
+          email: email.trim() || undefined,
+          phone: phone.trim() || undefined,
+          birthDate: birthDate.trim() || undefined,
           role,
           title: title.trim() || undefined,
           department: department || undefined,
           active,
           permissions,
         })
-        if (password.trim()) {
-          await updateUserPassword(editUser.username, password.trim())
-        }
       } else {
         await createUser({
           name: name.trim(),
           username: username.trim(),
-          email: email.trim(),
+          email: email.trim() || undefined,
+          phone: phone.trim() || undefined,
+          birthDate: birthDate.trim() || undefined,
           role,
           title: title.trim() || undefined,
           department: department || undefined,
@@ -144,7 +182,7 @@ export default function AdminUsers() {
 
   async function handleDelete(u: User) {
     if (u.id === currentUser?.id) {
-      alert(i18n.lang === 'ar' ? 'لا يمكنك حذف حسابك الخاص!' : 'You cannot delete your own account!')
+      alert(i18n.t('admin.delete_own_account'))
       return
     }
     setDeleteConfirmUser(u)
@@ -186,51 +224,90 @@ export default function AdminUsers() {
     }
   }
 
-  async function handleSendBroadcast() {
-    if (!broadcastMsg.trim()) {
-      setBroadcastError(i18n.t('admin_users.error_broadcast_content'))
-      return
-    }
-    setBroadcastError('')
-    setBroadcastSuccess('')
-    try {
-      const activeUsers = users.filter(u => u.approved !== false)
-      activeUsers.forEach(u => {
-        db.addNotification({
-          userId: u.id,
-          type: 'announcement',
-          title: i18n.t('announcement.title'),
-          message: broadcastMsg.trim(),
-          read: false
-        })
-      })
-      setBroadcastSuccess(i18n.t('admin_users.broadcast_success'))
-      setBroadcastMsg('')
-      setTimeout(() => {
-        setBroadcastOpen(false)
-        setBroadcastSuccess('')
-      }, 1500)
-    } catch (e) {
-      setBroadcastError(e instanceof Error ? e.message : i18n.t('admin_users.error_broadcast_send'))
+  function handleSort(key: string) {
+    setSortDir(prev => sortKey === key ? (prev === 'asc' ? 'desc' : 'asc') : 'asc')
+    setSortKey(key)
+  }
+
+  const sortArrow = (key: string) => {
+    if (sortKey !== key) return <ArrowUpDown className="h-3 w-3 inline ml-1 opacity-30" />
+    return sortDir === 'asc' ? <ArrowUp className="h-3 w-3 inline ml-1" /> : <ArrowDown className="h-3 w-3 inline ml-1" />
+  }
+
+  function toggleSelectAll() {
+    if (selectedUsers.size === filteredUsers.length) {
+      setSelectedUsers(new Set())
+    } else {
+      setSelectedUsers(new Set(filteredUsers.map(u => u.id)))
     }
   }
 
-  const filteredUsers = useMemo(() => users.filter((u) => {
-    if (activeTab === 'pending') return u.approved === false
-    return u.approved !== false
-  }), [users, activeTab])
+  function toggleSelectUser(id: string) {
+    setSelectedUsers(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  async function bulkToggleActive() {
+    let succeeded = 0
+    let failed = 0
+    for (const id of selectedUsers) {
+      const u = users.find(x => x.id === id)
+      if (!u) { failed++; continue }
+      try {
+        await updateUser(id, { active: !u.active })
+        succeeded++
+      } catch {
+        failed++
+      }
+    }
+    setSelectedUsers(new Set())
+    toast({ description: i18n.t('admin_users.bulk_success').replace('{succeeded}', String(succeeded)).replace('{failed}', String(failed)).replace('{skipped}', '0'), variant: failed > 0 ? 'destructive' : 'success' })
+  }
+
+  async function bulkDelete() {
+    let succeeded = 0
+    let failed = 0
+    let skipped = 0
+    for (const id of selectedUsers) {
+      if (id === currentUser?.id) { skipped++; continue }
+      try {
+        await deleteUser(id)
+        succeeded++
+      } catch {
+        failed++
+      }
+    }
+    setSelectedUsers(new Set())
+    toast({ description: i18n.t('admin_users.bulk_success').replace('{succeeded}', String(succeeded)).replace('{failed}', String(failed)).replace('{skipped}', String(skipped)), variant: failed > 0 ? 'destructive' : 'success' })
+  }
+
+  const filteredUsers = useMemo(() => {
+    const filtered = users.filter((u) => {
+      if (activeTab === 'pending') return u.approved === false
+      return u.approved !== false
+    })
+    return [...filtered].sort((a, b) => {
+      const aVal = String(a[sortKey as keyof User] ?? '').toLowerCase()
+      const bVal = String(b[sortKey as keyof User] ?? '').toLowerCase()
+      return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal)
+    })
+  }, [users, activeTab, sortKey, sortDir])
 
   const activeCount = useMemo(() => users.filter(u => u.approved !== false).length, [users])
   const pendingCount = useMemo(() => users.filter(u => u.approved === false).length, [users])
 
   return (
-    <div className="space-y-5 page-bg relative min-h-[calc(100vh-8rem)]">
+    <div className="space-y-8 page-bg relative min-h-[calc(100vh-8rem)]">
       <div aria-hidden="true" className="absolute inset-0 dotted-bg pointer-events-none" />
       {/* Header */}
       <div className="flex items-center justify-between animate-rise stagger-1">
         <div>
           <h1 className="text-lg font-bold tracking-tight text-foreground">{i18n.t('users.title')}</h1>
-          <p className="text-xs text-muted-foreground/80 mt-1">{i18n.t('admin_users.subtitle')}</p>
+          <p className="text-xs text-muted-foreground/90 mt-1">{i18n.t('admin_users.subtitle')}</p>
         </div>
         <div className="flex gap-2">
           <Dialog open={modalOpen} onOpenChange={(o) => { if (!o) resetForm(); setModalOpen(o) }}>
@@ -254,8 +331,22 @@ export default function AdminUsers() {
                 <Input id="dialogUsername" value={username} onChange={(e) => setUsername(e.target.value)} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" maxLength={50} disabled={!!editUser} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="dialogEmail">{i18n.t('users.email')}</Label>
-                <Input id="dialogEmail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" maxLength={200} />
+                <Label htmlFor="dialogEmail">{i18n.t('register.email_label')}</Label>
+                <Input id="dialogEmail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" maxLength={200} placeholder={i18n.t('register.email_placeholder')} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dialogBirthDate">{i18n.t('register.date_label')}</Label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
+                   <Input id="dialogBirthDate" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} className="pl-9 h-10 rounded-xl bg-background/50 border-border/40 spring-transition" placeholder={i18n.t('register.date_placeholder')} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dialogPhone">{i18n.t('register.phone_label')}</Label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
+                   <Input id="dialogPhone" value={phone} onChange={(e) => setPhone(e.target.value)} className="pl-9 h-10 rounded-xl bg-background/50 border-border/40 spring-transition" placeholder={i18n.t('register.phone_placeholder')} />
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="dialogTitle">{i18n.t('users.title_field')}</Label>
@@ -300,33 +391,47 @@ export default function AdminUsers() {
                 <input type="checkbox" id="userActive" checked={active} onChange={(e) => setActive(e.target.checked)} className="h-4 w-4 rounded border-muted" />
                 <Label htmlFor="userActive">{i18n.t('users.active')}</Label>
               </fieldset>
-              {editUser && (
-                <div className="space-y-2">
-                  <Label htmlFor="dialogPassword" className="flex items-center gap-1.5">
-                    <Lock className="h-3.5 w-3.5" />
-                    {i18n.t('users.password')}
-                  </Label>
-                  <Input id="dialogPassword" type="password" placeholder={i18n.t('users.password_placeholder')} value={password} onChange={(e) => setPassword(e.target.value)} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" autoComplete="new-password" />
-                </div>
-              )}
-              <div className="space-y-3 border-t border-border/10 pt-4">
+              <div className="space-y-2">
+                <Label htmlFor="dialogPassword" className="flex items-center gap-1.5">
+                  <Lock className="h-3.5 w-3.5" />
+                  {i18n.t('users.password')}
+                </Label>
+                <Input id="dialogPassword" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" autoComplete="new-password" />
+              </div>
+              <div className="space-y-3 pt-6">
                 <Label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
                   <Shield className="h-3.5 w-3.5" />
                   {i18n.t('users.permissions_section')}
                 </Label>
-                <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
-                  {ALL_PERMISSIONS.map(perm => (
-                    <label key={perm} className="flex items-start gap-2 cursor-pointer group">
-                      <input
-                        type="checkbox"
-                        checked={permissions.includes(perm)}
-                        onChange={() => togglePermission(perm)}
-                        className="mt-0.5 h-4 w-4 rounded border-muted"
-                      />
-                      <span className="text-xs text-foreground/80 group-hover:text-foreground spring-transition leading-tight">
-                        {i18n.t(`perm.${perm}`)}
-                      </span>
-                    </label>
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  {PERMISSION_GROUPS.map(group => (
+                    <div key={group.labelKey} className="rounded-xl border border-border/20 bg-muted/10">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedGroup(expandedGroup === group.labelKey ? null : group.labelKey)}
+                        className="flex items-center justify-between w-full px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground spring-transition"
+                      >
+                        {i18n.t(group.labelKey)}
+                        {expandedGroup === group.labelKey ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                      </button>
+                      {expandedGroup === group.labelKey && (
+                        <div className="grid grid-cols-2 gap-1.5 px-3 pb-3">
+                          {group.permissions.map(perm => (
+                            <label key={perm} className="flex items-start gap-2 cursor-pointer group">
+                              <input
+                                type="checkbox"
+                                checked={permissions.includes(perm)}
+                                onChange={() => togglePermission(perm)}
+                                className="mt-0.5 h-4 w-4 rounded border-muted"
+                              />
+                              <span className="text-xs text-foreground/80 group-hover:text-foreground spring-transition leading-tight">
+                                {i18n.t(`perm.${perm}`)}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
               </div>
@@ -387,18 +492,37 @@ export default function AdminUsers() {
                   </Button>
               )}
             </div>
-          ) : (
+          ) : (<>
+            {selectedUsers.size > 0 && (
+              <div className="flex items-center gap-2 px-4 py-2 border-b border-border/10 bg-muted/20">
+                <span className="text-xs font-semibold text-muted-foreground">{selectedUsers.size} selected</span>
+                <Button variant="ghost" size="sm" onClick={bulkToggleActive} className="h-7 text-caption rounded-full px-3 spring-transition">
+                  {i18n.t('users.toggle_active')}
+                </Button>
+                <Button variant="ghost" size="sm" onClick={bulkDelete} className="h-7 text-caption rounded-full px-3 text-destructive hover:bg-destructive/10 spring-transition">
+                  {i18n.t('delete')}
+                </Button>
+              </div>
+            )}
             <Table>
               <caption className="sr-only">{i18n.t('users.title')}</caption>
               <TableHeader>
                 <TableRow>
-                  <th scope="col" className="sr-only">{i18n.t('users.name')}</th>
-                  <TableHead className="text-xs font-medium">{i18n.t('users.name')}</TableHead>
-                  <TableHead className="text-xs font-medium">{i18n.t('users.username')}</TableHead>
+                  <TableHead className="text-xs font-medium w-8">
+                    <input
+                      type="checkbox"
+                      checked={selectedUsers.size === filteredUsers.length && filteredUsers.length > 0}
+                      onChange={toggleSelectAll}
+                      className="h-4 w-4 rounded border-muted"
+                      aria-label={i18n.t('users.select_all')}
+                    />
+                  </TableHead>
+                  <TableHead className="text-xs font-medium cursor-pointer select-none" onClick={() => handleSort('name')}>{i18n.t('users.name')}{sortArrow('name')}</TableHead>
+                  <TableHead className="text-xs font-medium cursor-pointer select-none" onClick={() => handleSort('username')}>{i18n.t('users.username')}{sortArrow('username')}</TableHead>
                   <TableHead className="text-xs font-medium">{i18n.t('users.email')}</TableHead>
                   <TableHead className="text-xs font-medium">{i18n.t('users.department')}</TableHead>
                   <TableHead className="text-xs font-medium">{i18n.t('users.title_field')}</TableHead>
-                  <TableHead className="text-xs font-medium">{i18n.t('users.role')}</TableHead>
+                  <TableHead className="text-xs font-medium cursor-pointer select-none" onClick={() => handleSort('role')}>{i18n.t('users.role')}{sortArrow('role')}</TableHead>
                   {activeTab === 'active' && <TableHead className="text-xs font-medium">{i18n.t('users.status')}</TableHead>}
                   <TableHead></TableHead>
                 </TableRow>
@@ -406,19 +530,28 @@ export default function AdminUsers() {
               <TableBody>
                 {filteredUsers.map((u) => (
                   <TableRow key={u.id} className="hover:bg-muted/20 spring-fast">
+                    <TableCell className="text-sm">
+                      <input
+                        type="checkbox"
+                        checked={selectedUsers.has(u.id)}
+                        onChange={() => toggleSelectUser(u.id)}
+                        className="h-4 w-4 rounded border-muted"
+                        aria-label={i18n.t('users.select_user')}
+                      />
+                    </TableCell>
                     <TableCell className="text-sm font-medium">{u.name}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{u.username}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{u.email}</TableCell>
                     <TableCell>
                       {u.department ? (
-                        <Badge variant={getDepartmentConfig(u.department).variant} className="rounded-full text-caption px-2 py-0">{i18n.t(getDepartmentConfig(u.department).label)}</Badge>
+                        <Badge variant={getDepartmentConfig(u.department).variant} className="rounded-full text-caption px-2 py-0.5">{i18n.t(getDepartmentConfig(u.department).label)}</Badge>
                       ) : (
                         <span className="text-caption text-muted-foreground/40">—</span>
                       )}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{u.title || <span className="text-caption text-muted-foreground/40">—</span>}</TableCell>
                     <TableCell>
-                      <Badge variant={roleBadge[u.role]} className="rounded-full text-caption px-2.5 py-0">
+                      <Badge variant={roleBadge[u.role]} className="rounded-full text-caption px-2.5 py-0.5">
                         {i18n.t(`user.${u.role}`)}
                       </Badge>
                     </TableCell>
@@ -434,7 +567,7 @@ export default function AdminUsers() {
                       {activeTab === 'active' ? (
                         <div className="flex gap-1 justify-end">
                           <Button variant="ghost" size="icon" onClick={() => openEdit(u)} className="h-7 w-7 rounded-full hover:bg-primary/10 hover:text-primary spring-transition" title={i18n.t('edit')}><Pencil className="h-3.5 w-3.5" /></Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleToggleActive(u)} className="h-7 w-7 rounded-full hover:bg-amber-500/10 hover:text-amber-500 spring-transition" title={u.active ? (i18n.lang === 'ar' ? 'تعطيل الحساب' : 'Deactivate') : (i18n.lang === 'ar' ? 'تفعيل الحساب' : 'Activate')}>{u.active ? <X className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}</Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleToggleActive(u)} className="h-7 w-7 rounded-full hover:bg-amber-500/10 hover:text-amber-500 spring-transition" title={u.active ? i18n.t('admin.deactivate') : i18n.t('admin.activate')}>{u.active ? <X className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}</Button>
                           <Button variant="ghost" size="icon" onClick={() => handleDelete(u)} className="h-7 w-7 rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive spring-transition" title={i18n.t('delete')}><Trash2 className="h-3.5 w-3.5" /></Button>
                         </div>
                       ) : (
@@ -452,7 +585,7 @@ export default function AdminUsers() {
                 ))}
               </TableBody>
             </Table>
-          )}
+          </>)}
         </div>
       </div>
 
@@ -465,82 +598,34 @@ export default function AdminUsers() {
         {i18n.t('admin_users.broadcast')}
       </button>
 
-      {/* Animated Broadcast Modal */}
-      <div
-        className={cn('modal-overlay', broadcastOpen && 'active')}
-        onClick={(e) => { if (e.target === e.currentTarget) { setBroadcastOpen(false); setBroadcastMsg(''); setBroadcastError(''); setBroadcastSuccess('') } }}
-        onKeyDown={(e) => { if (e.key === 'Escape') { setBroadcastOpen(false); setBroadcastMsg(''); setBroadcastError(''); setBroadcastSuccess('') } }}
-        role="dialog"
-        aria-modal="true"
-      >
-        <div className="modal-content p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-secondary/20 text-secondary">
-                <Bell className="h-5 w-5" />
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-foreground">{i18n.t('admin_users.broadcast_title')}</h2>
-                <p className="text-caption text-muted-foreground">{i18n.t('admin_users.broadcast_desc')}</p>
-              </div>
-            </div>
-            <button
-              onClick={() => { setBroadcastOpen(false); setBroadcastMsg(''); setBroadcastError(''); setBroadcastSuccess('') }}
-              className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-muted/50 spring-fast text-muted-foreground"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label className="text-xs font-semibold text-muted-foreground">{i18n.t('admin_users.broadcast_title')}</Label>
-              <textarea
-                value={broadcastMsg}
-                onChange={(e) => setBroadcastMsg(e.target.value)}
-                placeholder={i18n.t('admin_users.broadcast_placeholder')}
-                rows={4}
-                className="flex w-full rounded-xl border border-border/40 bg-background/50 px-4 py-3 text-sm placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 spring-transition"
-              />
-            </div>
-            {broadcastError && (
-              <div className="flex items-center gap-2 rounded-xl bg-destructive/10 p-3 text-xs text-destructive font-bold border border-destructive/20">
-                <AlertTriangle className="h-4 w-4 shrink-0" />
-                {broadcastError}
-              </div>
-            )}
-            {broadcastSuccess && (
-              <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 p-3 text-xs text-emerald-500 font-bold border border-emerald-500/20">
-                <Check className="h-4 w-4 shrink-0" />
-                {broadcastSuccess}
-              </div>
-            )}
-            <div className="flex justify-end gap-3 pt-2">
-              <Button variant="ghost" onClick={() => { setBroadcastOpen(false); setBroadcastMsg(''); setBroadcastError(''); setBroadcastSuccess('') }} className="h-10 rounded-full text-xs font-semibold hover:bg-muted/40 spring-transition">
-                {i18n.t('cancel')}
-              </Button>
-              <Button onClick={handleSendBroadcast} className="h-10 rounded-full bg-primary hover:bg-primary/90 text-xs font-semibold spring-transition shadow-lg shadow-primary/20">
-                <Send className="h-3.5 w-3.5 ml-1" />
-                {i18n.t('admin_users.broadcast_send')}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <BroadcastDialog
+        open={broadcastOpen}
+        onClose={() => setBroadcastOpen(false)}
+        users={users}
+      />
+      <ConfirmDialog
+        isOpen={confirmRoleReset !== null}
+        title={i18n.t('users.reset_permissions_title')}
+        description={i18n.t('users.reset_permissions_desc').replace('{role}', confirmRoleReset ? i18n.t(`user.${confirmRoleReset}`) : '')}
+        confirmText={i18n.t('users.reset')}
+        cancelText={i18n.t('cancel')}
+        onConfirm={executeRoleReset}
+        onCancel={() => { setConfirmRoleReset(null); if (editUser) setRole(editUser.role) }}
+      />
       <ConfirmDialog
         isOpen={deleteConfirmUser !== null}
-        title={i18n.lang === 'ar' ? 'حذف المستخدم' : 'Delete User'}
+        title={i18n.t('admin.delete_user')}
         description={i18n.t('admin_users.confirm_delete').replace('{name}', deleteConfirmUser?.name || '')}
-        confirmText={i18n.lang === 'ar' ? 'حذف' : 'Delete'}
+        confirmText={i18n.t('delete')}
         cancelText={i18n.t('cancel')}
         onConfirm={executeDeleteUser}
         onCancel={() => setDeleteConfirmUser(null)}
       />
       <ConfirmDialog
         isOpen={rejectConfirmUser !== null}
-        title={i18n.lang === 'ar' ? 'رفض المستخدم' : 'Reject User'}
+        title={i18n.t('admin.reject_user')}
         description={i18n.t('admin_users.confirm_reject').replace('{name}', rejectConfirmUser?.name || '')}
-        confirmText={i18n.lang === 'ar' ? 'رفض' : 'Reject'}
+        confirmText={i18n.t('users.reject')}
         cancelText={i18n.t('cancel')}
         onConfirm={executeRejectUser}
         onCancel={() => setRejectConfirmUser(null)}

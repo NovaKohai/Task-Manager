@@ -1,39 +1,35 @@
-import { useEffect, useState, useRef } from 'react'
-import { Save, AlertTriangle, RotateCcw, RefreshCw, ArrowUpCircle, CheckCircle2, XCircle, Download, Volume2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Save, AlertTriangle, RotateCcw, RefreshCw, ArrowUpCircle, CheckCircle2, XCircle, Download } from 'lucide-react'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useUpdateStore } from '@/stores/updateStore'
 import { useAuthStore } from '@/stores/authStore'
+import { useLocaleStore } from '@/stores/localeStore'
+import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import { cn, hasPermission } from '@/lib/utils'
 import { db } from '@/lib/db'
 import { i18n } from '@/lib/i18n'
-import { soundSynthesizer } from '@/lib/sound'
 
 import type { AppSettings } from '@/lib/types'
 
-type Section = 'general' | 'security' | 'sessions' | 'notifications' | 'data' | 'ratelimit' | 'updates' | 'support'
+type Section = 'general' | 'security' | 'sessions' | 'data' | 'ratelimit' | 'updates' | 'support'
 
-const sections: { id: Section; label: string }[] = [
-  { id: 'general', label: i18n.t('settings.general') },
-  { id: 'security', label: i18n.t('settings.security') },
-  { id: 'sessions', label: i18n.t('settings.sessions') },
-  { id: 'notifications', label: i18n.t('settings.notifications') },
-  { id: 'support', label: i18n.t('settings.support') },
-  { id: 'data', label: i18n.t('settings.data') },
-  { id: 'ratelimit', label: i18n.t('settings.ratelimit') },
-  { id: 'updates', label: i18n.t('settings.updates') },
-]
+function isDirty(form: Partial<AppSettings>, original: AppSettings | null): boolean {
+  if (!original) return false
+  return (Object.keys(form) as (keyof AppSettings)[]).some(k => form[k] !== original[k])
+}
 
 export default function Settings() {
+  useLocaleStore(s => s.lang)
   const { settings, isLoading, saved, fetchSettings, updateSettings, resetSettings } = useSettingsStore()
+  const { toast } = useToast()
   const [activeSection, setActiveSection] = useState<Section>('general')
   const [form, setForm] = useState<Partial<AppSettings>>({})
-  const [toasts, setToasts] = useState<{ id: number; message: string }[]>([])
-  const toastId = useRef(0)
+  const dirty = isDirty(form, settings)
+
   const updateStatus = useUpdateStore(s => s.status)
   const updateInfo = useUpdateStore(s => s.info)
   const updateVersion = useUpdateStore(s => s.version)
@@ -43,22 +39,49 @@ export default function Settings() {
   const downloadUpdate = useUpdateStore(s => s.download)
   const installUpdate = useUpdateStore(s => s.install)
 
+  const sections: { id: Section; label: string }[] = [
+    { id: 'general', label: i18n.t('settings.general') },
+    { id: 'security', label: i18n.t('settings.security') },
+    { id: 'sessions', label: i18n.t('settings.sessions') },
+    { id: 'support', label: i18n.t('settings.support') },
+    { id: 'data', label: i18n.t('settings.data') },
+    { id: 'ratelimit', label: i18n.t('settings.ratelimit') },
+    { id: 'updates', label: i18n.t('settings.updates') },
+  ]
+
   useEffect(() => { fetchSettings() }, [fetchSettings])
   useEffect(() => { if (settings) setForm({ ...settings }) }, [settings])
-  useEffect(() => { if (saved) showToast(i18n.t('settings.saved')) }, [saved])
+  useEffect(() => { if (saved) toast({ description: i18n.t('settings.saved'), variant: 'success' }) }, [saved, toast])
+
+  useEffect(() => {
+    if (!dirty) return
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault() }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [dirty])
 
   function update<K extends keyof AppSettings>(key: K, value: AppSettings[K]) {
     setForm(prev => ({ ...prev, [key]: value }))
   }
 
   const user = useAuthStore((s) => s.user)
-  // View/read-only mode applies on every input in the page so a user with
-  // settings.view but not settings.edit cannot mutate state from the UI. The
-  // AppShell route guard already blocks users without settings.view entirely.
   const canEdit = hasPermission(user, 'settings.edit')
 
   async function handleSave() {
     if (!canEdit) return
+    if (form.pwMinLength && form.pwMaxLength && form.pwMinLength >= form.pwMaxLength) {
+      toast({ description: i18n.t('settings.invalid_pw_range'), variant: 'destructive' })
+      return
+    }
+    if (form.enableBackup && form.backupPath) {
+      const path = form.backupPath.trim()
+      const isWindowsPath = /^[a-zA-Z]:\\/.test(path)
+      const isUncPath = /^\\\\/.test(path)
+      if (!isWindowsPath && !isUncPath) {
+        toast({ description: i18n.t('settings.invalid_backup_path'), variant: 'destructive' })
+        return
+      }
+    }
     await updateSettings(form)
   }
 
@@ -66,10 +89,9 @@ export default function Settings() {
   async function handleDownloadUpdate() { await downloadUpdate() }
   function handleInstallUpdate() { installUpdate() }
 
-  function showToast(message: string) {
-    const id = ++toastId.current
-    setToasts(prev => [...prev, { id, message }])
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000)
+  function confirmAction(message: string, fn: () => void) {
+    if (!canEdit) return
+    if (window.confirm(message)) fn()
   }
 
   if (isLoading || !settings) {
@@ -81,7 +103,7 @@ export default function Settings() {
   }
 
   return (
-    <div className="space-y-5 page-bg relative min-h-[calc(100vh-8rem)]">
+    <div className="space-y-8 page-bg relative min-h-[calc(100vh-8rem)]">
       <div aria-hidden="true" className="absolute inset-0 dotted-bg pointer-events-none" />
       <h1 className="text-lg font-bold tracking-tight text-foreground animate-rise stagger-1">{i18n.t('settings.title')}</h1>
 
@@ -91,16 +113,6 @@ export default function Settings() {
             <AlertTriangle className="h-4 w-4 shrink-0" />
             <span>{i18n.t('settings.readonly_notice')}</span>
           </div>
-        </div>
-      )}
-
-      {toasts.length > 0 && (
-        <div className="fixed top-4 right-4 z-50 space-y-2 animate-rise stagger-1">
-          {toasts.map(t => (
-            <div key={t.id} className="glass-panel !p-3 text-xs text-emerald-500 font-bold border border-emerald-500/20">
-              <div className="glass-panel-inner !p-0">{t.message}</div>
-            </div>
-          ))}
         </div>
       )}
 
@@ -118,21 +130,21 @@ export default function Settings() {
           {activeSection === 'general' && (
             <div className="glass-panel animate-rise stagger-3">
               <div className="glass-panel-inner space-y-5">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">{i18n.t('settings.general')}</h2>
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{i18n.t('settings.general')}</h2>
                 <div className="space-y-2">
                   <Label htmlFor="srvServerName" className="text-sm font-bold">{i18n.t('settings.serverName')}</Label>
                   <Input id="srvServerName" value={form.serverName || ''} onChange={(e) => update('serverName', e.target.value)} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
-                  <p className="text-caption text-muted-foreground/80 mt-1 leading-normal">{i18n.t('settings.serverName.help')}</p>
+                  <p className="text-caption text-muted-foreground/90 mt-1 leading-normal">{i18n.t('settings.serverName.help')}</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="srvTimezone" className="text-sm font-bold">{i18n.t('settings.timezone')}</Label>
                   <Input id="srvTimezone" value={form.defaultTimezone || ''} onChange={(e) => update('defaultTimezone', e.target.value)} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
-                  <p className="text-caption text-muted-foreground/80 mt-1 leading-normal">{i18n.t('settings.timezone.help')}</p>
+                  <p className="text-caption text-muted-foreground/90 mt-1 leading-normal">{i18n.t('settings.timezone.help')}</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="srvAppUrl" className="text-sm font-bold">{i18n.t('settings.appUrl')}</Label>
                   <Input id="srvAppUrl" value={form.appUrl || ''} onChange={(e) => update('appUrl', e.target.value)} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
-                  <p className="text-caption text-muted-foreground/80 mt-1 leading-normal">{i18n.t('settings.appUrl.help')}</p>
+                  <p className="text-caption text-muted-foreground/90 mt-1 leading-normal">{i18n.t('settings.appUrl.help')}</p>
                 </div>
                 <Button onClick={handleSave} disabled={!canEdit} className="h-10 rounded-full spring-transition font-semibold px-5"><Save className="h-4 w-4" />{i18n.t('settings.save')}</Button>
               </div>
@@ -142,17 +154,17 @@ export default function Settings() {
           {activeSection === 'security' && (
             <div className="glass-panel animate-rise stagger-3">
               <div className="glass-panel-inner space-y-5">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">{i18n.t('settings.security')}</h2>
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{i18n.t('settings.security')}</h2>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="srvPwMinLen" className="text-sm font-bold">{i18n.t('settings.pwMinLength')}</Label>
-                    <Input id="srvPwMinLen" type="number" value={form.pwMinLength ?? 8} onChange={(e) => update('pwMinLength', Number(e.target.value))} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
-                    <p className="text-caption text-muted-foreground/80 mt-1 leading-normal">{i18n.t('settings.pwMinLength.help')}</p>
+                    <Input id="srvPwMinLen" type="number" min={1} max={form.pwMaxLength ?? 128} value={form.pwMinLength ?? 8} onChange={(e) => update('pwMinLength', Number(e.target.value))} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
+                    <p className="text-caption text-muted-foreground/90 mt-1 leading-normal">{i18n.t('settings.pwMinLength.help')}</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="srvPwMaxLen" className="text-sm font-bold">{i18n.t('settings.pwMaxLength')}</Label>
-                    <Input id="srvPwMaxLen" type="number" value={form.pwMaxLength ?? 128} onChange={(e) => update('pwMaxLength', Number(e.target.value))} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
-                    <p className="text-caption text-muted-foreground/80 mt-1 leading-normal">{i18n.t('settings.pwMaxLength.help')}</p>
+                    <Input id="srvPwMaxLen" type="number" min={form.pwMinLength ?? 1} max={256} value={form.pwMaxLength ?? 128} onChange={(e) => update('pwMaxLength', Number(e.target.value))} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
+                    <p className="text-caption text-muted-foreground/90 mt-1 leading-normal">{i18n.t('settings.pwMaxLength.help')}</p>
                   </div>
                 </div>
                 
@@ -161,42 +173,42 @@ export default function Settings() {
                     <Switch id="srvReqUpper" checked={form.requireUppercase ?? true} onCheckedChange={(v) => update('requireUppercase', v)} />
                     <Label htmlFor="srvReqUpper" className="text-sm font-bold">{i18n.t('settings.requireUppercase')}</Label>
                   </div>
-                  <p className="text-caption text-muted-foreground/80 leading-normal pl-11 rtl:pr-11 rtl:pl-0">{i18n.t('settings.requireUppercase.help')}</p>
+                  <p className="text-caption text-muted-foreground/90 leading-normal pl-11 rtl:pr-11 rtl:pl-0">{i18n.t('settings.requireUppercase.help')}</p>
                   
                   <div className="flex items-center gap-3">
                     <Switch id="srvReqDigit" checked={form.requireDigit ?? true} onCheckedChange={(v) => update('requireDigit', v)} />
                     <Label htmlFor="srvReqDigit" className="text-sm font-bold">{i18n.t('settings.requireDigit')}</Label>
                   </div>
-                  <p className="text-caption text-muted-foreground/80 leading-normal pl-11 rtl:pr-11 rtl:pl-0">{i18n.t('settings.requireDigit.help')}</p>
+                  <p className="text-caption text-muted-foreground/90 leading-normal pl-11 rtl:pr-11 rtl:pl-0">{i18n.t('settings.requireDigit.help')}</p>
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2 pt-2">
                   <div className="space-y-2">
                     <Label htmlFor="srvPwHistory" className="text-sm font-bold">{i18n.t('settings.pwHistory')}</Label>
-                    <Input id="srvPwHistory" type="number" value={form.pwHistory ?? 10} onChange={(e) => update('pwHistory', Number(e.target.value))} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
-                    <p className="text-caption text-muted-foreground/80 mt-1 leading-normal">{i18n.t('settings.pwHistory.help')}</p>
+                    <Input id="srvPwHistory" type="number" min={0} max={50} value={form.pwHistory ?? 10} onChange={(e) => update('pwHistory', Number(e.target.value))} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
+                    <p className="text-caption text-muted-foreground/90 mt-1 leading-normal">{i18n.t('settings.pwHistory.help')}</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="srvPwMaxAge" className="text-sm font-bold">{i18n.t('settings.pwMaxAge')}</Label>
-                    <Input id="srvPwMaxAge" type="number" value={form.pwMaxAge ?? 90} onChange={(e) => update('pwMaxAge', Number(e.target.value))} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
-                    <p className="text-caption text-muted-foreground/80 mt-1 leading-normal">{i18n.t('settings.pwMaxAge.help')}</p>
+                    <Input id="srvPwMaxAge" type="number" min={1} max={365} value={form.pwMaxAge ?? 90} onChange={(e) => update('pwMaxAge', Number(e.target.value))} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
+                    <p className="text-caption text-muted-foreground/90 mt-1 leading-normal">{i18n.t('settings.pwMaxAge.help')}</p>
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="srvHashAlgo" className="text-sm font-bold">{i18n.t('settings.pwHashAlgo')}</Label>
                   <Input id="srvHashAlgo" value={form.pwHashAlgo || ''} onChange={(e) => update('pwHashAlgo', e.target.value)} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
-                  <p className="text-caption text-muted-foreground/80 mt-1 leading-normal">{i18n.t('settings.pwHashAlgo.help')}</p>
+                  <p className="text-caption text-muted-foreground/90 mt-1 leading-normal">{i18n.t('settings.pwHashAlgo.help')}</p>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="srvLockMax" className="text-sm font-bold">{i18n.t('settings.lockMaxAttempts')}</Label>
-                    <Input id="srvLockMax" type="number" value={form.lockMaxAttempts ?? 5} onChange={(e) => update('lockMaxAttempts', Number(e.target.value))} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
-                    <p className="text-caption text-muted-foreground/80 mt-1 leading-normal">{i18n.t('settings.lockMaxAttempts.help')}</p>
+                    <Input id="srvLockMax" type="number" min={1} max={50} value={form.lockMaxAttempts ?? 5} onChange={(e) => update('lockMaxAttempts', Number(e.target.value))} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
+                    <p className="text-caption text-muted-foreground/90 mt-1 leading-normal">{i18n.t('settings.lockMaxAttempts.help')}</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="srvLockDur" className="text-sm font-bold">{i18n.t('settings.lockDuration')}</Label>
-                    <Input id="srvLockDur" type="number" value={form.lockDuration ?? 15} onChange={(e) => update('lockDuration', Number(e.target.value))} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
-                    <p className="text-caption text-muted-foreground/80 mt-1 leading-normal">{i18n.t('settings.lockDuration.help')}</p>
+                    <Input id="srvLockDur" type="number" min={1} max={1440} value={form.lockDuration ?? 15} onChange={(e) => update('lockDuration', Number(e.target.value))} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
+                    <p className="text-caption text-muted-foreground/90 mt-1 leading-normal">{i18n.t('settings.lockDuration.help')}</p>
                   </div>
                 </div>
                 <Button onClick={handleSave} disabled={!canEdit} className="h-10 rounded-full spring-transition font-semibold px-5"><Save className="h-4 w-4" />{i18n.t('settings.save')}</Button>
@@ -207,125 +219,29 @@ export default function Settings() {
           {activeSection === 'sessions' && (
             <div className="glass-panel animate-rise stagger-3">
               <div className="glass-panel-inner space-y-5">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">{i18n.t('settings.sessions')}</h2>
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{i18n.t('settings.sessions')}</h2>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="srvAccessToken" className="text-sm font-bold">{i18n.t('settings.accessTokenExpiry')}</Label>
-                    <Input id="srvAccessToken" type="number" value={form.accessTokenExpiry ?? 15} onChange={(e) => update('accessTokenExpiry', Number(e.target.value))} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
-                    <p className="text-caption text-muted-foreground/80 mt-1 leading-normal">{i18n.t('settings.accessTokenExpiry.help')}</p>
+                    <Input id="srvAccessToken" type="number" min={1} max={1440} value={form.accessTokenExpiry ?? 15} onChange={(e) => update('accessTokenExpiry', Number(e.target.value))} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
+                    <p className="text-caption text-muted-foreground/90 mt-1 leading-normal">{i18n.t('settings.accessTokenExpiry.help')}</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="srvRefreshToken" className="text-sm font-bold">{i18n.t('settings.refreshTokenExpiry')}</Label>
-                    <Input id="srvRefreshToken" type="number" value={form.refreshTokenExpiry ?? 7} onChange={(e) => update('refreshTokenExpiry', Number(e.target.value))} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
-                    <p className="text-caption text-muted-foreground/80 mt-1 leading-normal">{i18n.t('settings.refreshTokenExpiry.help')}</p>
+                    <Input id="srvRefreshToken" type="number" min={1} max={365} value={form.refreshTokenExpiry ?? 7} onChange={(e) => update('refreshTokenExpiry', Number(e.target.value))} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
+                    <p className="text-caption text-muted-foreground/90 mt-1 leading-normal">{i18n.t('settings.refreshTokenExpiry.help')}</p>
                   </div>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="srvInactTimeout" className="text-sm font-bold">{i18n.t('settings.inactivityTimeout')}</Label>
-                    <Input id="srvInactTimeout" type="number" value={form.inactivityTimeout ?? 15} onChange={(e) => update('inactivityTimeout', Number(e.target.value))} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
-                    <p className="text-caption text-muted-foreground/80 mt-1 leading-normal">{i18n.t('settings.inactivityTimeout.help')}</p>
+                    <Input id="srvInactTimeout" type="number" min={1} max={1440} value={form.inactivityTimeout ?? 15} onChange={(e) => update('inactivityTimeout', Number(e.target.value))} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
+                    <p className="text-caption text-muted-foreground/90 mt-1 leading-normal">{i18n.t('settings.inactivityTimeout.help')}</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="srvMaxConcur" className="text-sm font-bold">{i18n.t('settings.maxConcurrentSessions')}</Label>
-                    <Input id="srvMaxConcur" type="number" value={form.maxConcurrentSessions ?? 5} onChange={(e) => update('maxConcurrentSessions', Number(e.target.value))} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
-                    <p className="text-caption text-muted-foreground/80 mt-1 leading-normal">{i18n.t('settings.maxConcurrentSessions.help')}</p>
-                  </div>
-                </div>
-                <Button onClick={handleSave} disabled={!canEdit} className="h-10 rounded-full spring-transition font-semibold px-5"><Save className="h-4 w-4" />{i18n.t('settings.save')}</Button>
-              </div>
-            </div>
-          )}
-
-          {activeSection === 'notifications' && (
-            <div className="glass-panel animate-rise stagger-3">
-              <div className="glass-panel-inner space-y-5">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">{i18n.t('settings.notifications')}</h2>
-                {([
-                  { key: 'enableEmailNotif' as const, label: () => i18n.t('settings.email_notifications'), help: 'settings.enableEmailNotif.help' },
-                  { key: 'enablePushNotif' as const, label: () => i18n.t('settings.push_notifications'), help: 'settings.enablePushNotif.help' },
-                  { key: 'enableSlackNotif' as const, label: () => i18n.t('settings.slack_integration'), help: 'settings.enableSlackNotif.help' },
-                  { key: 'enableDigest' as const, label: () => i18n.t('settings.daily_digest'), help: 'settings.enableDigest.help' },
-                ] as const).map((n) => (
-                  <div key={n.key} className="space-y-1">
-                    <div className="flex items-center gap-3">
-                      <Switch id={n.key} checked={form[n.key] ?? false} onCheckedChange={(v) => update(n.key, v)} />
-                      <Label htmlFor={n.key} className="text-sm font-bold">{n.label()}</Label>
-                    </div>
-                    <p className="text-caption text-muted-foreground/80 leading-normal pl-11 rtl:pr-11 rtl:pl-0">{i18n.t(n.help)}</p>
-                  </div>
-                ))}
-
-                {/* Sound Notification Settings */}
-                <div className="space-y-1 pt-2 border-t border-border/20">
-                  <div className="flex items-center gap-3">
-                    <Switch id="enableSoundNotif" checked={form.enableSoundNotif ?? false} onCheckedChange={(v) => update('enableSoundNotif', v)} />
-                    <Label htmlFor="enableSoundNotif" className="text-sm font-bold">{i18n.t('settings.sound_notifications')}</Label>
-                  </div>
-                  <p className="text-caption text-muted-foreground/80 leading-normal pl-11 rtl:pr-11 rtl:pl-0">{i18n.t('settings.enableSoundNotif.help')}</p>
-                </div>
-
-                {(form.enableSoundNotif ?? false) && (
-                  <div className="grid gap-4 sm:grid-cols-2 pl-11 rtl:pr-11 rtl:pl-0 animate-rise stagger-1 border-t border-border/10 pt-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="soundNotifTheme" className="text-sm font-bold">{i18n.t('settings.sound_theme')}</Label>
-                      <div className="flex gap-2">
-                        <div className="flex-1">
-                          <Select value={form.soundNotifTheme ?? 'chime'} onValueChange={(v) => update('soundNotifTheme', v)}>
-                            <SelectTrigger className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="chime">{i18n.t('settings.sound_theme.chime')}</SelectItem>
-                              <SelectItem value="glass">{i18n.t('settings.sound_theme.glass')}</SelectItem>
-                              <SelectItem value="cyber">{i18n.t('settings.sound_theme.cyber')}</SelectItem>
-                              <SelectItem value="alert">{i18n.t('settings.sound_theme.alert')}</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <Button
-                          type="button"
-                          onClick={() => {
-                            soundSynthesizer.play(form.soundNotifTheme ?? 'chime', form.soundNotifVolume ?? 0.5)
-                          }}
-                          className="h-10 w-10 shrink-0 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 flex items-center justify-center spring-transition"
-                          title={i18n.t('settings.sound_test')}
-                        >
-                          <Volume2 className="h-4.5 w-4.5" />
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <Label htmlFor="soundNotifVolume" className="text-sm font-bold">{i18n.t('settings.sound_volume')}</Label>
-                        <span className="text-caption font-mono text-muted-foreground">{Math.round((form.soundNotifVolume ?? 0.5) * 100)}%</span>
-                      </div>
-                      <div className="flex items-center gap-3 h-10">
-                        <input
-                          id="soundNotifVolume"
-                          type="range"
-                          min="0"
-                          max="1"
-                          step="0.05"
-                          value={form.soundNotifVolume ?? 0.5}
-                          onChange={(e) => update('soundNotifVolume', parseFloat(e.target.value))}
-                          className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid gap-4 sm:grid-cols-2 pt-2 border-t border-border/20">
-                  <div className="space-y-2">
-                    <Label htmlFor="srvQuietStart" className="text-sm font-bold">{i18n.t('settings.quietHoursStart')}</Label>
-                    <Input id="srvQuietStart" type="time" value={form.quietHoursStart ?? '22:00'} onChange={(e) => update('quietHoursStart', e.target.value)} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
-                    <p className="text-caption text-muted-foreground/80 mt-1 leading-normal">{i18n.t('settings.quietHoursStart.help')}</p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="srvQuietEnd" className="text-sm font-bold">{i18n.t('settings.quietHoursEnd')}</Label>
-                    <Input id="srvQuietEnd" type="time" value={form.quietHoursEnd ?? '07:00'} onChange={(e) => update('quietHoursEnd', e.target.value)} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
-                    <p className="text-caption text-muted-foreground/80 mt-1 leading-normal">{i18n.t('settings.quietHoursEnd.help')}</p>
+                    <Input id="srvMaxConcur" type="number" min={1} max={100} value={form.maxConcurrentSessions ?? 5} onChange={(e) => update('maxConcurrentSessions', Number(e.target.value))} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
+                    <p className="text-caption text-muted-foreground/90 mt-1 leading-normal">{i18n.t('settings.maxConcurrentSessions.help')}</p>
                   </div>
                 </div>
                 <Button onClick={handleSave} disabled={!canEdit} className="h-10 rounded-full spring-transition font-semibold px-5"><Save className="h-4 w-4" />{i18n.t('settings.save')}</Button>
@@ -336,7 +252,7 @@ export default function Settings() {
           {activeSection === 'support' && (
             <div className="glass-panel animate-rise stagger-3">
               <div className="glass-panel-inner space-y-5">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">{i18n.t('settings.support')}</h2>
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{i18n.t('settings.support')}</h2>
                 <div className="space-y-4">
                   {([
                     { key: 'supportEnablePriority' as const, label: () => i18n.t('settings.support.priority'), help: 'settings.support.priority.help' },
@@ -349,7 +265,7 @@ export default function Settings() {
                         <Switch id={n.key} checked={form[n.key] ?? false} onCheckedChange={(v) => update(n.key, v)} />
                         <Label htmlFor={n.key} className="text-sm font-bold">{n.label()}</Label>
                       </div>
-                      <p className="text-caption text-muted-foreground/80 leading-normal pl-11 rtl:pr-11 rtl:pl-0">{i18n.t(n.help)}</p>
+                      <p className="text-caption text-muted-foreground/90 leading-normal pl-11 rtl:pr-11 rtl:pl-0">{i18n.t(n.help)}</p>
                     </div>
                   ))}
                 </div>
@@ -361,23 +277,23 @@ export default function Settings() {
           {activeSection === 'data' && (
             <div className="glass-panel animate-rise stagger-3">
               <div className="glass-panel-inner space-y-5">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">{i18n.t('settings.data')}</h2>
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{i18n.t('settings.data')}</h2>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="srvRetention" className="text-sm font-bold">{i18n.t('settings.retentionDays')}</Label>
-                    <Input id="srvRetention" type="number" value={form.retentionDays ?? 365} onChange={(e) => update('retentionDays', Number(e.target.value))} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
-                    <p className="text-caption text-muted-foreground/80 mt-1 leading-normal">{i18n.t('settings.retentionDays.help')}</p>
+                    <Input id="srvRetention" type="number" min={1} max={3650} value={form.retentionDays ?? 365} onChange={(e) => update('retentionDays', Number(e.target.value))} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
+                    <p className="text-caption text-muted-foreground/90 mt-1 leading-normal">{i18n.t('settings.retentionDays.help')}</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="srvSoftDel" className="text-sm font-bold">{i18n.t('settings.softDeleteDays')}</Label>
-                    <Input id="srvSoftDel" type="number" value={form.softDeleteDays ?? 90} onChange={(e) => update('softDeleteDays', Number(e.target.value))} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
-                    <p className="text-caption text-muted-foreground/80 mt-1 leading-normal">{i18n.t('settings.softDeleteDays.help')}</p>
+                    <Input id="srvSoftDel" type="number" min={0} max={365} value={form.softDeleteDays ?? 90} onChange={(e) => update('softDeleteDays', Number(e.target.value))} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
+                    <p className="text-caption text-muted-foreground/90 mt-1 leading-normal">{i18n.t('settings.softDeleteDays.help')}</p>
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="srvAuditRet" className="text-sm font-bold">{i18n.t('settings.auditRetentionDays')}</Label>
-                  <Input id="srvAuditRet" type="number" value={form.auditRetentionDays ?? 365} onChange={(e) => update('auditRetentionDays', Number(e.target.value))} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
-                  <p className="text-caption text-muted-foreground/80 mt-1 leading-normal">{i18n.t('settings.auditRetentionDays.help')}</p>
+                  <Input id="srvAuditRet" type="number" min={1} max={3650} value={form.auditRetentionDays ?? 365} onChange={(e) => update('auditRetentionDays', Number(e.target.value))} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
+                  <p className="text-caption text-muted-foreground/90 mt-1 leading-normal">{i18n.t('settings.auditRetentionDays.help')}</p>
                 </div>
                 
                 <div className="space-y-3 pt-2">
@@ -385,19 +301,19 @@ export default function Settings() {
                     <Switch id="srvEnableBackup" checked={form.enableBackup ?? true} onCheckedChange={(v) => update('enableBackup', v)} />
                     <Label htmlFor="srvEnableBackup" className="text-sm font-bold">{i18n.t('settings.enableBackup')}</Label>
                   </div>
-                  <p className="text-caption text-muted-foreground/80 leading-normal pl-11 rtl:pr-11 rtl:pl-0">{i18n.t('settings.enableBackup.help')}</p>
+                  <p className="text-caption text-muted-foreground/90 leading-normal pl-11 rtl:pr-11 rtl:pl-0">{i18n.t('settings.enableBackup.help')}</p>
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2 pt-2">
                   <div className="space-y-2">
                     <Label htmlFor="srvBackupCount" className="text-sm font-bold">{i18n.t('settings.backupCount')}</Label>
-                    <Input id="srvBackupCount" type="number" value={form.backupCount ?? 30} onChange={(e) => update('backupCount', Number(e.target.value))} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
-                    <p className="text-caption text-muted-foreground/80 mt-1 leading-normal">{i18n.t('settings.backupCount.help')}</p>
+                    <Input id="srvBackupCount" type="number" min={1} max={365} value={form.backupCount ?? 30} onChange={(e) => update('backupCount', Number(e.target.value))} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
+                    <p className="text-caption text-muted-foreground/90 mt-1 leading-normal">{i18n.t('settings.backupCount.help')}</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="srvBackupPath" className="text-sm font-bold">{i18n.t('settings.backupPath')}</Label>
                     <Input id="srvBackupPath" value={form.backupPath || ''} onChange={(e) => update('backupPath', e.target.value)} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
-                    <p className="text-caption text-muted-foreground/80 mt-1 leading-normal">{i18n.t('settings.backupPath.help')}</p>
+                    <p className="text-caption text-muted-foreground/90 mt-1 leading-normal">{i18n.t('settings.backupPath.help')}</p>
                   </div>
                 </div>
                 <Button onClick={handleSave} disabled={!canEdit} className="h-10 rounded-full spring-transition font-semibold px-5"><Save className="h-4 w-4" />{i18n.t('settings.save')}</Button>
@@ -409,17 +325,17 @@ export default function Settings() {
           {activeSection === 'ratelimit' && (
             <div className="glass-panel animate-rise stagger-3">
               <div className="glass-panel-inner space-y-5">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">{i18n.t('settings.ratelimit')}</h2>
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{i18n.t('settings.ratelimit')}</h2>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="srvAuthRate" className="text-sm font-bold">{i18n.t('settings.authRateLimit')}</Label>
-                    <Input id="srvAuthRate" type="number" value={form.authRateLimit ?? 10} onChange={(e) => update('authRateLimit', Number(e.target.value))} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
-                    <p className="text-caption text-muted-foreground/80 mt-1 leading-normal">{i18n.t('settings.authRateLimit.help')}</p>
+                    <Input id="srvAuthRate" type="number" min={1} max={1000} value={form.authRateLimit ?? 10} onChange={(e) => update('authRateLimit', Number(e.target.value))} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
+                    <p className="text-caption text-muted-foreground/90 mt-1 leading-normal">{i18n.t('settings.authRateLimit.help')}</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="srvApiRate" className="text-sm font-bold">{i18n.t('settings.apiRateLimit')}</Label>
-                    <Input id="srvApiRate" type="number" value={form.apiRateLimit ?? 1000} onChange={(e) => update('apiRateLimit', Number(e.target.value))} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
-                    <p className="text-caption text-muted-foreground/80 mt-1 leading-normal">{i18n.t('settings.apiRateLimit.help')}</p>
+                    <Input id="srvApiRate" type="number" min={1} max={100000} value={form.apiRateLimit ?? 1000} onChange={(e) => update('apiRateLimit', Number(e.target.value))} className="h-10 rounded-xl bg-background/50 border-border/40 spring-transition" />
+                    <p className="text-caption text-muted-foreground/90 mt-1 leading-normal">{i18n.t('settings.apiRateLimit.help')}</p>
                   </div>
                 </div>
                 <Button onClick={handleSave} disabled={!canEdit} className="h-10 rounded-full spring-transition font-semibold px-5"><Save className="h-4 w-4" />{i18n.t('settings.save')}</Button>
@@ -430,7 +346,7 @@ export default function Settings() {
           {activeSection === 'updates' && (
             <div className="glass-panel animate-rise stagger-3">
               <div className="glass-panel-inner space-y-5">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">{i18n.t('settings.updates')}</h2>
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{i18n.t('settings.updates')}</h2>
                 <p className="text-sm text-muted-foreground/90 leading-relaxed">{i18n.t('settings.updates.desc')}</p>
 
                 {!window.electronAPI && (
@@ -475,7 +391,7 @@ export default function Settings() {
                     <p className="text-xs text-muted-foreground/60">{i18n.t('settings.current_version')}: v{updateVersion}</p>
                     {updateInfo.releaseNotes && (
                       <div className="max-h-40 overflow-y-auto rounded-xl bg-background/50 p-3">
-                        <pre className="text-xs text-muted-foreground/80 whitespace-pre-wrap font-sans leading-relaxed">{updateInfo.releaseNotes}</pre>
+                        <pre className="text-xs text-muted-foreground/90 whitespace-pre-wrap font-sans leading-relaxed">{updateInfo.releaseNotes}</pre>
                       </div>
                     )}
                     <Button onClick={handleDownloadUpdate} className="h-10 rounded-full spring-transition font-semibold px-5">
@@ -513,19 +429,6 @@ export default function Settings() {
                   </div>
                 )}
 
-                {updateStatus === 'done' && (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 p-3 text-xs text-emerald-500">
-                      <CheckCircle2 className="h-4 w-4 shrink-0" />
-                      {i18n.t('settings.update_success')}
-                    </div>
-                    <p className="text-xs text-muted-foreground/60">{i18n.t('settings.restart_hint')}</p>
-                    <Button onClick={handleCheckUpdates} variant="secondary" className="h-9 rounded-full spring-transition text-xs font-semibold px-4">
-                      <RefreshCw className="h-3.5 w-3.5" />{i18n.t('settings.check_updates')}
-                    </Button>
-                  </div>
-                )}
-
                 {updateStatus === 'error' && (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 rounded-xl bg-red-500/10 p-3 text-xs text-red-500">
@@ -542,6 +445,17 @@ export default function Settings() {
             </div>
           )}
 
+          {canEdit && dirty && (
+            <div className="glass-panel border-primary/30 animate-rise">
+              <div className="glass-panel-inner flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">{i18n.t('settings.unsaved_changes')}</span>
+                <Button onClick={handleSave} className="h-8 rounded-full spring-transition text-xs font-semibold px-4">
+                  <Save className="h-3.5 w-3.5" />{i18n.t('settings.save')}
+                </Button>
+              </div>
+            </div>
+          )}
+
           {canEdit && (
             <div className="glass-panel border-destructive/30 animate-rise stagger-3">
               <div className="glass-panel-inner space-y-4">
@@ -551,13 +465,13 @@ export default function Settings() {
                 </h2>
                 <p className="text-sm text-muted-foreground/90 leading-relaxed mb-4">{i18n.t('settings.danger_desc')}</p>
                 <div className="flex flex-wrap gap-3">
-                  <Button variant="danger" onClick={async () => { await resetSettings(); showToast(i18n.t('settings.reset_toast')) }} className="h-9 rounded-full spring-transition text-xs font-semibold px-4">
+                  <Button variant="danger" onClick={() => confirmAction(i18n.t('settings.confirm_reset'), async () => { await resetSettings(); toast({ description: i18n.t('settings.reset_toast'), variant: 'success' }) })} className="h-9 rounded-full spring-transition text-xs font-semibold px-4">
                     <RotateCcw className="h-3.5 w-3.5" />{i18n.t('settings.reset_defaults')}
                   </Button>
-                  <Button variant="danger" onClick={() => { localStorage.removeItem('ttm_data'); showToast(i18n.t('settings.data_cleared_toast')) }} className="h-9 rounded-full spring-transition text-xs font-semibold px-4">
+                  <Button variant="danger" onClick={() => confirmAction(i18n.t('settings.confirm_clear_data'), () => { localStorage.removeItem('ttm_data'); toast({ description: i18n.t('settings.data_cleared_toast'), variant: 'success' }) })} className="h-9 rounded-full spring-transition text-xs font-semibold px-4">
                     <AlertTriangle className="h-3.5 w-3.5" />{i18n.t('settings.clear_data')}
                   </Button>
-                  <Button variant="danger" onClick={() => { db.clearAuditLog(user?.id, user?.username); showToast(i18n.t('settings.audit_cleared_toast')) }} className="h-9 rounded-full spring-transition text-xs font-bold px-4">
+                  <Button variant="danger" onClick={() => confirmAction(i18n.t('settings.confirm_clear_audit'), () => { db.clearAuditLog(user?.id, user?.username); toast({ description: i18n.t('settings.audit_cleared_toast'), variant: 'success' }) })} className="h-9 rounded-full spring-transition text-xs font-bold px-4">
                     {i18n.t('settings.clear_audit')}
                   </Button>
                 </div>

@@ -24,8 +24,8 @@ export function DepartmentSelect({
   includeEmpty = true,
 }: DepartmentSelectProps) {
   return (
-    <Select value={value} onValueChange={onValueChange}>
-      <SelectTrigger id={id} className="h-10 rounded-xl bg-background/50 border-border/40">
+    <Select aria-label={placeholder ?? i18n.t('profile.department')} value={value} onValueChange={onValueChange}>
+      <SelectTrigger id={id} className="h-9 rounded-xl bg-background/50 border-border/40">
         <SelectValue placeholder={placeholder ?? i18n.t('profile.department_placeholder')} />
       </SelectTrigger>
       <SelectContent>

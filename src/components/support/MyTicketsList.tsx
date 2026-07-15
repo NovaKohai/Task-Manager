@@ -1,5 +1,5 @@
 import React from 'react'
-import { LifeBuoy, Star, User } from 'lucide-react'
+import { LifeBuoy, Star, User, Trash2, MessageSquare, Send } from 'lucide-react'
 import { i18n } from '@/lib/i18n'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -16,6 +16,7 @@ interface MyTicketsListProps {
   getStatusBadgeVariant: (status: any) => any
   setExpandedImage: (img: string) => void
   getUserName: (id: string | null) => string
+  getUserDetails: (id: string) => UserType | undefined
   hoveredRating: Record<string, number>
   setHoveredRating: (r: Record<string, number>) => void
   selectedRating: Record<string, number>
@@ -23,6 +24,12 @@ interface MyTicketsListProps {
   feedbackTextByTicket: Record<string, string>
   setFeedbackTextByTicket: (f: Record<string, string>) => void
   handleFeedbackSubmit: (ticketId: string) => void
+  handleDeleteTicket: (ticketId: string) => void
+  commentTextByTicket: Record<string, string>
+  setCommentTextByTicket: (f: Record<string, string>) => void
+  expandedComments: Record<string, boolean>
+  setExpandedComments: (f: Record<string, boolean>) => void
+  handleAddComment: (ticketId: string) => void
 }
 
 export const MyTicketsList: React.FC<MyTicketsListProps> = ({
@@ -33,6 +40,7 @@ export const MyTicketsList: React.FC<MyTicketsListProps> = ({
   getStatusBadgeVariant,
   setExpandedImage,
   getUserName,
+  getUserDetails,
   hoveredRating,
   setHoveredRating,
   selectedRating,
@@ -40,6 +48,12 @@ export const MyTicketsList: React.FC<MyTicketsListProps> = ({
   feedbackTextByTicket,
   setFeedbackTextByTicket,
   handleFeedbackSubmit,
+  handleDeleteTicket,
+  commentTextByTicket,
+  setCommentTextByTicket,
+  expandedComments,
+  setExpandedComments,
+  handleAddComment,
 }) => {
   return (
     <div className="space-y-4">
@@ -59,8 +73,17 @@ export const MyTicketsList: React.FC<MyTicketsListProps> = ({
             <div 
               key={ticket.id} 
               style={{ animationDelay: `${index * 40}ms` }}
-              className="animate-rise bg-surface/30 border border-border/10 rounded-xl p-5 hover:shadow-md hover:scale-[1.005] hover:border-border/20 transition-all duration-300 relative flex flex-col gap-3"
+              className="animate-rise bg-surface/30 border border-border/10 rounded-xl p-5 hover:shadow-md hover:scale-[1.005] hover:border-border/20 transition-all duration-300 relative flex flex-col gap-3 group"
             >
+              {/* Delete Button */}
+              <button
+                onClick={() => handleDeleteTicket(ticket.id)}
+                className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1.5 rounded-lg text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10"
+                title={i18n.t('support.action.delete')}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+
               <div className="flex items-center justify-between gap-3">
                 <div className="flex gap-1.5 items-center">
                   <Badge variant={getStatusBadgeVariant(ticket.status)}>
@@ -73,7 +96,7 @@ export const MyTicketsList: React.FC<MyTicketsListProps> = ({
                   )}
                 </div>
                 <span className="text-micro text-muted-foreground">
-                  {new Date(ticket.createdAt).toLocaleString(i18n.lang === 'ar' ? 'ar-SA' : 'en-US')}
+                  {new Date(ticket.createdAt).toLocaleString(i18n.localeStr)}
                 </span>
               </div>
 
@@ -86,7 +109,6 @@ export const MyTicketsList: React.FC<MyTicketsListProps> = ({
                 </p>
               </div>
 
-              {/* Attached thumbnail */}
               {ticket.image && (
                 <div>
                   <button 
@@ -99,7 +121,6 @@ export const MyTicketsList: React.FC<MyTicketsListProps> = ({
                 </div>
               )}
 
-              {/* Footer/Details */}
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border/5 pt-3 mt-1 text-micro text-muted-foreground">
                 {ticket.assigneeId ? (
                   <span className="flex items-center gap-1">
@@ -117,7 +138,6 @@ export const MyTicketsList: React.FC<MyTicketsListProps> = ({
                 )}
               </div>
 
-              {/* Resolution Notes for User View */}
               {settings.supportEnableResolutionNotes && hasPermission(user, 'support.resolution_notes') && ticket.resolutionNotes && (
                 <div className="mt-2 bg-primary/5 border border-primary/10 rounded-xl p-3 text-xs leading-relaxed">
                   <div className="font-bold text-primary flex items-center gap-1.5 mb-1">
@@ -128,7 +148,68 @@ export const MyTicketsList: React.FC<MyTicketsListProps> = ({
                 </div>
               )}
 
-              {/* Feedback & Rating Section on Creator View */}
+              {/* Comments Section */}
+              <div className="border-t border-border/5 pt-3 mt-1">
+                <button
+                  onClick={() => setExpandedComments({ ...expandedComments, [ticket.id]: !expandedComments[ticket.id] })}
+                  className="flex items-center gap-1.5 text-micro text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <MessageSquare className="h-3.5 w-3.5" />
+                  <span>{i18n.t('support.comments.title')} ({(ticket.comments || []).length})</span>
+                </button>
+
+                {expandedComments[ticket.id] && (
+                  <div className="mt-3 space-y-3 animate-rise">
+                    {(ticket.comments || []).length === 0 ? (
+                      <p className="text-[10px] text-muted-foreground/60 italic">{i18n.t('support.comments.empty')}</p>
+                    ) : (
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {ticket.comments!.map((c) => {
+                          const author = getUserDetails(c.authorId)
+                          return (
+                            <div key={c.id} className="flex items-start gap-2 bg-background/20 rounded-lg p-2.5 border border-border/5">
+                              <div className="h-6 w-6 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-[10px] uppercase shrink-0">
+                                {author ? author.name.slice(0, 2) : '??'}
+                              </div>
+                              <div className="flex flex-col flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] font-bold text-foreground">{author?.name || 'Unknown'}</span>
+                                  <span className="text-[9px] text-muted-foreground/60">{new Date(c.createdAt).toLocaleString(i18n.localeStr)}</span>
+                                </div>
+                                <p className="text-[11px] text-foreground/80 mt-0.5">{c.text}</p>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+
+                    <div className="flex gap-2">
+                      <Input
+                        value={commentTextByTicket[ticket.id] || ''}
+                        onChange={(e) => setCommentTextByTicket({ ...commentTextByTicket, [ticket.id]: e.target.value })}
+                        placeholder={i18n.t('support.comments.placeholder')}
+                        className="h-8 text-xs bg-background/50 rounded-xl flex-1"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault()
+                            handleAddComment(ticket.id)
+                          }
+                        }}
+                      />
+                      <Button
+                        onClick={() => handleAddComment(ticket.id)}
+                        disabled={!commentTextByTicket[ticket.id]?.trim()}
+                        className="h-8 w-8 p-0 bg-primary text-primary-foreground rounded-xl shrink-0"
+                      >
+                        <Send className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Feedback & Rating Section */}
               {settings.supportEnableFeedback && hasPermission(user, 'support.feedback') && ticket.status === 'completed' && (
                 <div className="mt-2 border-t border-border/5 pt-3">
                   {ticket.rating ? (

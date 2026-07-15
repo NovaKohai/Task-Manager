@@ -3,7 +3,7 @@ class SoundSynthesizer {
 
   private initCtx() {
     if (!this.ctx) {
-      this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+      this.ctx = new (window.AudioContext || window.webkitAudioContext!)()
     }
     if (this.ctx.state === 'suspended') {
       this.ctx.resume()

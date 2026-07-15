@@ -74,11 +74,11 @@ export default function Notifications() {
   }
 
   return (
-    <div className="space-y-5 page-bg">
+    <div className="space-y-8 page-bg">
       <div className="flex items-center justify-between animate-rise stagger-1">
         <div>
           <h1 className="text-lg font-bold tracking-tight text-foreground">{i18n.t('notifications.title')}</h1>
-          <p className="text-xs text-muted-foreground/80 mt-1">{i18n.t('notifications.subtitle')}</p>
+          <p className="text-xs text-muted-foreground/90 mt-1">{i18n.t('notifications.subtitle')}</p>
         </div>
         <Button variant="ghost" size="sm" onClick={handleMarkAll} className="h-8 rounded-full text-xs font-semibold hover:bg-primary/10 hover:text-primary spring-transition border border-border/20">
           <CheckCheck className="h-3.5 w-3.5 ml-1" />
